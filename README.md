@@ -18,7 +18,7 @@ eyeful connect claude     # or codex, pi
 eyeful review             # review your uncommitted changes
 ```
 
-Documentation: <https://pleasurecruise.github.io/eyeful/>, starting with
+Documentation: <https://github.yiming1234.cn/eyeful/>, starting with
 [Running locally](docs/LOCAL.md). eyeful is a final-year project; the [roadmap](docs/ROADMAP.md)
 says what each version delivers.
 

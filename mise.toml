@@ -10,7 +10,7 @@ _.path = ".tools/bin"
 EYEFUL_INSECURE_COOKIES = "true"
 EYEFUL_PUBLIC_URL = "http://localhost:5173"
 EYEFUL_SERVER_URL = "http://localhost:8080"
-DOCS_URL = "https://pleasurecruise.github.io/eyeful/"
+DOCS_URL = "https://github.yiming1234.cn/eyeful/"
 
 [tasks.setup]
 description = "Install Go and pnpm dependencies"

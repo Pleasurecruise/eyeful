@@ -70,7 +70,7 @@ export default defineConfig({
 	sitemap: { hostname: site.href },
 	head: [
 		['link', { rel: 'icon', type: 'image/png', href: `${base}eyeful.png` }],
-		['meta', { name: 'theme-color', content: '#3451b2' }],
+		['meta', { name: 'theme-color', content: '#03184a' }],
 		['meta', { property: 'og:type', content: 'website' }],
 		['meta', { property: 'og:site_name', content: 'eyeful' }]
 	],
@@ -89,7 +89,7 @@ export default defineConfig({
 							'Principles',
 							'A review, end to end',
 							'Planning and triage',
-							'Levels and lazy activation',
+							'Levels',
 							'Expert orchestration',
 							'Evidence and verification',
 							'Review feedback',
@@ -129,7 +129,7 @@ export default defineConfig({
 							'八条原则',
 							'一次审查的全过程',
 							'规划与分诊',
-							'档位与懒激活',
+							'档位',
 							'专家编排',
 							'证据与验证',
 							'审查反馈',
