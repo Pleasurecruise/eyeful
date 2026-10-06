@@ -15,6 +15,10 @@ func result() workflow.Result {
 		Outcome: workflow.OutcomeComplete,
 		Level:   workflow.LevelStandard,
 		Triage:  workflow.Triage{Excluded: []workflow.Entry{{Path: "uv.lock", Class: workflow.ClassLock}}},
+		Plan: workflow.Plan{Summary: "Sessions expire at the expiry second.", Groups: []workflow.Group{
+			{Category: "ui", Summary: "Show when a session ends", Files: []string{"app/login.py"}},
+			{Category: "security", Summary: "Expired sessions were accepted", Core: true, Files: []string{"app/session.py"}},
+		}},
 		Findings: []workflow.Finding{
 			{ID: "0/correctness/0", Expert: "correctness", Skill: "code-review", Path: "app/session.py", Line: 11, Evidence: workflow.EvidenceReproTest, Repro: &workflow.Repro{Test: test, Oracle: workflow.OracleSpec}},
 			{ID: "0/security/0", Expert: "security", Skill: "other", Category: "naming", Path: "app/login.py", Line: 3, Evidence: workflow.EvidenceArgument},
@@ -43,7 +47,9 @@ func TestMarkdown(t *testing.T) {
 		`Expected behaviour from: spec`,
 		"-now > t\n+now >= t",
 		"## 🟡 Nit · security · PLAUSIBLE",
-		"`uv.lock` (lock)", "Expert `security` on group 1 is absent: timeout",
+		"`uv.lock` (lock)", "Expert `security` is absent: timeout",
+		"## What this change does\n\nSessions expire at the expiry second.",
+		"| 1 (core) | security | Expired sessions were accepted | `app/session.py` |\n| 2 | ui |",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("missing %q in\n%s", want, md)

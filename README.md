@@ -1,5 +1,7 @@
 # eyeful
 
+<p align="center"><img src="brand/eyeful-rounded.png" alt="eyeful sea otter logo" width="160"></p>
+
 > "Given enough eyeballs, all bugs are shallow." — Linus's Law
 
 eyeful reviews code changes with a group of agents. A planner picks the experts a change needs, the
@@ -10,7 +12,7 @@ It runs on your machine with the coding agent you already use (Claude Code, Code
 command line or a desktop app. Cloud reviews of pull requests are planned.
 
 ```sh
-mise install && mise run setup
+mise trust && mise install && mise run setup
 mise run install          # puts eyeful on your PATH
 eyeful connect claude     # or codex, pi
 eyeful review             # review your uncommitted changes

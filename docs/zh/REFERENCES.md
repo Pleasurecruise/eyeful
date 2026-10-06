@@ -54,14 +54,17 @@ eyeful 从两个项目借鉴了流程设计上的思路，没有用它们的代�
 
 [antfu/pulls.review](https://github.com/antfu/pulls.review) 的思路用在规划和报告两处：
 
-| 思路                                      | 在 eyeful 中的位置                                                     |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| 调用模型之前，先用规则分诊                | [分诊](PLANNER.md#triage)：用 glob 规则把锁文件、生成代码等放到一边    |
-| 规划时读文件清单，需要时才打开具体的 diff | [分诊](PLANNER.md#triage)中的清单，[审查计划](PLANNER.md)按需读 diff   |
-| 计划由 schema 约束                        | `submit_plan` 的 schema，以及 [Go 对计划的检查](PLANNER.md)            |
-| 按改动的用途分组                          | 计划中的 `groups`，[排序报告](REPORT.md)排序时也参考这些分组           |
-| 通过一份 index 副本读取工作区             | 未提交改动的[快照](LOCAL.md#snapshot)                                  |
-| 一次只审一个范围                          | [大改动](PLANNER.md#large)：由 Go 拆分范围，超过 512 KB 的文件放到一边 |
+| 思路                          | 在 eyeful 中的位置                                                     |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| 调用模型之前，先用规则分诊    | [分诊](PLANNER.md#triage)：用 glob 规则把锁文件、生成代码等放到一边    |
+| 先读完整个改动，再拆分        | [审查计划](PLANNER.md#the-plan)：规划器读 diff，写出这次改动干了什么   |
+| 计划由 schema 约束            | `submit_plan` 的 schema，以及 [Go 对计划的检查](PLANNER.md)            |
+| 按改动的用途分组              | 计划中的 `groups`，[排序报告](REPORT.md)排序时也参考这些分组           |
+| 标明分组触及系统的哪一部分    | 每组的 `category`，沿用 pulls.review 的类别                            |
+| 标出需要格外小心的分组        | 每组的 `core`，专家先审、报告先列                                      |
+| 在评论之前先说明改动干了什么  | [终端输出](REPORT.md#terminal)开头的概述和分组                         |
+| 通过一份 index 副本读取工作区 | 未提交改动的[快照](LOCAL.md#snapshot)                                  |
+| 一次只审一个范围              | [大改动](PLANNER.md#large)：由 Go 拆分范围，超过 512 KB 的文件放到一边 |
 
 [umputun/revmux](https://github.com/umputun/revmux) 的思路用在流程和反馈上：
 
@@ -72,6 +75,8 @@ eyeful 从两个项目借鉴了流程设计上的思路，没有用它们的代�
 | 某一步出错时降级继续，不中止整个审查       | [各个阶段](REVIEW.md#stages)的出错处理                             |
 | 下一轮带上上一轮的发现                     | [多轮审查](REPORT.md)                                              |
 | 把一轮的输入和输出放在一起                 | [运行目录](LOCAL.md#snapshot)里的 `snapshot.json` 和 `change.diff` |
+| 每个审查者一个进程，不管它负责多少内容     | 每个[专家](EXPERTS.md)只运行一次，覆盖它的所有分组                 |
+| 限制同时运行的审查者，每个进程有时间上限   | 同时最多四个；每次调用 2 分钟无输出或总共 20 分钟即停止            |
 
 revmux 的验证阶段只读代码、不运行，[效果评测](EVALUATION.md)把它作为外部参照。
 

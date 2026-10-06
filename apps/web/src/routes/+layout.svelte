@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '#lib/assets/favicon.svg';
+	import favicon from '#lib/assets/eyeful.png';
 	import { m } from '#i18n';
 	import '#lib/locale.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" type="image/png" href={favicon} />
 	<title>eyeful</title>
 </svelte:head>
 

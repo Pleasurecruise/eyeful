@@ -34,7 +34,7 @@ func CommitMessage(ctx context.Context, dir string, log *slog.Logger) (string, e
 	if err != nil {
 		return "", err
 	}
-	message, _, err := agents.New(log, agents.Config{Provider: provider, Dir: snap.Root, Set: set}).CommitMessage(ctx, snap.Patch)
+	message, _, err := agents.New(log, agents.Config{Provider: provider, Dir: snap.Root, Set: set}, idleTimeout, hardTimeout).CommitMessage(ctx, snap.Patch)
 	return strings.TrimSpace(message), err
 }
 

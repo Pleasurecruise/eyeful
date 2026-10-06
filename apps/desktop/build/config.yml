@@ -10,11 +10,9 @@ info:
   productIdentifier: "com.pleasurecruise.eyeful" # The unique product identifier
   description: "Multi-agent code review with executable evidence" # The application description
   copyright: "(c) 2026, Pleasurecruise" # Copyright text
-  comments: "" # Comments
+  comments: "Multi-agent code review with executable evidence"
   version: "0.0.1" # The application version
-  # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
-  #                               # Should match the name of your .icon file without the extension
-  #                               # If not set and Assets.car exists, defaults to "appicon"
+  cfBundleIconName: "appicon"
 
 # Dev mode configuration
 dev_mode:

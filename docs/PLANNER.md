@@ -84,20 +84,36 @@ and verification and the summary run once over the findings of every scope. The 
 scopes in order, which the author can use to split the change into a stack
 ([The ranked report](REPORT.md#ranked-report)); eyeful never creates branches or pull requests.
 
-## The plan
+## The plan {#the-plan}
 
 The quick level has no planner; rules send each tool result to an expert. At standard and deep, the
-planner reads the manifest and the tool output rather than the whole diff, and opens a file's diff
-only when it needs to. It groups files by what they are for and picks experts for each group. It
-submits the plan with a `submit_plan` tool whose schema encodes the rules, so a malformed plan is
-rejected before it reaches Go. Below is an example; the schema is not final.
+planner first works out what the change does, the way pulls.review reads a pull request before it
+splits it. It reads the diff of every kept file (a very large change has some diffs left out, which
+the planner opens with `git_diff`), the manifest, the commit messages and the tool output, and
+writes a short summary of the change for a reviewer who has not seen it.
+
+It then groups the files by intent, so that one group's files are understood together, and gives each
+group the part of the system it touches (`category`, from pulls.review's list: `ui`, `api`, `core`,
+`data`, `cli`, `security`, `tests`, `docs`, `examples`, `deps`, `build`, `scripts`, `config`, `i18n`,
+`assets`, `other`), one sentence on why its files changed, and whether it is `core`: authentication
+and permissions, secrets, concurrency and locking, data and migrations, a public API or contract, or
+the main logic of a module, where a mistake costs the most. Core groups come first. Go also marks
+core every group that holds a `risk` path from `.eyeful/config.yml`.
+
+Last, the planner picks the experts for each group. Each picked expert runs once and reviews all of
+its groups in that run, so a one-line config edit or a doc fix goes to an expert that already
+reviews another group instead of starting one of its own. The groups decide what an expert reads and
+where it looks hardest, not how many agents run. The planner submits the plan with `submit_plan`,
+whose schema encodes the rules. Below is an example; the schema is not final.
 
 ```json
 {
+	"summary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
 	"groups": [
 		{
-			"category": "fix",
-			"summary": "Sessions expiring exactly at expires_at were treated as valid",
+			"category": "security",
+			"summary": "A session was still accepted at the second it expired",
+			"core": true,
 			"files": ["app/auth/session.py"],
 			"experts": [
 				{ "name": "correctness", "why": "boundary condition in is_expired" },
@@ -105,13 +121,14 @@ rejected before it reaches Go. Below is an example; the schema is not final.
 			]
 		},
 		{
-			"category": "feature",
-			"summary": "The login page shows when the session expires",
+			"category": "ui",
+			"summary": "Show users when their session ends",
+			"core": false,
 			"files": ["web/src/Login.svelte"],
-			"experts": [{ "name": "usability", "why": "new text on the login page" }]
+			"experts": [{ "name": "correctness", "why": "already reviewing the session change" }]
 		}
 	],
-	"skipped": [{ "name": "readability", "why": "lint reported nothing and no names changed" }],
+	"skipped": [{ "name": "usability", "why": "one line of text on the login page" }],
 	"confidence": 0.8
 }
 ```
@@ -137,12 +154,13 @@ The plan is only data until Go accepts it. Go rejects a plan when:
 - a group has no expert;
 - a group lists a file that triage did not keep;
 - an expert name is not in the [roster](EXPERTS.md#the-roster), or appears twice in one group;
-- a group uses more experts than the level allows ([Levels](LEVELS.md));
+- a group's category is not one of the list above;
+- the plan has no summary;
 - the confidence is outside 0 to 1.
 
 A rejected plan goes back to the planner once, with the reasons. If the second plan is also
 rejected, or the planner fails twice, the review uses the default experts for its level: one group
-with every kept file and the roster's experts in order, up to the level's limit. The feedback says
+with every kept file and the first four experts of the roster. The feedback says
 so. If the plan's confidence is below 0.5, the level goes up one step. Go then adds the experts that
 signals call for ([Levels](LEVELS.md)), starts the experts and sets their budgets; the planner has
 no control over these.

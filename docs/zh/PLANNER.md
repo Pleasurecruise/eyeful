@@ -51,16 +51,22 @@ commits: "fix session expiry at the boundary", "show the expiry on the login pag
 
 档位对整个改动只选一次（见[档位的选择](LEVELS.md#choosing-the-level)），验证和汇总也只对所有范围的发现运行一次。报告按顺序列出这些范围，作者可以据此把改动拆成一组 stacked 改动（见[排序报告](REPORT.md#ranked-report)）；eyeful 从不创建分支或 pull request。
 
-## 审查计划
+## 审查计划 {#the-plan}
 
-quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 和 deep 档由规划器读清单和工具结果，不读整个 diff，需要时才打开某个文件的 diff。它按用途把文件分组，再给每组挑专家，然后通过 `submit_plan` 工具提交计划。这个工具的 schema 里写了规则，格式不对的计划在交给 Go 之前就会被拒绝。下面是一个例子，schema 还没有定稿：
+quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 和 deep 档的规划器先弄清这次改动干了什么，做法和 pulls.review 先读完 pull request 再拆分一样。它读所有保留文件的 diff（改动很大时有些 diff 会省略，规划器需要时用 `git_diff` 打开）、文件清单、提交说明和工具结果，然后为没看过这次改动的人写一段概述。
+
+接着它按意图分组，让同一组的文件放在一起理解。每组标明触及系统的哪一部分（`category`，沿用 pulls.review 的类别：`ui`、`api`、`core`、`data`、`cli`、`security`、`tests`、`docs`、`examples`、`deps`、`build`、`scripts`、`config`、`i18n`、`assets`、`other`），用一句话说明这些文件为什么改，并标明是否属于核心（`core`）：认证和权限、密钥、并发和加锁、数据和迁移、公开 API 或契约、模块的主逻辑，这些地方出错代价最大。核心组排在前面。分组里有 `.eyeful/config.yml` 中 `risk` 路径的，Go 也会把它标为核心。
+
+最后规划器给每组挑专家。被选中的专家只运行一次，在这一次里审查分给它的所有组。所以只改一行的配置或者一处文档，应该交给已经在审查别的组的专家，不必为它单独启动一个专家。分组决定专家读什么、在哪里看得最仔细，不决定运行多少个 agent。规划器通过 `submit_plan` 提交计划，这个工具的 schema 里写了规则。下面是一个例子，schema 还没有定稿：
 
 ```json
 {
+	"summary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
 	"groups": [
 		{
-			"category": "fix",
-			"summary": "Sessions expiring exactly at expires_at were treated as valid",
+			"category": "security",
+			"summary": "A session was still accepted at the second it expired",
+			"core": true,
 			"files": ["app/auth/session.py"],
 			"experts": [
 				{ "name": "correctness", "why": "boundary condition in is_expired" },
@@ -68,13 +74,14 @@ quick 档没有规划器，由规则把每条工具结果分给对应的专家�
 			]
 		},
 		{
-			"category": "feature",
-			"summary": "The login page shows when the session expires",
+			"category": "ui",
+			"summary": "Show users when their session ends",
+			"core": false,
 			"files": ["web/src/Login.svelte"],
-			"experts": [{ "name": "usability", "why": "new text on the login page" }]
+			"experts": [{ "name": "correctness", "why": "already reviewing the session change" }]
 		}
 	],
-	"skipped": [{ "name": "readability", "why": "lint reported nothing and no names changed" }],
+	"skipped": [{ "name": "usability", "why": "one line of text on the login page" }],
 	"confidence": 0.8
 }
 ```
@@ -99,7 +106,8 @@ quick 档没有规划器，由规则把每条工具结果分给对应的专家�
 - 某个分组没有专家；
 - 某个分组里有分诊没有保留的文件；
 - 专家名字不在[专家名单](EXPERTS.md#the-roster)里，或者在同一分组里出现两次；
-- 某个分组用到的专家数量超过了档位允许的上限（见[档位](LEVELS.md)）；
+- 某个分组的类别不在上面的列表里；
+- 计划没有写改动概述；
 - 把握不在 0 到 1 之间。
 
-被拒的计划会连同原因退回给规划器重做一次。第二次还不合格，或者规划器连续两次出错，就使用该档位的默认专家：所有保留下来的文件放在一个分组里，按名单顺序取专家，取到档位上限为止，并在反馈里说明。计划给出的把握低于 0.5 时，档位上调一级。之后 Go 再补上信号要求的专家（见[档位](LEVELS.md)），启动专家并分配预算，这些规划器都管不了。
+被拒的计划会连同原因退回给规划器重做一次。第二次还不合格，或者规划器连续两次出错，就使用该档位的默认专家：所有保留下来的文件放在一个分组里，取名单里的前四个专家，并在反馈里说明。计划给出的把握低于 0.5 时，档位上调一级。之后 Go 再补上信号要求的专家（见[档位](LEVELS.md)），启动专家并分配预算，这些规划器都管不了。

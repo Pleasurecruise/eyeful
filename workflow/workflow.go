@@ -198,8 +198,8 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 		shown = append(shown, f)
 	}
 	task := PlanTask{
-		Files: shown, Truncated: len(shown) < len(reviewed), Manifest: slices.Concat(t.Reviewed, t.Excluded), Commits: req.Change.Commits, Tools: tools,
-		Experts: make([]string, 0, len(w.roster)), MaxExperts: levels[st.Level].experts, Rejected: []string{},
+		Files: shown, Truncated: len(shown) < len(reviewed), Level: st.Level, Manifest: slices.Concat(t.Reviewed, t.Excluded), Commits: req.Change.Commits, Tools: tools,
+		Experts: make([]string, 0, len(w.roster)), Rejected: []string{},
 	}
 	for _, e := range w.roster {
 		task.Experts = append(task.Experts, e.Name)
@@ -216,7 +216,7 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 		st.Runs = append(st.Runs, r)
 		reasons := []string{"the planner failed: " + r.Error}
 		if r.Error == "" {
-			reasons = w.check(plan, t, st.Level)
+			reasons = w.check(plan, t)
 		}
 		if len(reasons) == 0 {
 			st.Plan, st.Source = plan, PlanFromPlanner
@@ -255,6 +255,11 @@ func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, 
 	if up := levels[level].escalate; st.Source == PlanFromPlanner && st.Plan.Confidence < minConfidence && up != level {
 		st.Level = up
 		st.Notes = append(st.Notes, fmt.Sprintf("planner confidence %.2f is below %.2f; level raised to %s", st.Plan.Confidence, minConfidence, up))
+	}
+	for i, g := range st.Plan.Groups {
+		if slices.ContainsFunc(g.Files, func(f string) bool { return slices.Contains(t.Risk, f) }) {
+			st.Plan.Groups[i].Core = true
+		}
 	}
 	st.Plan = w.addSignals(st.Plan, tools)
 	return st, nil
@@ -313,6 +318,7 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 		res.Findings = append(res.Findings, findings...)
 		res.Uncertainty.Absent = append(res.Uncertainty.Absent, u.Absent...)
 		res.Uncertainty.Unread = append(res.Uncertainty.Unread, u.Unread...)
+		res.Uncertainty.Notes = append(res.Uncertainty.Notes, u.Notes...)
 		if sl.exhausted && !l.exhausted {
 			short = true
 			res.Uncertainty.Notes = append(res.Uncertainty.Notes, fmt.Sprintf("scope %s used up its share of the budget", sc.Name))
@@ -379,6 +385,9 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 		return res, err
 	}
 	res.Comments = sum.Comments
+	if !levels[res.Level].nits {
+		res.Comments = slices.DeleteFunc(res.Comments, func(c Comment) bool { return c.Label == LabelNitpick })
+	}
 	if sum.Fallback != "" {
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, "comments were formatted by rules: "+sum.Fallback)
 	}

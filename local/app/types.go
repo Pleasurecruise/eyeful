@@ -33,6 +33,8 @@ type Provider struct {
 const (
 	budget         = 3_000_000
 	commandTimeout = 10 * time.Minute
+	idleTimeout    = 2 * time.Minute
+	hardTimeout    = 20 * time.Minute
 )
 
 var (

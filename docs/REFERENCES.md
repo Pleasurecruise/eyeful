@@ -86,14 +86,17 @@ eyeful takes ideas about the shape of the workflow from two projects. It uses no
 
 From [antfu/pulls.review](https://github.com/antfu/pulls.review), in planning and the report:
 
-| Idea                                               | Where eyeful uses it                                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Sort files with rules before any model runs        | [Triage](PLANNER.md#triage): glob rules set aside lockfiles, generated code and the like      |
-| Plan from a file manifest and open diffs on demand | The manifest in [triage](PLANNER.md#triage); the planner opens a file's diff only when needed |
-| Constrain the plan with a schema                   | The `submit_plan` schema and [Go's checks](PLANNER.md) on the plan                            |
-| Group the change by intent                         | The plan's `groups`, which the [ranked report](REPORT.md) also sorts by                       |
-| Read a working tree through a copy of the index    | The [snapshot](LOCAL.md#snapshot) of uncommitted changes                                      |
-| Review a large change one scope at a time          | [Large changes](PLANNER.md#large): scopes split by Go, files over 512 KB set aside            |
+| Idea                                            | Where eyeful uses it                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Sort files with rules before any model runs     | [Triage](PLANNER.md#triage): glob rules set aside lockfiles, generated code and the like    |
+| Read the whole change before splitting it       | [The plan](PLANNER.md#the-plan): the planner reads the diff and writes what the change does |
+| Constrain the plan with a schema                | The `submit_plan` schema and [Go's checks](PLANNER.md) on the plan                          |
+| Group the change by intent                      | The plan's `groups`, which the [ranked report](REPORT.md) also sorts by                     |
+| Name the part of the system a group touches     | Each group's `category`, from pulls.review's list                                           |
+| Mark the groups that need extra care            | Each group's `core`, which experts review first and the report lists first                  |
+| Show what the change does before any comment    | The summary and groups at the top of the [terminal output](REPORT.md#terminal)              |
+| Read a working tree through a copy of the index | The [snapshot](LOCAL.md#snapshot) of uncommitted changes                                    |
+| Review a large change one scope at a time       | [Large changes](PLANNER.md#large): scopes split by Go, files over 512 KB set aside          |
 
 From [umputun/revmux](https://github.com/umputun/revmux), in the stages and the feedback:
 
@@ -104,6 +107,8 @@ From [umputun/revmux](https://github.com/umputun/revmux), in the stages and the 
 | Carry on with less when a step fails, instead of aborting       | Failure handling in [stages](REVIEW.md#stages)                    |
 | Pass the previous round's findings to the next round            | [Rounds](REPORT.md)                                               |
 | Keep a round's input beside its output                          | `snapshot.json` and `change.diff` in the [run](LOCAL.md#snapshot) |
+| One process per reviewer, however much of the change it covers  | Each [expert](EXPERTS.md) runs once over all of its groups        |
+| A cap on reviewers running at once, and time limits per process | Four at once; 2 minutes idle and 20 minutes in all per call       |
 
 revmux's verify stage reads the code without running it. The [evaluation](EVALUATION.md) runs it as
 an external reference.

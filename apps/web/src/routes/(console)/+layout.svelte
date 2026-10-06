@@ -7,6 +7,7 @@
 	import { switchLocale } from '#lib/locale.svelte.ts';
 	import { getLocale, locales } from '#i18n/runtime';
 	import { session } from '#lib/session.svelte.ts';
+	import logo from '#lib/assets/eyeful.png';
 
 	let { children } = $props();
 
@@ -23,7 +24,13 @@
 <div class="min-h-svh bg-background text-foreground">
 	<header class="border-b">
 		<div class="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
-			<a href={resolve('/(console)/repositories')} class="font-semibold tracking-tight">eyeful</a>
+			<a
+				href={resolve('/(console)/repositories')}
+				class="flex items-center gap-2 font-semibold tracking-tight"
+			>
+				<img src={logo} alt="" class="size-7 rounded-md" />
+				eyeful
+			</a>
 			<div class="ml-auto flex items-center gap-2">
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>

@@ -3,8 +3,9 @@
 Experts are the subagents that do the reviewing. Each covers part of the ISO/IEC 25010 product
 quality model, works from the public standards for that part, and has its own checklists (skills)
 and tools. The planner decides which experts a change needs ([Planning and triage](PLANNER.md)), and
-the level decides how many may run and on which models ([Levels](LEVELS.md)). `workflow` runs the
-selected experts in parallel and checks their reports. All six expert files exist. Of the tools
+the level decides how closely they look and on which models ([Levels](LEVELS.md)). `workflow` runs
+each selected expert once, over every group it was picked for, up to four at a time, and checks
+their reports. All six expert files exist. Of the tools
 named in each expert's section, those not in [Prompt, skills and tools](#skills-and-tools) are
 planned. The standards named here are listed in [References](REFERENCES.md).
 

@@ -6,8 +6,8 @@ hero:
   text: Multi-agent code review with executable evidence
   tagline: '"Given enough eyeballs, all bugs are shallow." Most projects do not have that many reviewers. eyeful adds more.'
   image:
-    src: /favicon.svg
-    alt: eyeful
+    src: /eyeful.png
+    alt: eyeful sea otter logo
   actions:
     - theme: brand
       text: Get started

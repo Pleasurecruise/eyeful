@@ -20,8 +20,8 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/prompts"
 )
 
-func New(log *slog.Logger, cfg Config) *Agents {
-	return &Agents{cfg: cfg, log: log.With(slog.String("component", "agents"), slog.String("agent", cfg.Provider.Name))}
+func New(log *slog.Logger, cfg Config, idle, hard time.Duration) *Agents {
+	return &Agents{cfg: cfg, log: log.With(slog.String("component", "agents"), slog.String("agent", cfg.Provider.Name)), idle: idle, hard: hard}
 }
 
 func Find(name string) (Provider, bool) {
@@ -60,6 +60,15 @@ eyeful gives you no tools of its own, so ignore the tool names in the instructio
 %s
 ` + "```" + `
 `
+
+func (w *activity) Write(p []byte) (int, error) {
+	w.idle.Reset(w.after)
+	n, err := w.out.Write(p)
+	if err != nil {
+		return n, fmt.Errorf("keep the agent's output: %w", err)
+	}
+	return n, nil
+}
 
 func decode[T reply](text string) (T, error) {
 	var v T
@@ -100,13 +109,23 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 	var usage workflow.Usage
 	var bad error
 	for range 2 {
-		cmd := exec.CommandContext(ctx, p.Tool, p.args(data, tier)...)
+		runCtx, stop := context.WithCancelCause(ctx)
+		hard := time.AfterFunc(a.hard, func() { stop(fmt.Errorf("%w: %s", ErrHardTimeout, a.hard)) })
+		idle := time.AfterFunc(a.idle, func() { stop(fmt.Errorf("%w: %s", ErrIdle, a.idle)) })
+		cmd := exec.CommandContext(runCtx, p.Tool, p.args(data, tier)...)
 		cmd.Dir, cmd.Env, cmd.WaitDelay = a.cfg.Dir, env, 5*time.Second
 		var stdout bytes.Buffer
 		stderr := tail.New(stderrLimit)
-		cmd.Stdin, cmd.Stdout, cmd.Stderr = strings.NewReader(prompt), &stdout, stderr
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = strings.NewReader(prompt), &activity{out: &stdout, idle: idle, after: a.idle}, stderr
+		a.log.Info("agent start", slog.String("role", name))
 		start := time.Now()
 		runErr := cmd.Run()
+		hard.Stop()
+		idle.Stop()
+		if cause := context.Cause(runCtx); runErr != nil && ctx.Err() == nil && cause != nil {
+			runErr = cause
+		}
+		stop(nil)
 		a.log.Info("agent run", slog.String("role", name), slog.Int("seconds", int(time.Since(start).Seconds())), slog.Any("error", runErr))
 		ans, err := p.parse(stdout.Bytes())
 		usage.Model = ans.usage.Model
@@ -146,7 +165,7 @@ func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Re
 	if err != nil {
 		return workflow.Report{}, workflow.Usage{}, err
 	}
-	return ask[workflow.Report](ctx, a, workflow.RoleExpert, t.Tier, prompt)
+	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt)
 }
 
 func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {

@@ -48,6 +48,7 @@ PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 
 ## 代码生成
 
 sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:spec`）生成 `spec/`，由二进制文件内嵌。`@hey-api/openapi-ts`（`generate:sdk`）生成 `packages/sdk/src`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
+桌面图标的源文件是 `apps/desktop/build/appicon.png`；`generate:icons` 会一并生成 dev 和打包构建使用的 macOS `icons.icns`、`Assets.car`，以及 Windows `icon.ico`。
 
 ## 多语言
 

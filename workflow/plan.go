@@ -8,8 +8,10 @@ import (
 var levels = map[Level]limits{
 	LevelQuick:    {experts: 2, tier: TierCheap, escalate: LevelStandard},
 	LevelStandard: {experts: 4, planner: true, verify: true, escalate: LevelDeep},
-	LevelDeep:     {planner: true, verify: true, full: true, escalate: LevelDeep},
+	LevelDeep:     {experts: 4, nits: true, planner: true, verify: true, full: true, escalate: LevelDeep},
 }
+
+var categories = []string{"ui", "api", "core", "data", "cli", "security", "tests", "docs", "examples", "deps", "build", "scripts", "config", "i18n", "assets", "other"}
 
 var Levels = []Level{LevelQuick, LevelStandard, LevelDeep}
 
@@ -40,20 +42,19 @@ func (w *Workflow) expert(name string) (Expert, bool) {
 	return w.roster[i], true
 }
 
-func (w *Workflow) check(p Plan, t Triage, level Level) []string {
+func (w *Workflow) check(p Plan, t Triage) []string {
 	var reasons []string
 	assigned := map[string]bool{}
 	reviewed := map[string]bool{}
 	for _, e := range t.Reviewed {
 		reviewed[e.Path] = true
 	}
-	limit := levels[level].experts
 	for i, g := range p.Groups {
 		if len(g.Experts) == 0 {
 			reasons = append(reasons, fmt.Sprintf("group %d has no expert", i))
 		}
-		if limit > 0 && len(g.Experts) > limit {
-			reasons = append(reasons, fmt.Sprintf("group %d uses %d experts; the %s level allows %d", i, len(g.Experts), level, limit))
+		if !slices.Contains(categories, g.Category) {
+			reasons = append(reasons, fmt.Sprintf("group %d: category %q is not one of %v", i, g.Category, categories))
 		}
 		seen := map[string]bool{}
 		for _, e := range g.Experts {
@@ -77,6 +78,9 @@ func (w *Workflow) check(p Plan, t Triage, level Level) []string {
 			reasons = append(reasons, fmt.Sprintf("%q belongs to no group", e.Path))
 		}
 	}
+	if p.Summary == "" {
+		reasons = append(reasons, "the plan needs a summary of what the change does")
+	}
 	if p.Confidence < 0 || p.Confidence > 1 {
 		reasons = append(reasons, fmt.Sprintf("confidence %v is outside [0, 1]", p.Confidence))
 	}
@@ -88,7 +92,7 @@ func whole(t Triage, category string, picks []Pick) Plan {
 	if len(t.Reviewed) == 0 {
 		return p
 	}
-	g := Group{Category: category, Summary: "every reviewed file", Experts: picks}
+	g := Group{Category: category, Summary: "every reviewed file", Core: len(t.Risk) > 0, Experts: picks}
 	for _, e := range t.Reviewed {
 		g.Files = append(g.Files, e.Path)
 	}
@@ -99,12 +103,12 @@ func whole(t Triage, category string, picks []Pick) Plan {
 func (w *Workflow) defaultPlan(t Triage, level Level) Plan {
 	picks := []Pick{}
 	for _, e := range w.roster {
-		if limit := levels[level].experts; limit > 0 && len(picks) == limit {
+		if len(picks) == levels[level].experts {
 			break
 		}
 		picks = append(picks, Pick{Name: e.Name, Why: "default expert for the level"})
 	}
-	return whole(t, "default", picks)
+	return whole(t, "other", picks)
 }
 
 func (w *Workflow) routePlan(tools []ToolResult) Plan {

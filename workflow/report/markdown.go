@@ -2,6 +2,8 @@ package report
 
 import (
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -17,6 +19,7 @@ func Markdown(r workflow.Result) (string, error) {
 	if out.Reason != "" {
 		fmt.Fprintf(&b, "%s.\n", out.Reason)
 	}
+	change(&b, r.Plan)
 	if out.Outcome == workflow.OutcomeCIFailed {
 		b.WriteString("\n## CI failed\n\n")
 		for _, f := range out.Diagnosis.Failures {
@@ -81,10 +84,10 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	u := r.Uncertainty
 	var lines []string
 	for _, a := range u.Absent {
-		lines = append(lines, fmt.Sprintf("Expert `%s` on group %d is absent: %s", a.Expert, a.Group, a.Reason))
+		lines = append(lines, fmt.Sprintf("Expert `%s` is absent: %s", a.Expert, a.Reason))
 	}
 	for _, s := range u.Unread {
-		lines = append(lines, fmt.Sprintf("Expert `%s` on group %d did not load skill `%s`", s.Expert, s.Group, s.Skill))
+		lines = append(lines, fmt.Sprintf("Expert `%s` did not load skill `%s`", s.Expert, s.Skill))
 	}
 	for _, f := range u.Dismissed {
 		lines = append(lines, fmt.Sprintf("Dismissed, not reproduced: `%s:%d` %s (%s)", f.Path, f.Line, f.Subject, f.Expert))
@@ -105,5 +108,29 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	b.WriteString("\n## Uncertainty\n\n")
 	for _, l := range lines {
 		fmt.Fprintf(b, "- %s\n", l)
+	}
+}
+
+func change(b *strings.Builder, p workflow.Plan) {
+	if p.Summary == "" {
+		return
+	}
+	fmt.Fprintf(b, "\n## What this change does\n\n%s\n\n| Group | Category | Why | Files |\n| --- | --- | --- | --- |\n", p.Summary)
+	groups := slices.Clone(p.Groups)
+	slices.SortStableFunc(groups, func(a, b workflow.Group) int {
+		switch {
+		case a.Core == b.Core:
+			return 0
+		case a.Core:
+			return -1
+		}
+		return 1
+	})
+	for i, g := range groups {
+		name := strconv.Itoa(i + 1)
+		if g.Core {
+			name += " (core)"
+		}
+		fmt.Fprintf(b, "| %s | %s | %s | %s |\n", name, g.Category, g.Summary, "`"+strings.Join(g.Files, "`, `")+"`")
 	}
 }

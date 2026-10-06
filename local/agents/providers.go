@@ -16,7 +16,7 @@ var Providers = []Provider{
 	{
 		Name: "claude", Tool: "claude", Login: "run `claude` and sign in with /login", strip: []string{"ANTHROPIC_API_KEY"},
 		args: func(schema []byte, tier workflow.Tier) []string {
-			args := []string{"-p", "--output-format", "json", "--json-schema", string(schema), "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project"}
+			args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--json-schema", string(schema), "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--disable-slash-commands"}
 			if model, ok := map[workflow.Tier]string{workflow.TierCheap: "haiku", workflow.TierMid: "sonnet", workflow.TierStrong: "opus"}[tier]; ok {
 				args = append(args, "--model", model)
 			}
@@ -24,8 +24,25 @@ var Providers = []Provider{
 		},
 		parse: func(stdout []byte) (answer, error) {
 			var r claudeResult
-			if err := json.Unmarshal(bytes.TrimSpace(stdout), &r); err != nil {
-				return answer{}, fmt.Errorf("read claude's result: %w", err)
+			lines := bufio.NewScanner(bytes.NewReader(stdout))
+			lines.Buffer(nil, len(stdout)+1)
+			for lines.Scan() {
+				var e claudeEvent
+				if err := json.Unmarshal(lines.Bytes(), &e); err != nil {
+					return answer{}, fmt.Errorf("read claude's events: %w", err)
+				}
+				if e.Type != "result" {
+					continue
+				}
+				if err := json.Unmarshal(lines.Bytes(), &r); err != nil {
+					return answer{}, fmt.Errorf("read claude's result: %w", err)
+				}
+			}
+			if err := lines.Err(); err != nil {
+				return answer{}, fmt.Errorf("read claude's events: %w", err)
+			}
+			if r.Type != "result" {
+				return answer{}, fmt.Errorf("%w: claude ended without a result", ErrFailed)
 			}
 			u := r.Usage
 			a := answer{text: r.Result, usage: workflow.Usage{
@@ -45,7 +62,12 @@ var Providers = []Provider{
 	{
 		Name: "codex", Tool: "codex", Login: "run `codex login`",
 		args: func([]byte, workflow.Tier) []string {
-			return []string{"exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral", "-"}
+			return []string{
+				"exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
+				"--ignore-user-config", "--ignore-rules", "--disable", "hooks", "--disable", "plugins", "--disable", "apps",
+				"--enable", "skip_host_skill_discovery", "-c", "project_doc_max_bytes=0",
+				"-",
+			}
 		},
 		parse: func(stdout []byte) (answer, error) {
 			a := answer{usage: workflow.Usage{Model: "codex"}}
@@ -73,7 +95,11 @@ var Providers = []Provider{
 	{
 		Name: "pi", Tool: "pi", Login: "run `pi` and sign in with /login",
 		args: func([]byte, workflow.Tier) []string {
-			return []string{"--mode", "json", "--no-session", "--tools", "read,grep,find,ls", "Follow the instructions above."}
+			return []string{
+				"--mode", "json", "--no-session", "--tools", "read,grep,find,ls",
+				"--no-mcp", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-approve",
+				"Follow the instructions above.",
+			}
 		},
 		parse: func(stdout []byte) (answer, error) {
 			a := answer{usage: workflow.Usage{Model: "pi"}}

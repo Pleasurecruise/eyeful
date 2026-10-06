@@ -62,6 +62,8 @@ binary embeds. `@hey-api/openapi-ts` (`generate:sdk`) writes `packages/sdk/src`.
 `apps/desktop/frontend/bindings`, the Wails default, as classes, so a Go `nil` slice arrives as
 `[]`; git ignores that directory, and `lint`,
 `wails3 build` and `wails3 dev` regenerate it. None of these outputs is edited by hand.
+The desktop icon source is `apps/desktop/build/appicon.png`; `generate:icons` regenerates the macOS
+`icons.icns` and `Assets.car` plus the Windows `icon.ico` used by dev and packaged builds.
 
 ## Translations
 

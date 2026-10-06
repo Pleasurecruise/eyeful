@@ -160,12 +160,32 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 		}
 		queue = verificationOrder(queue)
 	}
+	if req.Verification == ModeReadOnly {
+		verdicts := make([]Verification, len(queue))
+		errs := make([]error, len(queue))
+		var wg sync.WaitGroup
+		turns := make(chan struct{}, maxParallel)
+		for i, f := range queue {
+			wg.Go(func() {
+				select {
+				case turns <- struct{}{}:
+				case <-ctx.Done():
+					errs[i] = fmt.Errorf("wait to judge %s: %w", f.ID, ctx.Err())
+					return
+				}
+				defer func() { <-turns }()
+				st, err := checkpoint(ctx, s.Archive, l, "verify/"+f.ID, func() (verifyState, error) { return w.judge(ctx, s, l, f, files) })
+				verdicts[i], errs[i] = st.Verification, err
+			})
+		}
+		wg.Wait()
+		return append(out, verdicts...), errors.Join(errs...)
+	}
 	target := Target{Touched: slices.Sorted(maps.Keys(files)), Full: levels[level].full}
 	baseline := w.baseline(ctx, s, l, target)
 	for _, f := range queue {
 		reason := ""
 		switch {
-		case req.Verification == ModeReadOnly:
 		case !levels[level].verify:
 			reason = fmt.Sprintf("the %s level does not verify", level)
 		case setupErr != "":
@@ -176,9 +196,6 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 			continue
 		}
 		st, err := checkpoint(ctx, s.Archive, l, "verify/"+f.ID, func() (verifyState, error) {
-			if req.Verification == ModeReadOnly {
-				return w.judge(ctx, s, l, f, files)
-			}
 			return w.reproduce(ctx, s, l, f, files, target, baseline)
 		})
 		if err != nil {

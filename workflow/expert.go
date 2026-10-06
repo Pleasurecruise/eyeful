@@ -129,49 +129,84 @@ func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task Review
 
 func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan, from int, level Level, files map[string]File, tools []ToolResult, testOne string) ([]Finding, Uncertainty, error) {
 	type slot struct {
-		group int
-		pick  Pick
-		st    expertState
-		err   error
+		pick   Pick
+		groups []int
+		st     expertState
+		err    error
 	}
 	var slots []*slot
 	for gi := from; gi < len(plan.Groups); gi++ {
 		for _, p := range plan.Groups[gi].Experts {
-			slots = append(slots, &slot{group: gi, pick: p})
+			i := slices.IndexFunc(slots, func(sl *slot) bool { return sl.pick.Name == p.Name })
+			if i < 0 {
+				slots = append(slots, &slot{pick: p})
+				i = len(slots) - 1
+			}
+			slots[i].groups = append(slots[i].groups, gi)
 		}
 	}
-	scoped := Plan{Groups: plan.Groups[from:], Skipped: plan.Skipped, Confidence: plan.Confidence}
+	scoped := Plan{Summary: plan.Summary, Groups: plan.Groups[from:], Skipped: plan.Skipped, Confidence: plan.Confidence}
 	var wg sync.WaitGroup
+	turns := make(chan struct{}, maxParallel)
 	for _, sl := range slots {
 		wg.Go(func() {
-			e, _ := w.expert(sl.pick.Name)
-			g := plan.Groups[sl.group]
-			tier := e.Tier
-			if t := levels[level].tier; t != "" {
-				tier = t
+			select {
+			case turns <- struct{}{}:
+			case <-ctx.Done():
+				sl.err = fmt.Errorf("wait to start %s: %w", sl.pick.Name, ctx.Err())
+				return
 			}
-			task := ReviewTask{Expert: e, Tier: tier, Group: g, Plan: scoped, Skills: skillsFor(e, g.Files), Files: pick(files, g.Files), Tools: hitsFor(tools, g.Files), Rejected: []string{}, TestOne: testOne}
-			key := fmt.Sprintf("expert/%d/%s", sl.group, e.Name)
+			defer func() { <-turns }()
+			task := w.panelTask(sl.pick, plan, sl.groups, level, files, tools)
+			task.Plan, task.TestOne = scoped, testOne
+			key := fmt.Sprintf("expert/%d/%s", sl.groups[0], sl.pick.Name)
 			sl.st, sl.err = checkpoint(ctx, s.Archive, l, key, func() (expertState, error) { return w.review(ctx, s, l, task) })
 		})
 	}
 	wg.Wait()
 
 	findings := []Finding{}
-	u := Uncertainty{Absent: []Absence{}, Unread: []Unread{}}
+	u := Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Notes: []string{}}
 	for _, sl := range slots {
+		group := sl.groups[0]
 		if sl.err != nil {
 			return nil, Uncertainty{}, sl.err
 		}
 		if sl.st.Absent != "" {
-			u.Absent = append(u.Absent, Absence{Expert: sl.pick.Name, Group: sl.group, Reason: sl.st.Absent})
+			u.Absent = append(u.Absent, Absence{Expert: sl.pick.Name, Group: group, Reason: sl.st.Absent})
 		}
 		for _, skill := range sl.st.Unread {
-			u.Unread = append(u.Unread, Unread{Expert: sl.pick.Name, Group: sl.group, Skill: skill})
+			u.Unread = append(u.Unread, Unread{Expert: sl.pick.Name, Group: group, Skill: skill})
 		}
 		for i, c := range sl.st.Findings {
-			findings = append(findings, Finding{ID: fmt.Sprintf("%d/%s/%d", sl.group, sl.pick.Name, i), Expert: sl.pick.Name, Group: sl.group, Claim: c})
+			f := Finding{ID: fmt.Sprintf("%d/%s/%d", group, sl.pick.Name, i), Expert: sl.pick.Name, Group: group, Claim: c}
+			if gi := slices.IndexFunc(sl.groups, func(gi int) bool { return slices.Contains(plan.Groups[gi].Files, c.Path) }); gi >= 0 {
+				f.Group = sl.groups[gi]
+			}
+			findings = append(findings, f)
 		}
 	}
+	if !levels[level].nits {
+		kept := slices.DeleteFunc(slices.Clone(findings), func(f Finding) bool { return f.Severity == SeverityLow })
+		if n := len(findings) - len(kept); n > 0 {
+			u.Notes = append(u.Notes, fmt.Sprintf("%d low-severity findings were left out at %s", n, level))
+		}
+		findings = kept
+	}
 	return findings, u, nil
+}
+
+func (w *Workflow) panelTask(p Pick, plan Plan, groups []int, level Level, files map[string]File, tools []ToolResult) ReviewTask {
+	e, _ := w.expert(p.Name)
+	first := plan.Groups[groups[0]]
+	g := Group{Scope: first.Scope, Category: first.Category, Summary: first.Summary, Files: []string{}, Experts: []Pick{p}}
+	for _, gi := range groups {
+		g.Files = append(g.Files, plan.Groups[gi].Files...)
+		g.Core = g.Core || plan.Groups[gi].Core
+	}
+	tier := e.Tier
+	if t := levels[level].tier; t != "" {
+		tier = t
+	}
+	return ReviewTask{Expert: e, Level: level, Tier: tier, Group: g, Skills: skillsFor(e, g.Files), Files: pick(files, g.Files), Tools: hitsFor(tools, g.Files), Rejected: []string{}}
 }

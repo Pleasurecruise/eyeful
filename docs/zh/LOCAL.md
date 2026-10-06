@@ -45,7 +45,7 @@ eyeful review --head HEAD --base main --verification execution
 | 差异旁和对应行上的发现；日志标签页         | 打印的报告和终端输出                    |
 | 文件列表下方的审查或提交；生成按钮         | `eyeful review`；`eyeful commit`、`-m`  |
 
-它打开启动时所在的仓库；不在仓库里启动时（比如从访达打开），打开上一次显示的仓库。文件夹按钮可以打开其他仓库。从访达或桌面菜单启动的应用拿不到终端的 `PATH`，所以它启动时从用户的登录 shell 读取 `PATH`，找到的 agent 命令行工具和 `eyeful provider` 相同。默认显示当前分支未提交的改动；选择在其他 worktree 里检出的分支会打开那个 worktree，没有在任何地方检出的分支只能用作对比基准。改动的文件按 GitHub Desktop 的方式平铺列出，路径再深也不会遮住文件名。审查对象是未提交的改动时才能提交。文件列表和差异旁的审查面板可以调整宽度和折叠，开始审查时审查面板会展开。差异就是审查对象的差异，读取方式和审查相同。取消审查和按 Ctrl-C 的效果一样。运行目录及其中的文件和命令行相同。
+它打开启动时所在的仓库；不在仓库里启动时（比如从访达打开），打开上一次显示的仓库。文件夹按钮可以打开其他仓库。从访达或桌面菜单启动的应用拿不到终端的 `PATH`，所以它启动时从用户的登录 shell 读取 `PATH`，找到的 agent 命令行工具和 `eyeful provider` 相同。默认显示当前分支未提交的改动；选择在其他 worktree 里检出的分支会打开那个 worktree，没有在任何地方检出的分支只能用作对比基准。改动的文件按 GitHub Desktop 的方式平铺列出，路径再深也不会遮住文件名。审查对象是未提交的改动时才能提交。文件列表和差异旁的审查面板可以调整宽度和折叠，开始审查时审查面板会展开。差异就是审查对象的差异，读取方式和审查相同；窗口每次重新获得焦点时都会重新读取，所以在别处做的提交会立刻反映出来。审查一旦开始，按钮会显示正在运行，审查会一直跑完，和提交一样；`eyeful review` 仍然可以用 Ctrl-C 停止。运行目录及其中的文件和命令行相同。
 
 ## 可以审查什么 {#what-can-be-reviewed}
 
@@ -83,15 +83,17 @@ agent 读的是仓库里的代码，所以用 `--head` 时，head 必须是当�
 
 eyeful 以非交互模式运行已连接 agent 自己的命令行工具，每次调用启动一个新进程，工作目录是仓库根目录，做法和 revmux、pulls.review 相同。提示词由 `workflow/prompts` 写好，从标准输入传进去，所以没有长度限制。提示词里带着该角色需要的东西：diff（规划器拿到的是分诊在其范围内保留的文件），以及提供给专家的每个 skill 的名字、描述和路径：审查期间 skill 写在运行目录里，审查结束就删除。agent 用自己的只读工具读用得上的 skill 和其他文件，最后给出一段符合该角色 schema 的 JSON，内容就是该角色本来要提交的结果（见[提示词、skill 和工具](EXPERTS.md#skills-and-tools)）。这段 JSON 缺失或不符合 schema 时，eyeful 附上原因再运行一次，仍然不行就算这次调用失败。eyeful 不给 agent 配置任何 MCP 服务：MCP 只由云端提供（见 [API 约定](API.md#mcp-planned)）。agent 不能运行命令，所以真正运行的命令只有经过确认的项目命令，而且只在快照的检出里运行；agent 交出复现测试，由验证器去运行。
 
-| agent  | 运行方式                                                                                                                | 只读的保证                  | 结果                                               | 模型                                    |
-| ------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------- | --------------------------------------- |
-| claude | `claude -p --output-format json --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project` | `--tools Read,Grep,Glob`    | `structured_output`，由 Claude Code 按 schema 校验 | 按专家的档次：`haiku`、`sonnet`、`opus` |
-| codex  | `codex exec --json --ephemeral --skip-git-repo-check -`                                                                 | `--sandbox read-only`       | 最后一条 `agent_message`                           | Codex 的默认模型                        |
-| pi     | `pi --mode json --no-session`                                                                                           | `--tools read,grep,find,ls` | 最后一条助手消息                                   | pi 的默认模型                           |
+| agent  | 运行方式                                                                                                                                                                                                   | 只读的保证                  | 结果                                               | 模型                                    |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------- | --------------------------------------- |
+| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --disable-slash-commands`               | `--tools Read,Grep,Glob`    | `structured_output`，由 Claude Code 按 schema 校验 | 按专家的档次：`haiku`、`sonnet`、`opus` |
+| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -` | `--sandbox read-only`       | 最后一条 `agent_message`                           | Codex 的默认模型                        |
+| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                   | `--tools read,grep,find,ls` | 最后一条助手消息                                   | pi 的默认模型                           |
 
-每个工具都用它自己已有的登录。和 revmux 一样，eyeful 会从 Claude Code 的环境里去掉 `ANTHROPIC_API_KEY`，免得为别的程序设置的 key 让审查变成按 API 计费；`--setting-sources project` 让用户自己的 Claude Code 设置、hook 和 MCP 服务不进入审查。`connect` 以及每次审查开始前，都会检查工具是否在 `PATH` 上并读取它的版本。是否已登录要到第一次调用才知道，这时报错会说明怎样登录，比如运行 `claude` 再执行 `/login`。
+每个工具都用它自己已有的登录。和 revmux 一样，eyeful 会从 Claude Code 的环境里去掉 `ANTHROPIC_API_KEY`，免得为别的程序设置的 key 让审查变成按 API 计费；`--setting-sources project` 让用户自己的 Claude Code 设置、hook 和 MCP 服务不进入审查。`--disable-slash-commands` 关掉 eyeful 以外的所有 skill，eyeful 的 skill 以文件形式交给 agent。codex 不加载用户的 `config.toml`（因此使用 Codex 的默认模型）、rules、hook、插件、apps 和 `AGENTS.md`。pi 同样不加载用户的 MCP 服务、扩展、skill、提示词模板和 `AGENTS.md`，也不加载被审查仓库自己的 pi 文件：否则这些内容在每次调用的每一轮都会重新发送一遍，而仓库自带的 pi 扩展会作为代码运行。`connect` 以及每次审查开始前，都会检查工具是否在 `PATH` 上并读取它的版本。是否已登录要到第一次调用才知道，这时报错会说明怎样登录，比如运行 `claude` 再执行 `/login`。
 
-token 数，以及工具报告了的费用（Claude Code 和 pi），都取自每次调用的输出，计入审查的预算。用量计入用户自己在该工具上的订阅或 key，和平时使用它一样。
+token 数，以及工具报告了的费用（Claude Code 和 pi），都取自每次调用的输出，计入审查的预算。用量计入用户自己在该工具上的订阅或 key，和平时使用它一样。三个工具统计的不是同一个量，所以数字之间不能比较，revmux 也有同样的提醒：Claude Code 和 pi 报告每一轮的输入，包括每轮重发的已缓存上下文，所以读很多文件的调用报告的数远大于实际花费；codex 每轮只报告一个不含缓存读取的总数。eyeful 不在审查开始前预测 token，因为大部分 token 取决于 agent 自己选择读哪些文件。
+
+和 revmux 一样，eyeful 按时间而不是按调用内的 token 来限制每次调用：2 分钟没有任何输出，或者总共运行了 20 分钟，就停止这次调用，记为失败。同一时间最多运行四个专家，每个专家等到空位后才检查预算，所以预算用完后不会再启动新的专家，只有已经在运行的调用可能超出预算。
 
 ## 本地模式的风险 {#local-risks}
 

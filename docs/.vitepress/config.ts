@@ -69,7 +69,7 @@ export default defineConfig({
 	},
 	sitemap: { hostname: site.href },
 	head: [
-		['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
+		['link', { rel: 'icon', type: 'image/png', href: `${base}eyeful.png` }],
 		['meta', { name: 'theme-color', content: '#3451b2' }],
 		['meta', { property: 'og:type', content: 'website' }],
 		['meta', { property: 'og:site_name', content: 'eyeful' }]
@@ -187,7 +187,7 @@ export default defineConfig({
 	},
 	vite: { plugins: [llmstxt({ domain: site.origin, ignoreFiles: ['zh/**'] })] },
 	themeConfig: {
-		logo: '/favicon.svg',
+		logo: '/eyeful.png',
 		search: {
 			provider: 'local',
 			options: {

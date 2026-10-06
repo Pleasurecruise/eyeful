@@ -6,8 +6,8 @@ hero:
   text: 以可执行证据为基础的多智能体代码审查
   tagline: '「只要眼睛足够多，bug 都是浅显的。」大多数项目没有那么多眼睛，eyeful 帮它们补上。'
   image:
-    src: /favicon.svg
-    alt: eyeful
+    src: /eyeful.png
+    alt: eyeful 水獭标志
   actions:
     - theme: brand
       text: 快速开始

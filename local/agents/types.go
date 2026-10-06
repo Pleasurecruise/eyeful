@@ -1,9 +1,11 @@
 package agents
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/prompts"
@@ -31,9 +33,17 @@ type Config struct {
 	Set      prompts.Set
 }
 
+type activity struct {
+	out   *bytes.Buffer
+	idle  *time.Timer
+	after time.Duration
+}
+
 type Agents struct {
-	cfg Config
-	log *slog.Logger
+	cfg  Config
+	log  *slog.Logger
+	idle time.Duration
+	hard time.Duration
 }
 
 type Agent struct {
@@ -55,6 +65,10 @@ type summaryReply struct {
 
 type reply interface {
 	workflow.Diagnosis | workflow.Plan | workflow.Report | fixReply | workflow.Judgement | summaryReply | commitReply
+}
+
+type claudeEvent struct {
+	Type string `json:"type"`
 }
 
 type claudeResult struct {
@@ -136,4 +150,6 @@ var (
 	ErrBadReply     = errors.New("the agent's reply is not the result asked for")
 	ErrFailed       = errors.New("the agent failed")
 	ErrNotInstalled = errors.New("agent not installed")
+	ErrIdle         = errors.New("the agent wrote nothing for too long")
+	ErrHardTimeout  = errors.New("the agent ran for too long")
 )

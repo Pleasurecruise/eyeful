@@ -97,7 +97,7 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 		return report.Output{}, err
 	}
 	defer removeSkills()
-	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Set: set})
+	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Set: set}, idleTimeout, hardTimeout)
 	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Workspace: ws, Archive: archive.New(filepath.Join(run, "stages"))}, req)
 	if err != nil {
 		return report.Output{}, err

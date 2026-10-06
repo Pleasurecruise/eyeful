@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Pleasurecruise/eyeful/local/agents"
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -72,6 +73,15 @@ func fake() error {
 	switch os.Getenv("FAKE_MODE") {
 	case "bad":
 		_, err = fmt.Println(`{"type":"result","subtype":"success","is_error":false,"result":"no json here","usage":{"input_tokens":1,"output_tokens":1}}`)
+	case "silent":
+		time.Sleep(30 * time.Second)
+	case "chatty":
+		for range 300 {
+			if _, err := fmt.Println(`{"type":"system"}`); err != nil {
+				return err
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
 	case "fail":
 		fmt.Fprintln(os.Stderr, "Invalid API key")
 		os.Exit(1)
@@ -111,7 +121,7 @@ func setup(t *testing.T, name, mode string) (*agents.Agents, string, string) {
 		t.Fatal(err)
 	}
 	p, _ := agents.Find(name)
-	return agents.New(slog.New(slog.DiscardHandler), agents.Config{Provider: p, Dir: repo, Skills: skills, Set: set}), out, repo
+	return agents.New(slog.New(slog.DiscardHandler), agents.Config{Provider: p, Dir: repo, Skills: skills, Set: set}, 2*time.Second, 5*time.Second), out, repo
 }
 
 func calls(t *testing.T, out string) []call {
@@ -143,9 +153,9 @@ func TestProviders(t *testing.T) {
 		usage  workflow.Usage
 		apiKey bool
 	}{
-		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence"}, workflow.Usage{Model: "claude-opus-5", Tokens: 125, MicroUSD: 250000}, false},
-		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral"}, workflow.Usage{Model: "codex", Tokens: 340}, true},
-		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, MicroUSD: 30000}, true},
+		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence", "--disable-slash-commands"}, workflow.Usage{Model: "claude-opus-5", Tokens: 125, MicroUSD: 250000}, false},
+		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral", "--ignore-user-config", "--disable plugins", "-c project_doc_max_bytes=0"}, workflow.Usage{Model: "codex", Tokens: 340}, true},
+		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls", "--no-mcp", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, MicroUSD: 30000}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a, out, repo := setup(t, tt.name, "ok")
@@ -204,5 +214,27 @@ func TestDetect(t *testing.T) {
 	c, _ := agents.Find("claude")
 	if _, err := agents.Detect(t.Context(), c); !errors.Is(err, agents.ErrNotInstalled) {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestLimits(t *testing.T) {
+	for _, tt := range []struct {
+		mode string
+		want error
+	}{
+		{"silent", agents.ErrIdle},
+		{"chatty", agents.ErrHardTimeout},
+	} {
+		t.Run(tt.mode, func(t *testing.T) {
+			a, _, _ := setup(t, "claude", tt.mode)
+			start := time.Now()
+			_, _, err := a.Review(t.Context(), task)
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("got %v, want %v", err, tt.want)
+			}
+			if took := time.Since(start); took > 15*time.Second {
+				t.Fatalf("stopped after %s", took)
+			}
+		})
 	}
 }

@@ -35,11 +35,29 @@ func Connect(ctx context.Context, name string) (agents.Agent, error) {
 	if err != nil {
 		return agents.Agent{}, err
 	}
-	return a, update(func(s *settings.Settings) { s.Agent = name })
+	path, err := settings.Path()
+	if err != nil {
+		return agents.Agent{}, err
+	}
+	s, err := settings.Load(path)
+	if err != nil {
+		return agents.Agent{}, err
+	}
+	s.Agent = name
+	return a, settings.Save(path, s)
 }
 
 func Remember(dir string) error {
-	return update(func(s *settings.Settings) { s.Repository = dir })
+	path, err := settings.Path()
+	if err != nil {
+		return err
+	}
+	s, err := settings.Load(path)
+	if err != nil {
+		return err
+	}
+	s.Repository = dir
+	return settings.Save(path, s)
 }
 
 func Repository(ctx context.Context, dir string) (string, error) {
@@ -51,19 +69,6 @@ func Repository(ctx context.Context, dir string) (string, error) {
 		return dir, err
 	}
 	return s.Repository, nil
-}
-
-func update(change func(*settings.Settings)) error {
-	path, err := settings.Path()
-	if err != nil {
-		return err
-	}
-	s, err := settings.Load(path)
-	if err != nil {
-		return err
-	}
-	change(&s)
-	return settings.Save(path, s)
 }
 
 func Current() (settings.Settings, error) {

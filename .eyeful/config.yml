@@ -9,3 +9,10 @@ risk:
   - internal/scheduler/**
   - internal/server/**
   - db/migrations/**
+skip:
+  - workflow/prompts/skills/**
+  - packages/ui/src/lib/components/ui/**
+  - packages/sdk/src/**
+  - spec/swagger.*
+  - apps/desktop/build/**
+  - docs/zh/**

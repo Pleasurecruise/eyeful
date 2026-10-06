@@ -69,8 +69,9 @@ checked out opens that worktree, and a branch that is not checked out anywhere c
 against. The changed files are a flat list, as in GitHub Desktop, so a deep path never hides a file name. Commit is available only while the subject is the uncommitted changes. The file list
 and the review panel beside the diff can be resized and collapsed; the review panel opens when a
 review starts. The diff is the
-subject's, read the same way as the review reads it. Cancelling stops the review the way Ctrl-C
-does. The run directory and its files are the same as the command's.
+subject's, read the same way as the review reads it, and is read again whenever the window
+regains focus, so a commit made elsewhere shows at once. Once a review starts, its button shows that it is
+running and the review runs to the end, as a commit does; Ctrl-C still stops `eyeful review`. The run directory and its files are the same as the command's.
 
 ## What can be reviewed {#what-can-be-reviewed}
 
@@ -154,22 +155,34 @@ No MCP server is configured for the agent: MCP is served only by the cloud ([API
 Because the agent cannot run commands, the only commands that run are the confirmed project
 commands, in the snapshot's checkout; the agent hands in a reproduction and the verifier runs it.
 
-| Agent  | Run as                                                                                                                  | Read-only through           | Result                                                         | Model                                       |
-| ------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| claude | `claude -p --output-format json --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project` | `--tools Read,Grep,Glob`    | `structured_output`, checked by Claude Code against the schema | an expert's tier: `haiku`, `sonnet`, `opus` |
-| codex  | `codex exec --json --ephemeral --skip-git-repo-check -`                                                                 | `--sandbox read-only`       | the last `agent_message`                                       | Codex's default                             |
-| pi     | `pi --mode json --no-session`                                                                                           | `--tools read,grep,find,ls` | the last assistant message                                     | pi's default                                |
+| Agent  | Run as                                                                                                                                                                                                     | Read-only through           | Result                                                         | Model                                       |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
+| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --disable-slash-commands`               | `--tools Read,Grep,Glob`    | `structured_output`, checked by Claude Code against the schema | an expert's tier: `haiku`, `sonnet`, `opus` |
+| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -` | `--sandbox read-only`       | the last `agent_message`                                       | Codex's default                             |
+| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                   | `--tools read,grep,find,ls` | the last assistant message                                     | pi's default                                |
 
 Each tool uses the sign-in it already has. eyeful removes `ANTHROPIC_API_KEY` from Claude Code's
 environment, as revmux does, so a key set for other programs does not turn a review into billed API
 use, and `--setting-sources project` keeps the user's own Claude Code settings, hooks and MCP servers
-out of the review. `connect`, and every review before it starts, checks that the tool is on the
+out of the review. `--disable-slash-commands` turns off every skill but eyeful's, which reach the agent as files. codex runs without the user's `config.toml` (so with Codex's default model), rules, hooks, plugins, apps or `AGENTS.md`. pi likewise runs without the user's MCP servers, extensions, skills, prompt
+templates and `AGENTS.md` files, and without the reviewed repository's own pi files: each of those
+would otherwise be sent again on every turn of every call, and a repository's pi extension would run
+as code. `connect`, and every review before it starts, checks that the tool is on the
 `PATH` and reads its version. Whether it is signed in shows on the first call, and the error then
 says how to sign in, such as running `claude` and `/login`.
 
 Tokens, and the cost where the tool reports it (Claude Code and pi), come from each call's output
 and count against the review's budget. Usage is billed to the user's own subscription or key for
-that tool, like any other use of it.
+that tool, like any other use of it. The three tools do not count the same thing, so their numbers
+are not comparable, the way revmux warns: Claude Code and pi report every turn's input including
+the cached context it re-sends, so a call that reads many files reports far more than it costs,
+while codex reports one total per turn without cache reads. eyeful does not predict a review's
+tokens before it runs, because the files an agent chooses to read decide most of them.
+
+Like revmux, eyeful bounds each call by time rather than by tokens inside the call: a call that
+writes nothing for 2 minutes, or runs for 20 minutes, is stopped and counts as failed. At most four
+experts run at once, and each waits for a free place before it checks the budget, so once the
+budget is spent no further expert starts and only the calls already running can go over it.
 
 ## Local risks {#local-risks}
 

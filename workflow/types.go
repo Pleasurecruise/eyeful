@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+const maxParallel = 4
+
 type Level string
 
 const (
@@ -239,11 +241,13 @@ type Group struct {
 	Scope    int      `json:"scope"`
 	Category string   `json:"category"`
 	Summary  string   `json:"summary"`
+	Core     bool     `json:"core"`
 	Files    []string `json:"files"`
 	Experts  []Pick   `json:"experts"`
 }
 
 type Plan struct {
+	Summary    string  `json:"summary"`
 	Groups     []Group `json:"groups"`
 	Skipped    []Pick  `json:"skipped"`
 	Confidence float64 `json:"confidence"`
@@ -425,18 +429,19 @@ type DiagnoseTask struct {
 }
 
 type PlanTask struct {
-	Files      []File       `json:"-"`
-	Truncated  bool         `json:"-"`
-	Manifest   []Entry      `json:"manifest"`
-	Commits    []string     `json:"commits"`
-	Tools      []ToolResult `json:"tools"`
-	Experts    []string     `json:"experts"`
-	MaxExperts int          `json:"max_experts"`
-	Rejected   []string     `json:"rejected"`
+	Files     []File       `json:"-"`
+	Truncated bool         `json:"-"`
+	Level     Level        `json:"level"`
+	Manifest  []Entry      `json:"manifest"`
+	Commits   []string     `json:"commits"`
+	Tools     []ToolResult `json:"tools"`
+	Experts   []string     `json:"experts"`
+	Rejected  []string     `json:"rejected"`
 }
 
 type ReviewTask struct {
 	Expert   Expert       `json:"expert"`
+	Level    Level        `json:"level"`
 	Tier     Tier         `json:"tier"`
 	Group    Group        `json:"group"`
 	Plan     Plan         `json:"plan"`
@@ -495,6 +500,7 @@ type Workflow struct {
 
 type limits struct {
 	experts  int
+	nits     bool
 	planner  bool
 	verify   bool
 	full     bool

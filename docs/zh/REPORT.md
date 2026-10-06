@@ -80,7 +80,7 @@ GitHub 上的输出以及控制台的展示还在计划中。
 
 ## 终端里的输出 {#terminal}
 
-`eyeful review` 展示发现的方式参照 Claude Code 的 ultrareview。开头是数量统计（没有阻塞问题时写 "No blocking issues"），以及按严重程度排序的表格：
+`eyeful review` 展示发现的方式参照 Claude Code 的 ultrareview。开头是数量统计，然后像 pulls.review 那样，在任何评论之前先说明这次改动干了什么：规划器写的概述，以及各分组的表格，核心组在前，每组列出类别、文件为什么改和文件列表。接着是 "No blocking issues"（没有阻塞问题时），或者按严重程度排序的发现表格：
 
 ```text
 | Severity     | File:Line            | Issue                                     |

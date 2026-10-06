@@ -23,10 +23,10 @@ import (
 )
 
 var replies = map[string]string{
-	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"low","subject":"Say what changed.","discussion":"d","evidence":"argument"}]}`,
+	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"medium","subject":"Say what changed.","discussion":"d","evidence":"argument"}]}`,
 	"`submit_judgement`": `{"valid":true,"reason":"r"}`,
 	"`submit_commit`":    `{"message":"fix: write two\n\nThe value changed."}`,
-	"`submit_comments`":  `{"comments":[{"finding":"0/correctness/0","label":"nitpick","short":"Say what changed","subject":"Say what changed.","discussion":"d"}]}`,
+	"`submit_comments`":  `{"comments":[{"finding":"0/correctness/0","label":"suggestion","short":"Say what changed","subject":"Say what changed.","discussion":"d"}]}`,
 }
 
 func fakeClaude() error {

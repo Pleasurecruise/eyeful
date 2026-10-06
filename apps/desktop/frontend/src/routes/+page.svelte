@@ -40,7 +40,6 @@
 		PanelRightClose,
 		PanelRightOpen,
 		Play,
-		Square,
 		Sun
 	} from '@lucide/svelte';
 	import { CancelError, Events, System, type CancellablePromise } from '@wailsio/runtime';
@@ -262,6 +261,7 @@
 </script>
 
 <svelte:head><title>{m.changes()} · eyeful</title></svelte:head>
+<svelte:window onfocus={() => pending === null && committing === false && load()} />
 
 <div class="flex h-svh flex-col overflow-hidden bg-background text-foreground">
 	<header
@@ -592,19 +592,15 @@
 {/snippet}
 
 {#snippet startButton(className: string)}
-	{#if pending}
-		<Button variant="outline" size="sm" class={className} onclick={() => pending?.cancel()}>
-			<Spinner />
-			{m.reviewing()}
-			<Square />
-			{m.cancel()}
-		</Button>
-	{:else}
-		<Button size="sm" class={className} disabled={!agent || !changes?.files.length} onclick={start}>
-			<Play />
-			{#if agent}{m.start_review()}{:else}{m.connect_first()}{/if}
-		</Button>
-	{/if}
+	<Button
+		size="sm"
+		class={className}
+		disabled={!agent || !changes?.files.length || pending !== null}
+		onclick={start}
+	>
+		{#if pending}<Spinner />{m.reviewing()}{:else}<Play
+			/>{#if agent}{m.start_review()}{:else}{m.connect_first()}{/if}{/if}
+	</Button>
 {/snippet}
 
 {#snippet reviewInline()}

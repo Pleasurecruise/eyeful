@@ -105,8 +105,10 @@ The GitHub outputs and the console view are planned.
 
 ## In the terminal {#terminal}
 
-`eyeful review` presents findings the way Claude Code's ultrareview does. It opens with the counts,
-or "No blocking issues", and a table sorted by severity:
+`eyeful review` presents findings the way Claude Code's ultrareview does. It opens with the counts
+and, as pulls.review does before any comment, what the change does: the planner's summary and a
+table of its groups, core groups first, each with its category, why its files changed and the files.
+Then comes "No blocking issues" or a table of findings sorted by severity:
 
 ```text
 | Severity     | File:Line            | Issue                                     |
