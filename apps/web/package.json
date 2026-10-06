@@ -1,0 +1,42 @@
+{
+	"name": "@eyeful/web",
+	"version": "0.0.1",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"imports": {
+		"#i18n": "./src/lib/paraglide/messages.js",
+		"#i18n/runtime": "./src/lib/paraglide/runtime.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vp dev",
+		"build": "vp build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\"",
+		"preview": "vp preview",
+		"prepare": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations",
+		"typecheck": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json",
+		"typecheck:watch": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json --watch"
+	},
+	"dependencies": {
+		"@eyeful/sdk": "workspace:*",
+		"@eyeful/ui": "workspace:*",
+		"@lucide/svelte": "1.51.0"
+	},
+	"devDependencies": {
+		"@iconify-json/simple-icons": "1.2.98",
+		"@inlang/paraglide-js": "catalog:",
+		"@sveltejs/adapter-static": "4.0.0",
+		"@sveltejs/kit": "3.0.0",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@tailwindcss/vite": "4.3.3",
+		"@types/node": "26.6.4",
+		"@typescript/native": "npm:typescript@7.0.2",
+		"svelte": "catalog:",
+		"svelte-check": "4.7.6",
+		"tailwindcss": "4.3.3",
+		"typescript": "6.0.3",
+		"unplugin-icons": "24.0.0",
+		"vite": "catalog:",
+		"vite-plus": "catalog:"
+	}
+}

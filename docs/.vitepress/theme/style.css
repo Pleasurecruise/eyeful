@@ -1,0 +1,121 @@
+:root {
+	scrollbar-color: var(--vp-c-gray-1) transparent;
+}
+
+.vp-doc div[class*='language-'] pre,
+.vp-doc table,
+.vp-doc .mermaid,
+.VPSidebar,
+.VPDocAsideOutline {
+	scrollbar-width: thin;
+	scrollbar-color: var(--vp-c-gray-1) transparent;
+}
+
+.vp-doc div[class*='language-'] > button.copy {
+	top: 8px;
+	right: 8px;
+	width: 32px;
+	height: 32px;
+	background-size: 16px;
+	border-color: var(--vp-c-divider);
+	background-color: var(--vp-c-bg);
+}
+
+.vp-doc .mermaid {
+	margin: 20px 0;
+	padding: 20px 16px;
+	overflow-x: auto;
+	border-radius: 8px;
+	background-color: var(--vp-c-bg-alt);
+}
+
+.vp-doc .mermaid svg {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0 auto;
+}
+
+.vp-doc .mermaid :is(p, span, div) {
+	margin: 0;
+	line-height: 1.5;
+}
+
+.vp-doc blockquote {
+	padding: 12px 16px;
+	border-left: 3px solid var(--vp-c-brand-1);
+	border-radius: 0 8px 8px 0;
+	background-color: var(--vp-c-bg-soft);
+}
+
+.vp-doc blockquote > p {
+	color: var(--vp-c-text-1);
+}
+
+@media (max-width: 639px) {
+	.vp-doc .mermaid {
+		margin: 20px -24px;
+		border-radius: 0;
+	}
+
+	.vp-doc .mermaid svg {
+		max-width: none;
+	}
+}
+
+.vp-doc table {
+	border-collapse: collapse;
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.vp-doc tr {
+	border-top: none;
+	border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.vp-doc tr:nth-child(2n) {
+	background-color: transparent;
+}
+
+.vp-doc th,
+.vp-doc td {
+	border: none;
+	padding: 10px 12px;
+	vertical-align: top;
+}
+
+.vp-doc th {
+	background-color: transparent;
+	border-bottom: 2px solid var(--vp-c-divider);
+	color: var(--vp-c-text-1);
+	font-weight: 600;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.vp-doc tbody tr:hover {
+	background-color: var(--vp-c-bg-soft);
+}
+
+.vp-doc td:first-child {
+	font-weight: 500;
+	color: var(--vp-c-text-1);
+}
+
+.vp-doc .highlighted-word {
+	padding: 1px 3px;
+	border-radius: 4px;
+	background-color: var(--vp-c-brand-soft);
+}
+
+.vp-doc div[class*='language-'] pre {
+	overflow-x: hidden;
+	white-space: pre-wrap;
+}
+
+.vp-doc div[class*='language-'] code {
+	width: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}

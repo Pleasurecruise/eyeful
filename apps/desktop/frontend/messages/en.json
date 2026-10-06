@@ -1,0 +1,124 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"changes": "Changes",
+	"file_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} file",
+				"countPlural=other": "{count} files"
+			}
+		}
+	],
+	"unified": "Unified",
+	"split": "Split",
+	"language": "Language",
+	"cannot_read": "The changes cannot be read",
+	"no_changes": "No changes in {root}.",
+	"cannot_open": "Cannot open the repository",
+	"open_repository": "Open repository",
+	"subject": "What to review",
+	"base": "Base",
+	"base_hint": "Branch or commit to compare against; the merge base with the head is used.",
+	"head": "Head",
+	"head_hint": "Commit or branch to review; empty reviews uncommitted changes.",
+	"apply": "Apply",
+	"agent": "Agent",
+	"no_agent": "No agent",
+	"not_installed": "{tool} is not on PATH",
+	"connected": "Connected to {name} {version}. Reviews now use it.",
+	"cannot_connect": "Cannot connect {name}",
+	"experts": "Experts",
+	"planner_chooses": "Chosen by the planner",
+	"expert_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} expert",
+				"countPlural=other": "{count} experts"
+			}
+		}
+	],
+	"verification": "Verification",
+	"mode_read_only": "Judge agent",
+	"mode_read_only_hint": "A judge agent reads the code and decides whether each finding is real.",
+	"mode_execution": "Run tests",
+	"mode_execution_hint": "Each reproduction runs in a checkout of the snapshot, after you confirm the project commands.",
+	"mode_none": "None",
+	"mode_none_hint": "Findings are not checked.",
+	"review": "Review",
+	"cancel": "Cancel",
+	"reviewing": "Reviewing",
+	"review_failed": "The review failed",
+	"connect_first": "Connect an agent to review.",
+	"confirm_title": "Run the project commands?",
+	"confirm_description": "They come from .eyeful/config.yml and run only in a checkout of the snapshot that is reset after every run and removed at the end. eyeful does not ask again until they change.",
+	"run": "Run",
+	"findings": "Findings",
+	"log": "Log",
+	"not_reviewed_yet": "Not reviewed yet",
+	"not_reviewed_yet_hint": "Choose the experts and the verification, then start a review.",
+	"no_findings": "No findings",
+	"no_findings_hint": "The experts found nothing to report.",
+	"important": "Important",
+	"nit": "Nit",
+	"confirmed": "Confirmed",
+	"plausible": "Plausible",
+	"outcome_complete": "Complete",
+	"outcome_none": "Nothing to review",
+	"outcome_ci_failed": "CI failed",
+	"outcome_partial": "Partial",
+	"files_not_reviewed": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} file not reviewed",
+				"countPlural=other": "{count} files not reviewed"
+			}
+		}
+	],
+	"why": "Why",
+	"failure_scenario": "Failure scenario",
+	"how_verified": "Verification",
+	"empty_log": "Output from the review appears here.",
+	"uncertainty": "Uncertainty",
+	"absent": "{expert} did not review: {reason}",
+	"unread": "{expert} did not load {skill}",
+	"unverified": "{finding} was not verified: {reason}",
+	"dismissed": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} finding dismissed",
+				"countPlural=other": "{count} findings dismissed"
+			}
+		}
+	],
+	"budget_exhausted": "The token budget ran out; only what was verified is listed.",
+	"theme": "Theme",
+	"theme_light": "Light",
+	"theme_dark": "Dark",
+	"theme_system": "System",
+	"files": "Files",
+	"review_panel": "Review panel",
+	"review_options": "Review options",
+	"detached": "Detached HEAD",
+	"worktrees": "Worktrees",
+	"compare_with": "Compare with",
+	"uncommitted_only": "Uncommitted changes only",
+	"custom_range": "Custom range",
+	"commit_summary": "Summary",
+	"commit_description": "Description",
+	"generate_message": "Generate commit message",
+	"commit": "Commit",
+	"commit_to": "Commit to {branch}",
+	"committed": "Committed {commit}.",
+	"cannot_commit": "Cannot commit",
+	"cannot_generate": "Cannot generate the message",
+	"filter_files": "Filter changed files",
+	"start_review": "Start review"
+}

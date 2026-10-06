@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.0.1"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "0.0.1",
+			"CompanyName": "Pleasurecruise",
+			"FileDescription": "Multi-agent code review with executable evidence",
+			"LegalCopyright": "(c) 2026, Pleasurecruise",
+			"ProductName": "eyeful",
+			"Comments": "Multi-agent code review with executable evidence"
+		}
+	}
+}

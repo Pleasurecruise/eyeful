@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: eyeful
+          POSTGRES_PASSWORD: eyeful
+          POSTGRES_DB: eyeful_test
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U eyeful" --health-interval 2s --health-retries 30
+    env:
+      EYEFUL_TEST_DATABASE_URL: postgres://eyeful:eyeful@localhost:5432/eyeful_test?sslmode=disable
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install the desktop's webview
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: install the toolchain
+        uses: jdx/mise-action@v5
+
+      - name: install dependencies
+        run: mise run setup
+
+      - name: lint, test and check generated files
+        run: mise run check

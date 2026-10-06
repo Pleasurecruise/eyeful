@@ -1,0 +1,16 @@
+{
+	"name": "@eyeful/sdk",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./client": "./src/client.gen.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@typescript/native": "npm:typescript@7.0.2"
+	}
+}

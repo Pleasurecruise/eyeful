@@ -1,0 +1,60 @@
+# Build output and project-local tools
+/bin/
+/.tools/
+/dist/
+/apps/web/dist/*
+!/apps/web/dist/.gitkeep
+/apps/desktop/frontend/dist/*
+!/apps/desktop/frontend/dist/.gitkeep
+/apps/desktop/frontend/bindings/
+/apps/desktop/frontend/.bindings-tmp-*/
+/apps/desktop/desktop
+/apps/desktop/bin/
+/apps/desktop/build/linux/appimage/build/
+/apps/desktop/build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+.task/
+
+# Go
+*.test
+*.out
+*.prof
+/coverage.*
+/coverage/
+
+# Node
+node_modules/
+.svelte-kit/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+.vite/
+vite.config.*.timestamp-*
+*.tsbuildinfo
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+
+# Python (eval)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local
+.env
+.env.*
+!.env.example
+mise.local.toml
+.mise.local.toml
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Go workspaces are per developer (go.dev/ref/mod#workspaces)
+go.work
+go.work.sum
+
+# Agent verification evidence
+.agents/evidence/

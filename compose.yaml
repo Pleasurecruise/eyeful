@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: eyeful
+      POSTGRES_PASSWORD: eyeful
+      POSTGRES_DB: eyeful
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'eyeful']
+      interval: 2s
+      retries: 30
+
+  server:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      EYEFUL_DATABASE_URL: postgres://eyeful:eyeful@postgres:5432/eyeful?sslmode=disable
+      EYEFUL_PUBLIC_URL: http://localhost:8080
+      EYEFUL_INSECURE_COOKIES: 'true'
+      EYEFUL_TOKEN_KEY:
+      EYEFUL_GITHUB_CLIENT_ID:
+      EYEFUL_GITHUB_CLIENT_SECRET:
+      EYEFUL_GITEE_CLIENT_ID:
+      EYEFUL_GITEE_CLIENT_SECRET:
+    ports:
+      - '8080:8080'
+    profiles: [server]
+
+volumes:
+  postgres:

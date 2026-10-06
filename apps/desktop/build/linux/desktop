@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=eyeful
+Comment=Multi-agent code review with executable evidence
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/eyeful %u
+Terminal=false
+Type=Application
+Icon=eyeful
+Categories=Utility;
+StartupWMClass=eyeful
+
+ 

@@ -1,0 +1,132 @@
+version: '2'
+
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - forbidigo
+    - gochecknoinits
+    - gocritic
+    - gocyclo
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - makezero
+    - misspell
+    - modernize
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - perfsprint
+    - predeclared
+    - prealloc
+    - reassign
+    - revive
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wrapcheck
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^any$
+          msg: use a concrete type, a union constraint, or TODO(area) for an undesigned type
+        - pattern: ^interface\{\}$
+          msg: use a concrete type
+    gocyclo:
+      min-complexity: 15
+    nakedret:
+      max-func-lines: 0
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: use-any
+    wrapcheck:
+      ignore-sig-regexps:
+        - \.Errorf\(
+        - errors\.New\(
+        - errors\.Join\(
+        - apperror\.
+        - github\.com/labstack/echo/v5\.Context\)\.(JSON|NoContent|Blob|HTML|Redirect)\(
+        - \.Err\(\)
+      ignore-package-globs:
+        - github.com/Pleasurecruise/eyeful/*
+  exclusions:
+    rules:
+      # cipher.NewGCMWithRandomNonce takes a nil nonce and draws a random one itself.
+      - path: internal/auth/seal\.go
+        linters: [gosec]
+        text: G407
+      # Error code names such as api_key_not_found and provider token URLs are not secrets.
+      - path: internal/(apperror/|auth/types\.go)
+        linters: [gosec]
+        text: G101
+      # Secure follows --insecure-cookies, which exists for plain-http local development.
+      - path: internal/handlers/(sessions|oauth)\.go
+        linters: [gosec]
+        text: G124
+      # git runs fixed subcommands in the repository the caller chose.
+      - path: local/git/git\.go
+        linters: [gosec]
+        text: G204
+      # subject reads the index of the repository the caller chose.
+      - path: subject/read\.go
+        linters: [gosec]
+        text: G304|G703
+      # The agent CLI is the one the user connected; project commands are the ones the user confirmed.
+      - path: local/(agents/agents|worktree/workspace)\.go
+        linters: [gosec]
+        text: G204
+      # The desktop asks the user's own login shell for PATH and logs where it looked.
+      - path: apps/desktop/main\.go
+        linters: [gosec]
+        text: G204|G702|G706
+      # Paths are built by eyeful: the run archive, the project config, the settings file.
+      - path: (local/(archive/archive|store/store|settings/settings)|workflow/project/project)\.go
+        linters: [gosec]
+        text: G304
+      # A failed agent or test run is recorded in the stage output, which the stage then returns.
+      - path: workflow/(expert|summary|verify)\.go
+        linters: [nilerr]
+      - path: _test\.go
+        linters: [gosec, wrapcheck, gocyclo]
+      - path: internal/db/sqlc/
+        linters: [forbidigo]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Pleasurecruise/eyeful
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

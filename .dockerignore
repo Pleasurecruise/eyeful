@@ -1,0 +1,9 @@
+.git
+bin
+node_modules
+**/node_modules
+apps/web/dist
+apps/web/.svelte-kit
+apps/desktop
+.env
+.env.*

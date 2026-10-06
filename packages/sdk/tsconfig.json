@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"module": "preserve",
+		"target": "esnext",
+		"types": [],
+		"noEmit": true,
+		"noUncheckedIndexedAccess": true,
+		"strict": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"noUncheckedSideEffectImports": true,
+		"moduleDetection": "force",
+		"skipLibCheck": true
+	},
+	"include": ["src"]
+}

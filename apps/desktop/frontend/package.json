@@ -1,0 +1,41 @@
+{
+	"name": "@eyeful/desktop",
+	"version": "0.0.1",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"imports": {
+		"#i18n": "./src/lib/paraglide/messages.js",
+		"#i18n/runtime": "./src/lib/paraglide/runtime.js",
+		"#bindings": "./bindings/github.com/Pleasurecruise/eyeful/apps/desktop/index.ts",
+		"#bindings/*": "./bindings/github.com/Pleasurecruise/eyeful/*/index.ts",
+		"#bindings-events": "./bindings/github.com/wailsapp/wails/v3/internal/eventcreate.ts",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vp dev",
+		"build": "vp build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\"",
+		"build:dev": "vp build --mode development && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\"",
+		"prepare": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations",
+		"typecheck": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json"
+	},
+	"dependencies": {
+		"@eyeful/ui": "workspace:*",
+		"@lucide/svelte": "1.51.0",
+		"@wailsio/runtime": "3.0.0-beta.27"
+	},
+	"devDependencies": {
+		"@inlang/paraglide-js": "catalog:",
+		"@sveltejs/adapter-static": "4.0.0",
+		"@sveltejs/kit": "3.0.0",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@tailwindcss/vite": "4.3.3",
+		"@typescript/native": "npm:typescript@7.0.2",
+		"svelte": "catalog:",
+		"svelte-check": "4.7.6",
+		"tailwindcss": "4.3.3",
+		"typescript": "6.0.3",
+		"vite": "catalog:",
+		"vite-plus": "catalog:"
+	}
+}

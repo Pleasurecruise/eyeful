@@ -1,0 +1,1422 @@
+components:
+  schemas:
+    APIKey:
+      properties:
+        created_at:
+          type: string
+        id:
+          example: key_4n8q2w6e1r5t9y3u
+          type: string
+        last_used_at:
+          type: string
+        name:
+          type: string
+        prefix:
+          example: eyf_a1b2c3
+          type: string
+      required:
+      - created_at
+      - id
+      - name
+      - prefix
+      type: object
+    APIKeyList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/APIKey'
+          type: array
+          uniqueItems: false
+      required:
+      - items
+      type: object
+    Commit:
+      properties:
+        commit:
+          $ref: '#/components/schemas/GitCommit'
+        html_url:
+          type: string
+        parents:
+          items:
+            $ref: '#/components/schemas/CommitParent'
+          type: array
+          uniqueItems: false
+        sha:
+          type: string
+      required:
+      - commit
+      - html_url
+      - parents
+      - sha
+      type: object
+    CommitDiff:
+      properties:
+        diff:
+          type: string
+      required:
+      - diff
+      type: object
+    CommitParent:
+      properties:
+        sha:
+          type: string
+      required:
+      - sha
+      type: object
+    CreateAPIKeyRequest:
+      properties:
+        name:
+          example: ci
+          type: string
+      required:
+      - name
+      type: object
+    CreateReviewRequest:
+      properties:
+        note:
+          example: focus on auth
+          type: string
+        source:
+          $ref: '#/components/schemas/Source'
+      required:
+      - source
+      type: object
+    CreatedAPIKey:
+      properties:
+        key:
+          $ref: '#/components/schemas/APIKey'
+        secret:
+          example: eyf_…
+          type: string
+      required:
+      - key
+      - secret
+      type: object
+    CurrentSession:
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        via:
+          enum:
+          - session
+          - api_key
+          type: string
+      required:
+      - user
+      - via
+      type: object
+    ErrorCode:
+      enum:
+      - bad_request
+      - unauthenticated
+      - not_found
+      - method_not_allowed
+      - internal
+      - unavailable
+      - review_not_found
+      - idempotency_conflict
+      - rate_limited
+      - invalid_credentials
+      - email_taken
+      - invalid_email
+      - weak_password
+      - api_key_not_found
+      - session_not_found
+      - review_running
+      - origin_forbidden
+      - repository_not_found
+      - provider_not_linked
+      - provider_expired
+      type: string
+      x-enum-varnames:
+      - CodeBadRequest
+      - CodeUnauthenticated
+      - CodeNotFound
+      - CodeMethodNotAllowed
+      - CodeInternal
+      - CodeUnavailable
+      - CodeReviewNotFound
+      - CodeIdempotencyConflict
+      - CodeRateLimited
+      - CodeInvalidCredentials
+      - CodeEmailTaken
+      - CodeInvalidEmail
+      - CodeWeakPassword
+      - CodeAPIKeyNotFound
+      - CodeSessionNotFound
+      - CodeReviewRunning
+      - CodeOriginForbidden
+      - CodeRepositoryNotFound
+      - CodeProviderNotLinked
+      - CodeProviderExpired
+    GitCommit:
+      properties:
+        author:
+          $ref: '#/components/schemas/GitUser'
+        committer:
+          $ref: '#/components/schemas/GitUser'
+        message:
+          type: string
+        tree:
+          $ref: '#/components/schemas/TreeRef'
+      required:
+      - message
+      - tree
+      type: object
+    GitTree:
+      properties:
+        sha:
+          type: string
+        tree:
+          items:
+            $ref: '#/components/schemas/GitTreeEntry'
+          type: array
+          uniqueItems: false
+        truncated:
+          type: boolean
+      required:
+      - sha
+      - tree
+      - truncated
+      type: object
+    GitTreeEntry:
+      properties:
+        mode:
+          type: string
+        path:
+          type: string
+        sha:
+          type: string
+        size:
+          type: integer
+        type:
+          example: blob
+          type: string
+      required:
+      - mode
+      - path
+      - sha
+      - type
+      type: object
+    GitUser:
+      properties:
+        date:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+      type: object
+    HealthResponse:
+      properties:
+        status:
+          example: ok
+          type: string
+        version:
+          example: 0.1.0
+          type: string
+      required:
+      - status
+      - version
+      type: object
+    Installation:
+      properties:
+        account:
+          $ref: '#/components/schemas/InstallationAccount'
+        html_url:
+          example: https://github.com/settings/installations/1
+          type: string
+        id:
+          type: integer
+        repository_selection:
+          enum:
+          - all
+          - selected
+          type: string
+        target_type:
+          example: User
+          type: string
+      required:
+      - html_url
+      - id
+      - repository_selection
+      - target_type
+      type: object
+    InstallationAccount:
+      properties:
+        login:
+          example: octo
+          type: string
+      required:
+      - login
+      type: object
+    OAuthProvider:
+      properties:
+        id:
+          enum:
+          - github
+          - gitee
+          example: github
+          type: string
+        title:
+          example: GitHub
+          type: string
+      required:
+      - id
+      - title
+      type: object
+    OAuthProviderList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/OAuthProvider'
+          type: array
+          uniqueItems: false
+      required:
+      - items
+      type: object
+    Problem:
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+          example: review_not_found
+        detail:
+          example: review r_123 does not exist
+          type: string
+        request_id:
+          type: string
+        status:
+          example: 404
+          type: integer
+        title:
+          example: Not Found
+          type: string
+        type:
+          example: about:blank
+          type: string
+      required:
+      - code
+      - status
+      - title
+      - type
+      type: object
+    Repository:
+      properties:
+        default_branch:
+          example: main
+          type: string
+        full_name:
+          example: octo/app
+          type: string
+        html_url:
+          type: string
+        name:
+          example: app
+          type: string
+        owner:
+          $ref: '#/components/schemas/RepositoryOwner'
+        private:
+          type: boolean
+      required:
+      - default_branch
+      - full_name
+      - html_url
+      - name
+      - owner
+      - private
+      type: object
+    RepositoryList:
+      properties:
+        installations:
+          items:
+            $ref: '#/components/schemas/Installation'
+          type: array
+          uniqueItems: false
+        items:
+          items:
+            $ref: '#/components/schemas/Repository'
+          type: array
+          uniqueItems: false
+      required:
+      - installations
+      - items
+      type: object
+    RepositoryOwner:
+      properties:
+        login:
+          example: octo
+          type: string
+      required:
+      - login
+      type: object
+    Review:
+      properties:
+        attempts:
+          type: integer
+        created_at:
+          type: string
+        finished_at:
+          type: string
+        id:
+          example: r_9f2c1a7b3e5d4c60
+          type: string
+        note:
+          type: string
+        reason:
+          example: the review pipeline is not implemented yet
+          type: string
+        result:
+          enum:
+          - complete
+          - none
+          type: string
+        source:
+          $ref: '#/components/schemas/Source'
+        started_at:
+          type: string
+        status:
+          enum:
+          - queued
+          - running
+          - done
+          type: string
+      required:
+      - attempts
+      - created_at
+      - id
+      - source
+      - status
+      type: object
+    ReviewList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Review'
+          type: array
+          uniqueItems: false
+      required:
+      - items
+      type: object
+    Session:
+      properties:
+        created_at:
+          type: string
+        expires_at:
+          type: string
+        id:
+          example: ses_7d2k9m4p1q8r3t6v
+          type: string
+        ip:
+          type: string
+        user_agent:
+          type: string
+      required:
+      - created_at
+      - expires_at
+      - id
+      type: object
+    SessionList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Session'
+          type: array
+          uniqueItems: false
+      required:
+      - items
+      type: object
+    Source:
+      properties:
+        base:
+          example: main
+          type: string
+        head:
+          example: feature/login
+          type: string
+        repo:
+          example: octo/app
+          type: string
+      required:
+      - base
+      - head
+      - repo
+      type: object
+    TreeRef:
+      properties:
+        sha:
+          type: string
+      required:
+      - sha
+      type: object
+    UpdateAPIKeyRequest:
+      properties:
+        name:
+          example: ci-main
+          type: string
+      required:
+      - name
+      type: object
+    UpdateUserRequest:
+      properties:
+        name:
+          example: Ada Lovelace
+          type: string
+      required:
+      - name
+      type: object
+    User:
+      properties:
+        created_at:
+          type: string
+        email:
+          type: string
+        id:
+          example: usr_k3x9p2m4q8r1t6v0
+          type: string
+        name:
+          type: string
+      required:
+      - created_at
+      - email
+      - id
+      type: object
+  securitySchemes:
+    BearerAuth:
+      description: Browser session set by sign-in
+      in: cookie
+      name: eyeful_session
+      type: apiKey
+externalDocs:
+  description: ""
+  url: ""
+info:
+  description: Multi-agent code review with executable evidence.
+  title: eyeful API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api-keys:
+    get:
+      operationId: listAPIKeys
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyList'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      summary: List API keys
+      tags:
+      - api-keys
+    post:
+      description: The secret is returned only here; store it now.
+      operationId: createAPIKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyRequest'
+              description: Key name
+              summary: body
+        description: Key name
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedAPIKey'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      summary: Create an API key
+      tags:
+      - api-keys
+  /api-keys/{id}:
+    delete:
+      operationId: deleteAPIKey
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      security:
+      - SessionCookie: []
+      summary: Revoke an API key
+      tags:
+      - api-keys
+    get:
+      operationId: getAPIKey
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      security:
+      - SessionCookie: []
+      summary: Get one API key
+      tags:
+      - api-keys
+    patch:
+      operationId: updateAPIKey
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAPIKeyRequest'
+              description: New name
+              summary: body
+        description: New name
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      security:
+      - SessionCookie: []
+      summary: Rename an API key
+      tags:
+      - api-keys
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: OK
+      summary: Liveness
+      tags:
+      - system
+  /oauth/{provider}/authorize:
+    get:
+      operationId: authorizeOAuth
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        schema:
+          enum:
+          - github
+          - gitee
+          type: string
+      responses:
+        "302":
+          description: Found
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      summary: Redirect to the provider to sign in
+      tags:
+      - oauth
+  /oauth/{provider}/callback:
+    get:
+      operationId: callbackOAuth
+      parameters:
+      - description: Provider
+        in: path
+        name: provider
+        required: true
+        schema:
+          enum:
+          - github
+          - gitee
+          type: string
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        schema:
+          type: string
+      - description: State from the authorize redirect
+        in: query
+        name: state
+        required: true
+        schema:
+          type: string
+      responses:
+        "302":
+          description: Found
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      summary: The provider redirects here; sets the session and returns to the console
+      tags:
+      - oauth
+  /oauth/providers:
+    get:
+      operationId: listOAuthProviders
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthProviderList'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Internal Server Error
+      summary: Sign-in providers this server is configured for
+      tags:
+      - oauth
+  /ready:
+    get:
+      operationId: getReadiness
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: OK
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      summary: 'Readiness: the database answers'
+      tags:
+      - system
+  /repositories:
+    get:
+      description: Every installation of the GitHub App the user can access, with
+        every repository of each. An installation's html_url is where the user changes
+        its repositories.
+      operationId: listRepositories
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryList'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Forbidden
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: The GitHub repositories the signed-in user gave eyeful
+      tags:
+      - repositories
+  /repositories/{owner}/{name}:
+    get:
+      description: The fields of GitHub's full-repository schema the console needs,
+        read with the user's GitHub App token.
+      operationId: getRepository
+      parameters:
+      - description: Owner
+        example: octo
+        in: path
+        name: owner
+        required: true
+        schema:
+          type: string
+      - description: Name
+        example: app
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: A GitHub repository the signed-in user gave eyeful
+      tags:
+      - repositories
+  /repositories/{owner}/{name}/commits/{ref}:
+    get:
+      description: The fields of GitHub's commit schema the console needs, without
+        its files.
+      operationId: getRepositoryCommit
+      parameters:
+      - description: Owner
+        example: octo
+        in: path
+        name: owner
+        required: true
+        schema:
+          type: string
+      - description: Name
+        example: app
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: Commit sha or branch
+        example: main
+        in: path
+        name: ref
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Commit'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: A commit, by sha or branch
+      tags:
+      - repositories
+  /repositories/{owner}/{name}/commits/{ref}/diff:
+    get:
+      operationId: getRepositoryCommitDiff
+      parameters:
+      - description: Owner
+        example: octo
+        in: path
+        name: owner
+        required: true
+        schema:
+          type: string
+      - description: Name
+        example: app
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: Full commit sha
+        in: path
+        name: ref
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitDiff'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: The unified diff a commit made against its first parent
+      tags:
+      - repositories
+  /repositories/{owner}/{name}/git/trees/{sha}:
+    get:
+      description: GitHub's git-tree schema. truncated is true when GitHub returned
+        only part of a large tree.
+      operationId: getRepositoryTree
+      parameters:
+      - description: Owner
+        example: octo
+        in: path
+        name: owner
+        required: true
+        schema:
+          type: string
+      - description: Name
+        example: app
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: Full tree sha
+        in: path
+        name: sha
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitTree'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Service Unavailable
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: A git tree, recursively
+      tags:
+      - repositories
+  /reviews:
+    get:
+      operationId: listReviews
+      parameters:
+      - description: At most this many (1-100)
+        in: query
+        name: limit
+        schema:
+          default: 20
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewList'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: List reviews, newest first
+      tags:
+      - reviews
+    post:
+      description: Returns 202 with the queued review. A review cannot be stopped
+        once it runs, so clients confirm before creating one. Repeating a request
+        with the same Idempotency-Key returns the first review; reusing the key with
+        a different body is a 409.
+      operationId: createReview
+      parameters:
+      - description: Makes retries safe
+        in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+              description: What to review
+              summary: body
+        description: What to review
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: Accepted
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Conflict
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too Many Requests
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Queue a review
+      tags:
+      - reviews
+  /reviews/{id}:
+    delete:
+      operationId: deleteReview
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Conflict
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Delete a queued or done review
+      tags:
+      - reviews
+    get:
+      operationId: getReview
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Get one review
+      tags:
+      - reviews
+  /sessions:
+    get:
+      operationId: listSessions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: List the signed-in user's active sessions
+      tags:
+      - sessions
+  /sessions/{id}:
+    delete:
+      operationId: deleteSession
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Not Found
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Sign out another device
+      tags:
+      - sessions
+  /sessions/current:
+    delete:
+      operationId: deleteCurrentSession
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      summary: Sign out of this browser
+      tags:
+      - sessions
+    get:
+      operationId: getCurrentSession
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentSession'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Who is calling, and how
+      tags:
+      - sessions
+  /users/me:
+    delete:
+      operationId: deleteCurrentUser
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Delete the signed-in user with their sessions, keys and reviews
+      tags:
+      - users
+    get:
+      operationId: getCurrentUser
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: The signed-in user
+      tags:
+      - users
+    patch:
+      operationId: updateCurrentUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+              description: New name
+              summary: body
+        description: New name
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Unauthorized
+      security:
+      - SessionCookie: []
+      - BearerAuth: []
+      summary: Change the signed-in user's name
+      tags:
+      - users
+servers:
+- url: /

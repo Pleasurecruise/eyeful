@@ -1,0 +1,26 @@
+- name: git_diff
+  description: The diff of the change under review, for one file or all of them.
+- name: git_log
+  description: Commit history before this change, optionally for one file.
+- name: git_blame
+  description: Who last changed each line in a range of a file. Lines of this change show as eyeful's.
+- name: list_skills
+  description: The skills offered to you for this review, with their files.
+- name: load_skill
+  description: Read a skill's SKILL.md. Load every skill offered to you before you review.
+- name: read_skill_file
+  description: Read another file of a skill, such as one under references/.
+- name: try_repro
+  description: Run a reproduction test once on a fresh copy of the change and report whether it failed.
+- name: submit_diagnosis
+  description: Hand in the diagnosis of the failed CI check.
+- name: submit_plan
+  description: Hand in the review plan.
+- name: submit_report
+  description: Hand in your findings. eyeful checks them and lists any problems to fix.
+- name: submit_fix
+  description: Hand in the edits that fix the problem.
+- name: submit_judgement
+  description: Hand in whether the finding is real.
+- name: submit_comments
+  description: Hand in one comment per merged finding.

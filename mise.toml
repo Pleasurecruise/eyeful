@@ -1,0 +1,150 @@
+[tools]
+go = "latest"
+node = "latest"
+pnpm = "latest"
+golangci-lint = "latest"
+
+[env]
+_.file = { path = ".env", redact = true }
+_.path = ".tools/bin"
+EYEFUL_INSECURE_COOKIES = "true"
+EYEFUL_PUBLIC_URL = "http://localhost:5173"
+EYEFUL_SERVER_URL = "http://localhost:8080"
+DOCS_URL = "https://pleasurecruise.github.io/eyeful/"
+
+[tasks.setup]
+description = "Install Go and pnpm dependencies"
+run = ["go mod download", "pnpm install"]
+
+[tasks."dev:server"]
+description = "Run only the API server on :8080 (migrates first)"
+run = "go run ./cmd/server serve"
+
+[tasks."db:up"]
+description = "Start PostgreSQL in Docker for local development"
+run = "docker compose up -d postgres"
+
+[tasks."generate:db"]
+description = "Regenerate internal/db/sqlc from db/queries"
+run = "go tool github.com/sqlc-dev/sqlc/cmd/sqlc generate"
+
+[tasks."dev:web"]
+description = "Run the API server and the console with hot reload on :5173"
+alias = "dev"
+depends = ["dev:server", "dev:web:vite"]
+
+[tasks."dev:web:vite"]
+hide = true
+run = "pnpm --filter @eyeful/web dev"
+
+[tasks."generate:spec"]
+description = "Regenerate spec/ from handler annotations"
+run = "go tool github.com/swaggo/swag/v2/cmd/swag init --v3.1 --generalInfo swagger.go --dir internal/handlers --output spec --outputTypes go,json,yaml --parseInternal --parseDependency"
+
+[tasks."generate:sdk"]
+description = "Regenerate packages/sdk from spec/"
+depends = ["generate:spec"]
+run = ["pnpm run generate:sdk", "pnpm --filter @eyeful/sdk run typecheck"]
+
+[tasks."tools:wails"]
+description = "Build the wails3 CLI that apps/desktop/go.mod pins into .tools/bin"
+dir = "apps/desktop"
+env = { GOBIN = "{{config_root}}/.tools/bin" }
+run = "go install tool"
+
+[tasks."generate:bindings"]
+description = "Regenerate the desktop's TypeScript bindings into apps/desktop/frontend/bindings"
+depends = ["tools:wails"]
+dir = "apps/desktop"
+run = "wails3 generate bindings -clean=true -ts"
+
+[tasks.generate]
+description = "Regenerate sqlc code, the OpenAPI spec, the TypeScript SDK and the desktop bindings"
+depends = ["generate:db", "generate:sdk", "generate:bindings"]
+
+[tasks.skills]
+description = "Reinstall the review skills in workflow/prompts/skills from skills-lock.json (skills.sh)"
+run = """
+set -e
+tmp=$(mktemp -d)
+cp workflow/prompts/skills-lock.json "$tmp/"
+(cd "$tmp" && git init -q && npx --yes skills@1.7.0 experimental_install -y)
+rm -rf workflow/prompts/skills
+cp -R "$tmp/.agents/skills" workflow/prompts/skills
+rm -rf "$tmp"
+"""
+
+[tasks."dev:docs"]
+description = "Serve the documentation site with hot reload"
+run = "pnpm --filter @eyeful/docs dev"
+
+[tasks."build:docs"]
+description = "Build the documentation site into docs/.vitepress/dist"
+run = "pnpm --filter @eyeful/docs build"
+
+[tasks."build:web"]
+description = "Build the console into apps/web/dist (embedded by the server)"
+run = "pnpm --filter @eyeful/web build"
+
+[tasks.build]
+description = "Build bin/eyeful-server with the console embedded"
+depends = ["build:web"]
+run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/server"
+
+[tasks."build:cli"]
+description = "Build the local CLI into bin/eyeful"
+run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful ./cmd/eyeful"
+
+[tasks.install]
+description = "Install the local eyeful CLI into Go's bin directory"
+run = "go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
+
+[tasks."build:desktop"]
+description = "Build the desktop app with the Wails toolchain into apps/desktop/bin"
+depends = ["tools:wails"]
+dir = "apps/desktop"
+run = "wails3 build"
+
+[tasks."dev:desktop"]
+description = "Run the desktop app with Wails live reload"
+depends = ["tools:wails"]
+dir = "apps/desktop"
+run = "wails3 dev -config ./build/config.yml"
+
+[tasks."package:desktop"]
+description = "Package the desktop app (.app, installer, AppImage) for this OS"
+depends = ["tools:wails"]
+dir = "apps/desktop"
+run = "wails3 package"
+
+[tasks.test]
+description = "Run Go tests with the race detector"
+run = [
+	"go test -race -p 1 ./...",
+	"cd {{config_root}}/workflow && go test -race ./...",
+	"cd {{config_root}}/local && go test -race ./...",
+	"cd {{config_root}}/apps/desktop && go vet ./..."
+]
+
+[tasks.lint]
+description = "Check formatting and lint Go and TypeScript"
+depends = ["generate:bindings"]
+run = [
+	"test -z \"$(gofmt -l .)\" || (gofmt -l . && exit 1)",
+	"golangci-lint run ./...",
+	"cd {{config_root}}/workflow && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
+	"cd {{config_root}}/local && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
+	"cd {{config_root}}/apps/desktop && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
+	"bash -c 'diff <(cd docs && ls *.md) <(cd docs/zh && ls *.md)'",
+	"pnpm exec vp check",
+	"pnpm --recursive --filter '!eyeful' run typecheck"
+]
+
+[tasks.format]
+description = "Format Go and the web console"
+run = ["gofmt -w cmd internal workflow local apps/web apps/desktop db", "pnpm exec vp fmt"]
+
+[tasks.check]
+description = "Lint, test, and fail if generated files are stale"
+depends = ["lint", "test", "generate"]
+run = "git diff --exit-code -- spec packages/sdk/src internal/db/sqlc"

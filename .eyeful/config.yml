@@ -1,0 +1,11 @@
+setup: mise install && mise run setup
+lint: mise run lint
+test: mise run test
+test_one: go test -p 1 ./... -run {test}
+coverage: go test -p 1 -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
+risk:
+  - internal/auth/**
+  - internal/review/**
+  - internal/scheduler/**
+  - internal/server/**
+  - db/migrations/**

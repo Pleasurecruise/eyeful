@@ -1,0 +1,42 @@
+version: 2
+
+release:
+  name_template: Version {{ .Version }}
+
+builds:
+  - id: eyeful
+    main: ./cmd/eyeful
+    binary: eyeful
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: eyeful
+    ids:
+      - eyeful
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+nfpms:
+  - id: eyeful
+    package_name: eyeful
+    ids:
+      - eyeful
+    vendor: Pleasurecruise
+    homepage: https://github.com/Pleasurecruise/eyeful
+    maintainer: Pleasurecruise
+    description: Multi-agent code review with executable evidence
+    license: AGPL-3.0-only
+    dependencies:
+      - git
+    formats:
+      - deb
+      - rpm
