@@ -87,80 +87,69 @@ scopes in order, which the author can use to split the change into a stack
 ## The plan {#the-plan}
 
 The quick level has no planner; rules send each tool result to an expert. At standard and deep, the
-planner first works out what the change does, the way pulls.review reads a pull request before it
-splits it. It reads the diff of every kept file (a very large change has some diffs left out, which
-the planner opens with `git_diff`), the manifest, the commit messages and the tool output, and
-writes a short summary of the change for a reviewer who has not seen it.
+plan has two steps: [`@pulls.review/core`](https://github.com/antfu/pulls.review) works out what
+the change does and groups it, and Go picks the experts for each group by rule.
 
-It then groups the files by intent, so that one group's files are understood together, and gives each
-group the part of the system it touches (`category`, from pulls.review's list: `ui`, `api`, `core`,
-`data`, `cli`, `security`, `tests`, `docs`, `examples`, `deps`, `build`, `scripts`, `config`, `i18n`,
-`assets`, `other`), one sentence on why its files changed, and whether it is `core`: authentication
-and permissions, secrets, concurrency and locking, data and migrations, a public API or contract, or
-the main logic of a module, where a mistake costs the most. Core groups come first. Go also marks
-core every group that holds a `risk` path from `.eyeful/config.yml`.
+### Grouping the change
 
-Last, the planner picks the experts for each group. Each picked expert runs once and reviews all of
-its groups in that run, so a one-line config edit or a doc fix goes to an expert that already
-reviews another group instead of starting one of its own. The groups decide what an expert reads and
-where it looks hardest, not how many agents run. The planner submits the plan with `submit_plan`,
-whose schema encodes the rules. Below is an example; the schema is not final.
+eyeful uses pulls.review's own analysis, not a copy of it. `packages/pulls` bundles the functions of
+`@pulls.review/core` that a local agent needs into `workflow/pulls/core.js`, and Go runs that file
+with [moejs](https://github.com/Calcium-Ion/moejs), a JavaScript runtime in pure Go, so the
+binaries need neither Node nor cgo. The planner is one call to the connected agent:
+
+1. core parses the diff of the files triage kept (`parsePatch`) and builds the prompt pulls.review
+   gives a local agent (`buildCliAgentSystemPrompt` and `buildAnalysisPrompt`): the file manifest
+   with each file's hunk headers, the diffs when they fit, and the path of the run's `change.diff`,
+   which the agent reads where the manifest is not enough;
+2. the agent answers with core's `Analysis` (`analysisJsonSchema`): a summary of why the change was
+   made, and groups by intent, each with the part of the system it touches (`category`), a label,
+   a summary, its files, and `critical` where it needs extra care;
+3. core checks the answer against its schema and that every file is in exactly one group
+   (`findCoverageIssues`). A rejected answer goes back to the agent once with core's reason; after a
+   second rejection, or two failed calls, the review uses the default experts for its level, one
+   group with every kept file, and the feedback says so.
 
 ```json
 {
-	"summary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
+	"overallSummary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
 	"groups": [
 		{
+			"key": "session-expiry",
+			"label": "Session expiry",
+			"summary": "A session was still accepted at the second it expired.",
 			"category": "security",
-			"summary": "A session was still accepted at the second it expired",
-			"core": true,
-			"files": ["app/auth/session.py"],
-			"experts": [
-				{ "name": "correctness", "why": "boundary condition in is_expired" },
-				{ "name": "security", "why": "session validity decides access" }
-			]
+			"critical": true,
+			"filePaths": ["app/auth/session.py"]
 		},
 		{
+			"key": "login-page",
+			"label": "Login page",
 			"category": "ui",
-			"summary": "Show users when their session ends",
-			"core": false,
-			"files": ["web/src/Login.svelte"],
-			"experts": [{ "name": "correctness", "why": "already reviewing the session change" }]
+			"filePaths": ["web/src/Login.svelte"]
 		}
-	],
-	"skipped": [{ "name": "usability", "why": "one line of text on the login page" }],
-	"confidence": 0.8
+	]
 }
 ```
 
-The planner's prompt includes this table of typical pairings. It is guidance, and the planner may
-depart from it:
+A group is core when core marks it `critical` or when it holds a `risk` path from
+`.eyeful/config.yml`. Core groups come first and their experts look at them first.
 
-| Change                                      | Usually needs                 |
-| ------------------------------------------- | ----------------------------- |
-| Only docs or comments                       | readability                   |
-| A new module, a new dependency, a new layer | design, tests                 |
-| Login, authentication, permissions          | correctness, security, tests  |
-| Frontend components, user flows             | usability, readability, tests |
-| Database migrations, data processing        | correctness, security         |
-| A public API signature                      | design, usability             |
-| Concurrency, locking, retries               | correctness, design           |
+### Picking the experts
 
-## How Go checks the plan
+Go turns each group into experts with a fixed table, so the same grouping always gets the same
+experts:
 
-The plan is only data until Go accepts it. Go rejects a plan when:
+| Category                             | Experts               |
+| ------------------------------------ | --------------------- |
+| `security`                           | correctness, security |
+| `core`, `api`, `data`, `cli`         | correctness           |
+| `ui`, `i18n`                         | usability             |
+| `tests`                              | tests                 |
+| `docs`, `examples`                   | readability           |
+| `config`, `build`, `scripts`, `deps` | security              |
+| `assets`, `other`                    | none                  |
+| a core group, in addition            | correctness, security |
+| a core group at deep, in addition    | design                |
 
-- a file that triage kept belongs to no group;
-- a group has no expert;
-- a group lists a file that triage did not keep;
-- an expert name is not in the [roster](EXPERTS.md#the-roster), or appears twice in one group;
-- a group's category is not one of the list above;
-- the plan has no summary;
-- the confidence is outside 0 to 1.
-
-A rejected plan goes back to the planner once, with the reasons. If the second plan is also
-rejected, or the planner fails twice, the review uses the default experts for its level: one group
-with every kept file and the first four experts of the roster. The feedback says
-so. If the plan's confidence is below 0.5, the level goes up one step. Go then adds the experts that
-signals call for ([Levels](LEVELS.md)), starts the experts and sets their budgets; the planner has
-no control over these.
+Each expert then runs once over all of its groups ([Experts](EXPERTS.md)). Go also adds the experts
+that signals call for ([Levels](LEVELS.md)) and sets their budgets.

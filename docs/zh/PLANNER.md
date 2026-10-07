@@ -53,61 +53,54 @@ commits: "fix session expiry at the boundary", "show the expiry on the login pag
 
 ## 审查计划 {#the-plan}
 
-quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 和 deep 档的规划器先弄清这次改动干了什么，做法和 pulls.review 先读完 pull request 再拆分一样。它读所有保留文件的 diff（改动很大时有些 diff 会省略，规划器需要时用 `git_diff` 打开）、文件清单、提交说明和工具结果，然后为没看过这次改动的人写一段概述。
+quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 和 deep 档的计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
 
-接着它按意图分组，让同一组的文件放在一起理解。每组标明触及系统的哪一部分（`category`，沿用 pulls.review 的类别：`ui`、`api`、`core`、`data`、`cli`、`security`、`tests`、`docs`、`examples`、`deps`、`build`、`scripts`、`config`、`i18n`、`assets`、`other`），用一句话说明这些文件为什么改，并标明是否属于核心（`core`）：认证和权限、密钥、并发和加锁、数据和迁移、公开 API 或契约、模块的主逻辑，这些地方出错代价最大。核心组排在前面。分组里有 `.eyeful/config.yml` 中 `risk` 路径的，Go 也会把它标为核心。
+### 给改动分组
 
-最后规划器给每组挑专家。被选中的专家只运行一次，在这一次里审查分给它的所有组。所以只改一行的配置或者一处文档，应该交给已经在审查别的组的专家，不必为它单独启动一个专家。分组决定专家读什么、在哪里看得最仔细，不决定运行多少个 agent。规划器通过 `submit_plan` 提交计划，这个工具的 schema 里写了规则。下面是一个例子，schema 还没有定稿：
+eyeful 直接使用 pulls.review 自己的分析，不是照着写一份。`packages/pulls` 把本地 agent 需要的 `@pulls.review/core` 函数打包成 `workflow/pulls/core.js`，Go 用纯 Go 写的 JavaScript 运行时 [moejs](https://github.com/Calcium-Ion/moejs) 运行它，所以二进制文件既不需要 Node，也不需要 cgo。规划器就是对已连接 agent 的一次调用：
+
+1. core 解析分诊保留下来的文件的 diff（`parsePatch`），生成 pulls.review 给本地 agent 的提示词（`buildCliAgentSystemPrompt` 和 `buildAnalysisPrompt`）：文件清单和每个文件的 hunk 标题、放得下时的 diff，以及运行目录里 `change.diff` 的路径，清单不够时 agent 去读它；
+2. agent 按 core 的 `Analysis`（`analysisJsonSchema`）作答：一段说明这次为什么改的概述，以及按意图分的组，每组有触及系统的哪一部分（`category`）、名称、说明、文件，需要格外小心的标 `critical`；
+3. core 按自己的 schema 校验答案，并检查每个文件是否恰好在一个组里（`findCoverageIssues`）。不合格的答案连同 core 给出的原因退回给 agent 重做一次；第二次还不合格，或者连续两次调用失败，就使用该档位的默认专家，所有保留下来的文件放在一个组里，并在反馈里说明。
 
 ```json
 {
-	"summary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
+	"overallSummary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
 	"groups": [
 		{
+			"key": "session-expiry",
+			"label": "Session expiry",
+			"summary": "A session was still accepted at the second it expired.",
 			"category": "security",
-			"summary": "A session was still accepted at the second it expired",
-			"core": true,
-			"files": ["app/auth/session.py"],
-			"experts": [
-				{ "name": "correctness", "why": "boundary condition in is_expired" },
-				{ "name": "security", "why": "session validity decides access" }
-			]
+			"critical": true,
+			"filePaths": ["app/auth/session.py"]
 		},
 		{
+			"key": "login-page",
+			"label": "Login page",
 			"category": "ui",
-			"summary": "Show users when their session ends",
-			"core": false,
-			"files": ["web/src/Login.svelte"],
-			"experts": [{ "name": "correctness", "why": "already reviewing the session change" }]
+			"filePaths": ["web/src/Login.svelte"]
 		}
-	],
-	"skipped": [{ "name": "usability", "why": "one line of text on the login page" }],
-	"confidence": 0.8
+	]
 }
 ```
 
-规划器的提示词里附有下面这张常见搭配表，仅供参考，规划器可以不照做：
+core 标了 `critical` 的组，或者包含 `.eyeful/config.yml` 中 `risk` 路径的组，算作核心组。核心组排在前面，专家先看它们。
 
-| 改动内容               | 通常需要                      |
-| ---------------------- | ----------------------------- |
-| 只改了文档或注释       | readability                   |
-| 新增模块、依赖或分层   | design、tests                 |
-| 登录、认证、权限       | correctness、security、tests  |
-| 前端组件、用户操作流程 | usability、readability、tests |
-| 数据库迁移、数据处理   | correctness、security         |
-| 公开 API 的签名        | design、usability             |
-| 并发、加锁、重试       | correctness、design           |
+### 挑选专家
 
-## Go 怎样检查计划
+Go 用一张固定的表把每个组对应到专家，所以同样的分组总是得到同样的专家：
 
-计划只是一份数据，要 Go 认可才会执行。出现以下情况时，Go 拒绝这份计划：
+| 类别                                 | 专家                  |
+| ------------------------------------ | --------------------- |
+| `security`                           | correctness、security |
+| `core`、`api`、`data`、`cli`         | correctness           |
+| `ui`、`i18n`                         | usability             |
+| `tests`                              | tests                 |
+| `docs`、`examples`                   | readability           |
+| `config`、`build`、`scripts`、`deps` | security              |
+| `assets`、`other`                    | 无                    |
+| 核心组另外加上                       | correctness、security |
+| deep 档的核心组再加上                | design                |
 
-- 分诊保留下来的某个文件不属于任何分组；
-- 某个分组没有专家；
-- 某个分组里有分诊没有保留的文件；
-- 专家名字不在[专家名单](EXPERTS.md#the-roster)里，或者在同一分组里出现两次；
-- 某个分组的类别不在上面的列表里；
-- 计划没有写改动概述；
-- 把握不在 0 到 1 之间。
-
-被拒的计划会连同原因退回给规划器重做一次。第二次还不合格，或者规划器连续两次出错，就使用该档位的默认专家：所有保留下来的文件放在一个分组里，取名单里的前四个专家，并在反馈里说明。计划给出的把握低于 0.5 时，档位上调一级。之后 Go 再补上信号要求的专家（见[档位](LEVELS.md)），启动专家并分配预算，这些规划器都管不了。
+之后每个专家只运行一次，审查分给它的所有组（见[专家](EXPERTS.md)）。Go 还会补上信号要求的专家（见[档位](LEVELS.md)），并分配预算。

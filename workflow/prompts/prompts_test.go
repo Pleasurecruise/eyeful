@@ -29,7 +29,7 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("roles %d, skills %d, tools %d", len(s.Roles), len(s.Skills), len(s.Tools))
 	}
 	for name, r := range s.Roles {
-		if r.Submit == "" || r.Body == "" {
+		if r.Submit == "" || (r.Body == "") != (name == workflow.RolePlanner) {
 			t.Errorf("role %s: %+v", name, r)
 		}
 	}

@@ -72,7 +72,8 @@ skills, evidence kinds) is passed to `workflow.New`. `workflow/prompts` holds wh
 the expert and role prompts, the tool definitions and which role gets which tools, the vendored
 skills, and how each task becomes a prompt, so the cloud and local agents are given the same text;
 `workflow/project` reads `.eyeful/config.yml` for both sides; `workflow/report` renders a result as Markdown and SARIF. `workflow` has no fx, no database
-and no server types; its dependencies are widely used libraries for globs, diffs, YAML and SARIF. `workflow.SplitPatch` turns
+and no server types; its dependencies are widely used libraries for globs, diffs, YAML and SARIF, and
+moejs, which runs the bundled `@pulls.review/core` that groups the change ([The plan](PLANNER.md#the-plan)). `workflow.SplitPatch` turns
 `git diff` output into the files of a change, for both sides.
 
 ## Languages
@@ -111,8 +112,10 @@ neither binary contains the other side's code. The desktop app is a fourth modul
 | `apps/desktop`          | Local GUI over what `eyeful review` does: Wails v3, a separate Go module; `build/` holds packaging assets                                                                                                |
 | `apps/desktop/frontend` | The desktop's SvelteKit frontend, built to `dist/` and embedded; Wails bindings in `bindings/`                                                                                                           |
 | `packages/ui`           | shadcn-svelte components, diff view and file tree, theme, dark mode; strings come in as props                                                                                                            |
+| `packages/pulls`        | Builds `workflow/pulls/core.js` from `@pulls.review/core` with Vite+ (`generate:pulls`)                                                                                                                  |
 | `workflow`              | Review orchestration, a separate Go module: triage, plan check, experts, verifier, summary, budget, checkpoints                                                                                          |
 | `workflow/prompts`      | Embedded expert and role prompts, tool definitions per role, the skills from skills.sh, and the prompt each role's task is turned into                                                                   |
+| `workflow/pulls`        | `@pulls.review/core` bundled as `core.js` and run with moejs: parsing the diff, the grouping prompt and schema, checking the answer                                                                      |
 | `workflow/project`      | `.eyeful/config.yml`: the project commands, `skip`, `risk`, and the digest a confirmation is kept under                                                                                                  |
 | `workflow/report`       | A review result as Markdown and as SARIF 2.1.0                                                                                                                                                           |
 | `local`                 | Local mode, a separate Go module: `subject` takes the snapshot of a local branch, commit or uncommitted changes                                                                                          |

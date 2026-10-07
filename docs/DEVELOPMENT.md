@@ -16,21 +16,20 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 
 ## Commands {#commands}
 
-| Command                                                      | Does                                                                                             |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `mise run dev:web` (alias `dev`)                             | Server on `:8080` and the console with hot reload on `:5173`; open `:5173`                       |
-| `mise run dev:server`                                        | Only the server on `:8080` (migrates first), serving the console from the last `build`           |
-| `mise run build`                                             | Console, then `bin/eyeful-server` with it embedded                                               |
-| `mise run build:cli`                                         | The local CLI into `bin/eyeful`                                                                  |
-| `mise run install`                                           | The local CLI `eyeful` into Go's bin directory, on `PATH` through mise; rerun after a Go upgrade |
-| `mise run skills`                                            | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`                 |
-| `mise run dev:desktop` / `build:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `build` / `package`; no server             |
-| `mise run dev:docs` / `build:docs`                           | Documentation site (VitePress over `docs/`)                                                      |
-| `mise run test`                                              | Go tests with `-race`; Postgres tests need the test URL                                          |
-| `mise run format`                                            | gofmt and `vp fmt`                                                                               |
-| `mise run lint`                                              | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                             |
-| `mise run generate`                                          | sqlc, then the spec, then the SDK; the desktop bindings                                          |
-| `mise run check`                                             | lint + test + generate, failing if generated files drift                                         |
+| Command                                    | Does                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `mise run dev:web` (alias `dev`)           | Server on `:8080` and the console with hot reload on `:5173`; open `:5173`                       |
+| `mise run dev:server`                      | Only the server on `:8080` (migrates first), serving the console from the last `build`           |
+| `mise run build`                           | Console, then `bin/eyeful-server` with it embedded                                               |
+| `mise run install`                         | The local CLI `eyeful` into Go's bin directory, on `PATH` through mise; rerun after a Go upgrade |
+| `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`                 |
+| `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                       |
+| `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                      |
+| `mise run test`                            | Go tests with `-race`; Postgres tests need the test URL                                          |
+| `mise run format`                          | gofmt and `vp fmt`                                                                               |
+| `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                             |
+| `mise run generate`                        | sqlc, then the spec, then the SDK; the desktop bindings                                          |
+| `mise run check`                           | lint + test + generate, failing if generated files drift                                         |
 
 To sign in during development, register a GitHub App with these settings:
 
@@ -56,8 +55,9 @@ Values live only at the repository root: credentials in `.env`, shared local set
 
 ## Code generation
 
-sqlc (`generate:db`) writes `internal/db/sqlc`. swag v2 (`generate:spec`) writes `spec/`, which the
-binary embeds. `@hey-api/openapi-ts` (`generate:sdk`) writes `packages/sdk/src`.
+sqlc (`generate:db`) writes `internal/db/sqlc`. swag v2 (`generate:sdk`, first) writes `spec/`, which the
+binary embeds. `@hey-api/openapi-ts` (`generate:sdk`) writes `packages/sdk/src`. `packages/pulls`
+(`generate:pulls`) bundles `@pulls.review/core` into `workflow/pulls/core.js`.
 `wails3 generate bindings` (`generate:bindings`) writes the desktop's services into
 `apps/desktop/frontend/bindings`, the Wails default, as classes, so a Go `nil` slice arrives as
 `[]`; git ignores that directory, and `lint`,

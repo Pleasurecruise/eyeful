@@ -5,6 +5,10 @@ packages:
   - docs
 
 saveExact: true
+allowBuilds:
+  '@google/genai': false
+  esbuild: false
+  protobufjs: false
 engineStrict: true
 
 update:
@@ -22,3 +26,5 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: '*'
+minimumReleaseAgeExclude:
+  - '@pulls.review/core@0.3.1'

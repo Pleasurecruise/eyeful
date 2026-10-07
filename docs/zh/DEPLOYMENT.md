@@ -6,13 +6,13 @@
 
 ## 产物
 
-| 产物                | 构建方式                                                             | 运行在                        |
-| ------------------- | -------------------------------------------------------------------- | ----------------------------- |
-| `bin/eyeful-server` | `mise run build`                                                     | 服务器，与 PostgreSQL 18 一起 |
-| 容器镜像            | `Dockerfile`（distroless，端口 8080）                                | 任何容器运行环境              |
-| 桌面端              | `mise run package:desktop`（Wails）                                  | macOS、Windows、Linux         |
-| `eyeful`            | `mise run build:cli`、`mise run install`，或 `v*` 标签（GoReleaser） | 用户的电脑                    |
-| 文档站点            | `mise run build:docs`（VitePress）                                   | `DOCS_URL` 上的 GitHub Pages  |
+| 产物                | 构建方式                                       | 运行在                        |
+| ------------------- | ---------------------------------------------- | ----------------------------- |
+| `bin/eyeful-server` | `mise run build`                               | 服务器，与 PostgreSQL 18 一起 |
+| 容器镜像            | `Dockerfile`（distroless，端口 8080）          | 任何容器运行环境              |
+| 桌面端              | `mise run package:desktop`（Wails）            | macOS、Windows、Linux         |
+| `eyeful`            | `mise run install`，或 `v*` 标签（GoReleaser） | 用户的电脑                    |
+| 文档站点            | `mise run build:docs`（VitePress）             | `DOCS_URL` 上的 GitHub Pages  |
 
 二进制文件内嵌了控制台、数据库迁移和 OpenAPI 文档。云端部署就是这一个文件加一个数据库地址，不需要单独托管前端，也不需要单独执行迁移。CI（`.github/workflows/ci.yml`）目前只运行 `mise run check`。
 

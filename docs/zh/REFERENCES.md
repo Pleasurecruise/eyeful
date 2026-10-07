@@ -1,6 +1,6 @@
 # 参考文献
 
-本页列出 eyeful 审查时依据的标准，以及借鉴了思路的两个项目。其他页面需要时链接到这里。
+本页列出 eyeful 审查时依据的标准，以及 eyeful 所依托的两个项目。其他页面需要时链接到这里。
 
 ## 软件质量
 
@@ -50,19 +50,21 @@
 
 ## 借鉴的项目
 
-eyeful 从两个项目借鉴了流程设计上的思路，没有用它们的代码。
+eyeful 建立在两个项目之上：直接运行其中的 `@pulls.review/core`，并借鉴了两者的思路。
 
-[antfu/pulls.review](https://github.com/antfu/pulls.review) 的思路用在规划和报告两处：
+[antfu/pulls.review](https://github.com/antfu/pulls.review)（MIT）用在规划和报告两处。eyeful 直接运行 `@pulls.review/core` 来理解改动并分组（见[审查计划](PLANNER.md#the-plan)），下面这些来自它的代码：
+
+| 内容                               | 在 eyeful 中的位置                                                   |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| 先读完整个改动，再拆分             | 规划器的提示词就是 core 给本地 agent 的提示词                        |
+| 按意图分组，标明触及系统的哪一部分 | core 的 `Analysis`：带 `category` 和 `critical` 的分组，由 core 校验 |
+| 在评论之前先说明改动干了什么       | [终端输出](REPORT.md#terminal)开头 core 给出的概述和分组             |
+
+下面这些是借鉴思路、由 eyeful 自己实现的：
 
 | 思路                          | 在 eyeful 中的位置                                                     |
 | ----------------------------- | ---------------------------------------------------------------------- |
 | 调用模型之前，先用规则分诊    | [分诊](PLANNER.md#triage)：用 glob 规则把锁文件、生成代码等放到一边    |
-| 先读完整个改动，再拆分        | [审查计划](PLANNER.md#the-plan)：规划器读 diff，写出这次改动干了什么   |
-| 计划由 schema 约束            | `submit_plan` 的 schema，以及 [Go 对计划的检查](PLANNER.md)            |
-| 按改动的用途分组              | 计划中的 `groups`，[排序报告](REPORT.md)排序时也参考这些分组           |
-| 标明分组触及系统的哪一部分    | 每组的 `category`，沿用 pulls.review 的类别                            |
-| 标出需要格外小心的分组        | 每组的 `core`，专家先审、报告先列                                      |
-| 在评论之前先说明改动干了什么  | [终端输出](REPORT.md#terminal)开头的概述和分组                         |
 | 通过一份 index 副本读取工作区 | 未提交改动的[快照](LOCAL.md#snapshot)                                  |
 | 一次只审一个范围              | [大改动](PLANNER.md#large)：由 Go 拆分范围，超过 512 KB 的文件放到一边 |
 

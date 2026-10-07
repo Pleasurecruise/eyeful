@@ -3,15 +3,32 @@ package workflow
 import (
 	"fmt"
 	"slices"
+
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 var levels = map[Level]limits{
-	LevelQuick:    {experts: 2, tier: TierCheap, escalate: LevelStandard},
-	LevelStandard: {experts: 4, planner: true, verify: true, escalate: LevelDeep},
-	LevelDeep:     {experts: 4, nits: true, planner: true, verify: true, full: true, escalate: LevelDeep},
+	LevelQuick:    {experts: 2, tier: TierCheap},
+	LevelStandard: {experts: 4, planner: true, verify: true},
+	LevelDeep:     {experts: 4, nits: true, planner: true, verify: true, full: true},
 }
 
-var categories = []string{"ui", "api", "core", "data", "cli", "security", "tests", "docs", "examples", "deps", "build", "scripts", "config", "i18n", "assets", "other"}
+var crew = map[pulls.DiffCategory][]string{
+	"security": {"correctness", "security"},
+	"core":     {"correctness"},
+	"api":      {"correctness"},
+	"data":     {"correctness"},
+	"cli":      {"correctness"},
+	"ui":       {"usability"},
+	"i18n":     {"usability"},
+	"tests":    {"tests"},
+	"docs":     {"readability"},
+	"examples": {"readability"},
+	"config":   {"security"},
+	"build":    {"security"},
+	"scripts":  {"security"},
+	"deps":     {"security"},
+}
 
 var Levels = []Level{LevelQuick, LevelStandard, LevelDeep}
 
@@ -42,49 +59,32 @@ func (w *Workflow) expert(name string) (Expert, bool) {
 	return w.roster[i], true
 }
 
-func (w *Workflow) check(p Plan, t Triage) []string {
-	var reasons []string
-	assigned := map[string]bool{}
-	reviewed := map[string]bool{}
-	for _, e := range t.Reviewed {
-		reviewed[e.Path] = true
-	}
-	for i, g := range p.Groups {
-		if len(g.Experts) == 0 {
-			reasons = append(reasons, fmt.Sprintf("group %d has no expert", i))
-		}
-		if !slices.Contains(categories, g.Category) {
-			reasons = append(reasons, fmt.Sprintf("group %d: category %q is not one of %v", i, g.Category, categories))
-		}
-		seen := map[string]bool{}
-		for _, e := range g.Experts {
-			if _, ok := w.expert(e.Name); !ok {
-				reasons = append(reasons, fmt.Sprintf("group %d: %q is not in the roster", i, e.Name))
+func (w *Workflow) staff(a pulls.Analysis, t Triage, level Level) Plan {
+	p := Plan{Summary: a.OverallSummary, Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
+	for _, g := range a.Groups {
+		for _, leaf := range append([]pulls.DiffGroupLeaf{g.DiffGroupLeaf}, g.Children...) {
+			core := leaf.Critical || slices.ContainsFunc(leaf.FilePaths, func(f string) bool { return slices.Contains(t.Risk, f) })
+			names := slices.Clone(crew[leaf.Category])
+			if core {
+				names = append(names, "correctness", "security")
 			}
-			if seen[e.Name] {
-				reasons = append(reasons, fmt.Sprintf("group %d lists %q twice", i, e.Name))
+			if core && level == LevelDeep {
+				names = append(names, "design")
 			}
-			seen[e.Name] = true
-		}
-		for _, f := range g.Files {
-			if !reviewed[f] {
-				reasons = append(reasons, fmt.Sprintf("group %d: %q is not a file triage kept", i, f))
+			summary := leaf.Label
+			if leaf.Summary != "" {
+				summary += ": " + leaf.Summary
 			}
-			assigned[f] = true
+			group := Group{Category: string(leaf.Category), Summary: summary, Core: core, Files: leaf.FilePaths, Experts: []Pick{}}
+			for _, name := range names {
+				if _, ok := w.expert(name); ok && !slices.ContainsFunc(group.Experts, func(p Pick) bool { return p.Name == name }) {
+					group.Experts = append(group.Experts, Pick{Name: name, Why: fmt.Sprintf("a %s group", leaf.Category)})
+				}
+			}
+			p.Groups = append(p.Groups, group)
 		}
 	}
-	for _, e := range t.Reviewed {
-		if !assigned[e.Path] {
-			reasons = append(reasons, fmt.Sprintf("%q belongs to no group", e.Path))
-		}
-	}
-	if p.Summary == "" {
-		reasons = append(reasons, "the plan needs a summary of what the change does")
-	}
-	if p.Confidence < 0 || p.Confidence > 1 {
-		reasons = append(reasons, fmt.Sprintf("confidence %v is outside [0, 1]", p.Confidence))
-	}
-	return reasons
+	return p
 }
 
 func whole(t Triage, category string, picks []Pick) Plan {

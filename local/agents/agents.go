@@ -18,6 +18,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/local/tail"
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/prompts"
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 func New(log *slog.Logger, cfg Config, idle, hard time.Duration) *Agents {
@@ -88,18 +89,19 @@ func decode[T reply](text string) (T, error) {
 }
 
 func ask[T reply](ctx context.Context, a *Agents, role workflow.Role, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
-	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt)
+	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt, nil)
 }
 
-func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
+func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
 	var zero T
-	schema, err := jsonschema.For[T](nil)
-	if err != nil {
-		return zero, workflow.Usage{}, fmt.Errorf("schema for %s: %w", name, err)
-	}
-	data, err := json.Marshal(schema)
-	if err != nil {
-		return zero, workflow.Usage{}, fmt.Errorf("schema for %s: %w", name, err)
+	if data == nil {
+		schema, err := jsonschema.For[T](nil)
+		if err != nil {
+			return zero, workflow.Usage{}, fmt.Errorf("schema for %s: %w", name, err)
+		}
+		if data, err = json.Marshal(schema); err != nil {
+			return zero, workflow.Usage{}, fmt.Errorf("schema for %s: %w", name, err)
+		}
 	}
 	p := a.cfg.Provider
 	prompt += fmt.Sprintf(replyNotice, submit, data)
@@ -152,12 +154,12 @@ func (a *Agents) Diagnose(ctx context.Context, t workflow.DiagnoseTask) (workflo
 	return ask[workflow.Diagnosis](ctx, a, workflow.RoleCI, "", prompt)
 }
 
-func (a *Agents) Plan(ctx context.Context, t workflow.PlanTask) (workflow.Plan, workflow.Usage, error) {
-	prompt, err := a.cfg.Set.Plan(t)
+func (a *Agents) Plan(ctx context.Context, t workflow.PlanTask) (pulls.Analysis, workflow.Usage, error) {
+	prompt, schema, err := a.cfg.Set.Plan(t, a.cfg.Patch)
 	if err != nil {
-		return workflow.Plan{}, workflow.Usage{}, err
+		return pulls.Analysis{}, workflow.Usage{}, err
 	}
-	return ask[workflow.Plan](ctx, a, workflow.RolePlanner, "", prompt)
+	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", prompt, schema)
 }
 
 func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Report, workflow.Usage, error) {
@@ -165,7 +167,7 @@ func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Re
 	if err != nil {
 		return workflow.Report{}, workflow.Usage{}, err
 	}
-	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt)
+	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt, nil)
 }
 
 func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {
@@ -199,6 +201,6 @@ func (a *Agents) CommitMessage(ctx context.Context, patch string) (string, workf
 	if err != nil {
 		return "", workflow.Usage{}, err
 	}
-	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch)
+	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch, nil)
 	return r.Message, usage, err
 }

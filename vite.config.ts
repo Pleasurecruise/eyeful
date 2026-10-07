@@ -14,7 +14,8 @@ const ignorePatterns = [
 	'apps/desktop/build/**',
 	'apps/desktop/bin/**',
 	'workflow/prompts/skills/**',
-	'workflow/prompts/skills-lock.json'
+	'workflow/prompts/skills-lock.json',
+	'workflow/pulls/core.js'
 ];
 
 export default defineConfig({

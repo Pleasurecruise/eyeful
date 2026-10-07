@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/Calcium-Ion/moejs v0.1.0-alpha.5 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.2 // indirect
 	github.com/owenrumney/go-sarif/v3 v3.3.1 // indirect
 	github.com/sourcegraph/go-diff v0.9.0 // indirect

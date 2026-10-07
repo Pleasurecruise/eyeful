@@ -24,7 +24,7 @@ features:
     details: An expert that claims a bug writes a test for it, and eyeful runs the test. The strongest findings fail on the change and pass with the fix.
     link: /VERIFICATION
   - title: Understand first, then review
-    details: A planner reads what the change does, groups it by intent and marks the core parts. Each expert it picks reviews its groups once, against the public standards for its area.
+    details: pulls.review core reads what the change does, groups it by intent and marks the core parts. Go picks the experts for each group, and each reviews its groups once, against the public standards for its area.
     link: /EXPERTS
   - title: Your own coding agent
     details: Reviews run with the Claude Code, Codex or pi you are already signed in to, from the eyeful command or the desktop app. No account or server.

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 const maxParallel = 4
@@ -429,14 +431,8 @@ type DiagnoseTask struct {
 }
 
 type PlanTask struct {
-	Files     []File       `json:"-"`
-	Truncated bool         `json:"-"`
-	Level     Level        `json:"level"`
-	Manifest  []Entry      `json:"manifest"`
-	Commits   []string     `json:"commits"`
-	Tools     []ToolResult `json:"tools"`
-	Experts   []string     `json:"experts"`
-	Rejected  []string     `json:"rejected"`
+	Diff     pulls.DiffsPayload `json:"-"`
+	Rejected []string           `json:"rejected"`
 }
 
 type ReviewTask struct {
@@ -468,7 +464,7 @@ type SummaryTask struct {
 
 type Agents interface {
 	Diagnose(ctx context.Context, t DiagnoseTask) (Diagnosis, Usage, error)
-	Plan(ctx context.Context, t PlanTask) (Plan, Usage, error)
+	Plan(ctx context.Context, t PlanTask) (pulls.Analysis, Usage, error)
 	Review(ctx context.Context, t ReviewTask) (Report, Usage, error)
 	Fix(ctx context.Context, t FixTask) ([]Edit, Usage, error)
 	Judge(ctx context.Context, t JudgeTask) (Judgement, Usage, error)
@@ -495,17 +491,17 @@ type Session struct {
 
 type Workflow struct {
 	roster []Expert
+	core   *pulls.Core
 	log    *slog.Logger
 }
 
 type limits struct {
-	experts  int
-	nits     bool
-	planner  bool
-	verify   bool
-	full     bool
-	tier     Tier
-	escalate Level
+	experts int
+	nits    bool
+	planner bool
+	verify  bool
+	full    bool
+	tier    Tier
 }
 
 type ciState struct {
@@ -559,7 +555,7 @@ type stored interface {
 }
 
 type reply interface {
-	Diagnosis | Plan | Report | []Edit | Judgement | []Draft
+	Diagnosis | pulls.Analysis | Report | []Edit | Judgement | []Draft
 }
 
 type task interface {

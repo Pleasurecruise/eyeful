@@ -9,6 +9,7 @@ import (
 
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/prompts"
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 // TODO(agents): pick models for codex and pi tiers once each has a stable catalog to map to.
@@ -30,6 +31,7 @@ type Config struct {
 	Provider Provider
 	Dir      string
 	Skills   string
+	Patch    string
 	Set      prompts.Set
 }
 
@@ -64,7 +66,7 @@ type summaryReply struct {
 }
 
 type reply interface {
-	workflow.Diagnosis | workflow.Plan | workflow.Report | fixReply | workflow.Judgement | summaryReply | commitReply
+	workflow.Diagnosis | pulls.Analysis | workflow.Report | fixReply | workflow.Judgement | summaryReply | commitReply
 }
 
 type claudeEvent struct {

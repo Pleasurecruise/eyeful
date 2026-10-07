@@ -86,13 +86,12 @@ decide how the workflow runs, and several of them enforce hard measures from `.a
 
 1. The agent decides what to do. Go decides whether it may, and owns every loop, budget and stop
    condition.
-2. If the planner reports low confidence, the level goes up. It does not go down.
-3. eyeful does not approve changes or block merges. A person merges.
-4. Every run is recorded: who ran, what ran and what it cost. These records are also the thesis
+2. eyeful does not approve changes or block merges. A person merges.
+3. Every run is recorded: who ran, what ran and what it cost. These records are also the thesis
    data.
-5. A re-review receives the findings of the previous round, without its reasoning.
-6. The user confirms before a review starts, and a started review runs to the end.
-7. If CI fails, the change gets a diagnosis of the failure instead of a review.
+4. A re-review receives the findings of the previous round, without its reasoning.
+5. The user confirms before a review starts, and a started review runs to the end.
+6. If CI fails, the change gets a diagnosis of the failure instead of a review.
 
 ## Open decisions {#open-decisions}
 

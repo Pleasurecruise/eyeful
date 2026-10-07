@@ -24,7 +24,7 @@ features:
     details: 专家认为有 bug，就要写测试证明，由 eyeful 来运行。最有力的发现在改动上失败、加上修复后通过。
     link: /zh/VERIFICATION
   - title: 先读懂，再审查
-    details: 规划器先弄清这次改动干了什么，按意图分组并标出核心部分。选中的每个专家只运行一次，审查分给它的组，对照所在领域的公开标准。
+    details: pulls.review core 先弄清这次改动干了什么，按意图分组并标出核心部分。Go 给每组挑选专家，每个专家只运行一次，审查分给它的组，对照所在领域的公开标准。
     link: /zh/EXPERTS
   - title: 用你自己的编码 agent
     details: 用你已经登录的 Claude Code、Codex 或 pi 审查，通过 eyeful 命令或桌面端运行。不需要账号和服务器。

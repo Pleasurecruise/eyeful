@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 //go:embed experts/*.md roles/*.md tools.yaml all:skills skills-lock.json
@@ -57,6 +58,7 @@ type Set struct {
 	Lock    Lock
 	Tools   []Tool
 	Roles   map[workflow.Role]Role
+	core    *pulls.Core
 }
 
 type front struct {

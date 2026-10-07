@@ -46,7 +46,7 @@ flowchart TB
 | `Workspace` | CI 检查、`setup`、L1 工具，以及在一份新副本上应用指定修改后运行测试                                                | 审查沙箱（计划中） | 快照的检出，`local/worktree`     |
 | `Archive`   | 按键读写每个阶段的输出                                                                                             | 运行档案（计划中） | `.eyeful/runs/`，`local/archive` |
 
-所有循环都由 Go 控制。`workflow` 按规则检查每份计划、报告和汇总，管理预算，决定何时重试、何时停止，并在下一阶段开始前把当前阶段的输出存进档案，所以恢复执行的审查不会重复已经完成的 agent 调用。专家名单（名称、模型档位、skill、证据类型）在 `workflow.New` 时传入。`workflow/prompts` 存放交给 agent 的全部内容：专家和各角色的提示词、工具定义以及每个角色能用哪些工具、从 skills.sh 引入的 skill，以及每个任务怎样写成提示词，所以云端和本地的 agent 拿到的是同样的文字；`workflow/project` 为两边读取 `.eyeful/config.yml`；`workflow/report` 把审查结果写成 Markdown 和 SARIF。`workflow` 不用 fx，不碰数据库，也不引用服务端的类型；它依赖的是处理 glob、diff、YAML 和 SARIF 的常用库。`workflow.SplitPatch` 把 `git diff` 的输出拆成改动里的各个文件，云端和本地都用它。
+所有循环都由 Go 控制。`workflow` 按规则检查每份计划、报告和汇总，管理预算，决定何时重试、何时停止，并在下一阶段开始前把当前阶段的输出存进档案，所以恢复执行的审查不会重复已经完成的 agent 调用。专家名单（名称、模型档位、skill、证据类型）在 `workflow.New` 时传入。`workflow/prompts` 存放交给 agent 的全部内容：专家和各角色的提示词、工具定义以及每个角色能用哪些工具、从 skills.sh 引入的 skill，以及每个任务怎样写成提示词，所以云端和本地的 agent 拿到的是同样的文字；`workflow/project` 为两边读取 `.eyeful/config.yml`；`workflow/report` 把审查结果写成 Markdown 和 SARIF。`workflow` 不用 fx，不碰数据库，也不引用服务端的类型；它依赖的是处理 glob、diff、YAML 和 SARIF 的常用库，以及运行打包好的 `@pulls.review/core`（负责给改动分组，见[审查计划](PLANNER.md#the-plan)）的 moejs。`workflow.SplitPatch` 把 `git diff` 的输出拆成改动里的各个文件，云端和本地都用它。
 
 ## 语言
 
@@ -76,8 +76,10 @@ flowchart TB
 | `apps/desktop`          | 本地图形界面，功能对应 `eyeful review`：Wails v3，独立的 Go 模块；`build/` 放打包资源                                                                                   |
 | `apps/desktop/frontend` | 桌面端的 SvelteKit 前端，构建到 `dist/` 后内嵌；Wails 绑定在 `bindings/`                                                                                                |
 | `packages/ui`           | shadcn-svelte 组件、diff 视图、文件树、主题和深色模式；文案通过 props 传入                                                                                              |
+| `packages/pulls`        | 用 Vite+ 从 `@pulls.review/core` 构建 `workflow/pulls/core.js`（`generate:pulls`）                                                                                      |
 | `workflow`              | 审查编排，独立的 Go 模块：分诊、计划检查、专家、验证、汇总、预算、检查点                                                                                                |
 | `workflow/prompts`      | 内嵌的专家和角色提示词、每个角色的工具定义、来自 skills.sh 的 skill，以及把每个角色的任务写成提示词的代码                                                               |
+| `workflow/pulls`        | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行：解析 diff、生成分组提示词和 schema、校验答案                                                                   |
 | `workflow/project`      | `.eyeful/config.yml`：项目命令、`skip`、`risk`，以及确认记录所用的摘要                                                                                                  |
 | `workflow/report`       | 把审查结果写成 Markdown 和 SARIF 2.1.0                                                                                                                                  |
 | `local`                 | 本地模式，独立的 Go 模块：`subject` 给本地分支、提交或未提交的改动取快照                                                                                                |

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 type agents struct {
@@ -21,7 +22,7 @@ type agents struct {
 	calls     map[workflow.Role]int
 	tiers     []workflow.Tier
 	diagnose  func() (workflow.Diagnosis, error)
-	plan      func(t workflow.PlanTask) (workflow.Plan, error)
+	plan      func(t workflow.PlanTask) (pulls.Analysis, error)
 	review    func(t workflow.ReviewTask) (workflow.Report, error)
 	fix       func(t workflow.FixTask) ([]workflow.Edit, error)
 	judge     func(t workflow.JudgeTask) (workflow.Judgement, error)
@@ -51,7 +52,7 @@ func (a *agents) Diagnose(_ context.Context, _ workflow.DiagnoseTask) (workflow.
 	return d, usage, err
 }
 
-func (a *agents) Plan(_ context.Context, t workflow.PlanTask) (workflow.Plan, workflow.Usage, error) {
+func (a *agents) Plan(_ context.Context, t workflow.PlanTask) (pulls.Analysis, workflow.Usage, error) {
 	a.count(workflow.RolePlanner)
 	p, err := a.plan(t)
 	return p, usage, err
@@ -140,11 +141,19 @@ var roster = []workflow.Expert{
 	{Name: "security", Area: "security", Tier: workflow.TierStrong, Skills: []workflow.Skill{{Name: "security-review"}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceReproTest, workflow.EvidenceCVE, workflow.EvidenceTriggerPath}},
 }
 
+func gitDiff(path, line string) string {
+	return fmt.Sprintf("diff --git a/%[1]s b/%[1]s\nindex 1111111..2222222 100644\n--- a/%[1]s\n+++ b/%[1]s\n@@ -1 +1 @@\n-old\n+%[2]s\n", path, line)
+}
+
+func group(key string, category pulls.DiffCategory, critical bool, paths ...string) pulls.DiffGroup {
+	return pulls.DiffGroup{Key: key, Label: key, Category: category, Critical: critical, FilePaths: paths}
+}
+
 func change() workflow.Change {
 	return workflow.Change{
 		Files: []workflow.File{
-			{Path: "app/session.py", Added: 3, Deleted: 1, Diff: "+bug\n"},
-			{Path: "app/login.py", Added: 5, Deleted: 0, Diff: "+x\n"},
+			{Path: "app/session.py", Added: 3, Deleted: 1, Diff: gitDiff("app/session.py", "bug")},
+			{Path: "app/login.py", Added: 5, Deleted: 0, Diff: gitDiff("app/login.py", "x")},
 			{Path: "uv.lock", Added: 40, Deleted: 2},
 		},
 		Commits: []string{"fix session expiry"},
@@ -158,14 +167,10 @@ func request() workflow.Request {
 	}
 }
 
-func goodPlan(workflow.PlanTask) (workflow.Plan, error) {
-	return workflow.Plan{
-		Summary: "Sessions expire at the exact expiry second, and login shows when they end.",
-		Groups: []workflow.Group{
-			{Category: "security", Core: true, Files: []string{"app/session.py"}, Experts: []workflow.Pick{{Name: "correctness"}, {Name: "security"}}},
-			{Category: "api", Files: []string{"app/login.py"}, Experts: []workflow.Pick{{Name: "security"}}},
-		},
-		Confidence: 0.9,
+func goodAnalysis(workflow.PlanTask) (pulls.Analysis, error) {
+	return pulls.Analysis{
+		OverallSummary: "Sessions expire at the exact expiry second, and login shows when they end.",
+		Groups:         []pulls.DiffGroup{group("expiry", "security", true, "app/session.py"), group("login", "api", false, "app/login.py")},
 	}, nil
 }
 
@@ -186,7 +191,7 @@ func base() *agents {
 		diagnose: func() (workflow.Diagnosis, error) {
 			return workflow.Diagnosis{Failures: []workflow.Failure{{Job: "test", Cause: "a test fails"}}}, nil
 		},
-		plan: goodPlan,
+		plan: goodAnalysis,
 		review: func(t workflow.ReviewTask) (workflow.Report, error) {
 			if t.Expert.Name == "correctness" {
 				return answers(t, finding("app/session.py", 10, workflow.EvidenceReproTest, repro(workflow.OracleSpec, "real"))), nil
@@ -302,28 +307,16 @@ func TestRun(t *testing.T) {
 	t.Run("plan rejected twice", func(t *testing.T) {
 		a := base()
 		var rejected []string
-		a.plan = func(t workflow.PlanTask) (workflow.Plan, error) {
+		a.plan = func(t workflow.PlanTask) (pulls.Analysis, error) {
 			rejected = t.Rejected
-			return workflow.Plan{Groups: []workflow.Group{{Files: []string{"app/session.py", "uv.lock"}, Experts: []workflow.Pick{{Name: "performance"}}}}, Confidence: 0.9}, nil
+			return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{group("g", "prose", false, "app/session.py")}}, nil
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
-		if res.PlanSource != workflow.PlanFromDefault || a.n(workflow.RolePlanner) != 2 || len(rejected) != 5 {
+		if res.PlanSource != workflow.PlanFromDefault || a.n(workflow.RolePlanner) != 2 || len(rejected) != 1 || !strings.Contains(rejected[0], "category") {
 			t.Fatalf("source %s, calls %d, rejected %v", res.PlanSource, a.n(workflow.RolePlanner), rejected)
 		}
 		if g := res.Plan.Groups[0]; len(g.Files) != 2 || len(g.Experts) != 2 {
 			t.Fatalf("default plan %+v", res.Plan)
-		}
-	})
-
-	t.Run("low confidence raises the level", func(t *testing.T) {
-		a := base()
-		a.plan = func(t workflow.PlanTask) (workflow.Plan, error) {
-			p, err := goodPlan(t)
-			p.Confidence = 0.2
-			return p, err
-		}
-		if res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request()); res.Level != workflow.LevelDeep {
-			t.Fatalf("level %s", res.Level)
 		}
 	})
 
@@ -444,7 +437,7 @@ func TestRun(t *testing.T) {
 			return workflow.Report{Loaded: t.Skills, Findings: []workflow.Claim{{Skill: "golang-concurrency", Path: t.Group.Files[0], Line: 1, Severity: workflow.SeverityLow, Subject: "s", Evidence: workflow.EvidenceArgument}}}, nil
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
-		if got := offered["correctness:app/session.py"]; len(got) != 1 || got[0] != "code-review" {
+		if got := offered["correctness:app/session.py,app/login.py"]; len(got) != 1 || got[0] != "code-review" {
 			t.Fatalf("a Go skill was offered for Python files: %v", got)
 		}
 		if len(res.Uncertainty.Absent) != 1 || !strings.Contains(res.Uncertainty.Absent[0].Reason, "golang-concurrency") {
@@ -457,8 +450,8 @@ func TestRun(t *testing.T) {
 
 	t.Run("a secret starts security", func(t *testing.T) {
 		a := base()
-		a.plan = func(workflow.PlanTask) (workflow.Plan, error) {
-			return workflow.Plan{Groups: []workflow.Group{{Files: []string{"app/session.py", "app/login.py"}, Experts: []workflow.Pick{{Name: "correctness"}}}}, Confidence: 0.9}, nil
+		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{group("all", "core", false, "app/session.py", "app/login.py")}}, nil
 		}
 		ws := &workspace{ci: workflow.Check{Passed: true}, tools: []workflow.ToolResult{{Tool: workflow.ToolSecretScan, Hits: []workflow.Hit{{Path: "app/login.py", Line: 3, Rule: "aws-key"}}}}}
 		res := run(t, a, ws, &archive{}, request())
@@ -574,30 +567,28 @@ func TestNew(t *testing.T) {
 func large() workflow.Request {
 	req := request()
 	req.Change.Files = []workflow.File{
-		{Path: "api/a.go", Added: 1500, Diff: "+a\n"},
-		{Path: "api/b.go", Added: 900, Diff: "+b\n"},
-		{Path: "web/c.ts", Added: 300, Diff: "+c\n"},
-		{Path: "web/d.ts", Added: 200, Diff: "+d\n"},
-		{Path: "README.md", Added: 50, Diff: "+r\n"},
+		{Path: "api/a.go", Added: 1500, Diff: gitDiff("api/a.go", "a")},
+		{Path: "api/b.go", Added: 900, Diff: gitDiff("api/b.go", "b")},
+		{Path: "web/c.ts", Added: 300, Diff: gitDiff("web/c.ts", "c")},
+		{Path: "web/d.ts", Added: 200, Diff: gitDiff("web/d.ts", "d")},
+		{Path: "README.md", Added: 50, Diff: gitDiff("README.md", "r")},
 		{Path: "data/huge.txt", Added: 10, Diff: "+" + strings.Repeat("x", 600<<10) + "\n"},
 	}
 	return req
 }
 
-func scopePlan(t workflow.PlanTask) (workflow.Plan, error) {
-	g := workflow.Group{Category: "core", Experts: []workflow.Pick{{Name: "correctness"}}}
-	for _, e := range t.Manifest {
-		if e.Class == workflow.ClassCode || e.Class == workflow.ClassDocs {
-			g.Files = append(g.Files, e.Path)
-		}
+func scopeAnalysis(t workflow.PlanTask) (pulls.Analysis, error) {
+	g := group("all", "core", false)
+	for _, f := range t.Diff.Files {
+		g.FilePaths = append(g.FilePaths, f.Path)
 	}
-	return workflow.Plan{Summary: "a change across the repository", Groups: []workflow.Group{g}, Confidence: 0.9}, nil
+	return pulls.Analysis{OverallSummary: "a change across the repository", Groups: []pulls.DiffGroup{g}}, nil
 }
 
 func TestScopes(t *testing.T) {
 	t.Run("a large change is split into scopes, each planned and reviewed on its own", func(t *testing.T) {
 		a := base()
-		a.plan = scopePlan
+		a.plan = scopeAnalysis
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) { return answers(t), nil }
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, large())
 		if len(res.Scopes) != 2 || a.n(workflow.RolePlanner) != 2 || a.n(workflow.RoleExpert) != 2 {
@@ -630,11 +621,11 @@ func TestScopes(t *testing.T) {
 
 	t.Run("a scope that spends its share stops, and the next scope still runs", func(t *testing.T) {
 		a := base()
-		a.plan = func(t workflow.PlanTask) (workflow.Plan, error) {
-			if slices.ContainsFunc(t.Manifest, func(e workflow.Entry) bool { return e.Path == "api/a.go" }) {
-				return workflow.Plan{Groups: []workflow.Group{}, Confidence: 0.9}, nil
+		a.plan = func(t workflow.PlanTask) (pulls.Analysis, error) {
+			if slices.ContainsFunc(t.Diff.Files, func(f pulls.FileChange) bool { return f.Path == "api/a.go" }) {
+				return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{}}, nil
 			}
-			return scopePlan(t)
+			return scopeAnalysis(t)
 		}
 		var reviewed [][]string
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
@@ -660,13 +651,8 @@ func TestScopes(t *testing.T) {
 	})
 }
 
-func TestPlannerDiffLimit(t *testing.T) {
+func TestReproductionCommand(t *testing.T) {
 	a := base()
-	var seen workflow.PlanTask
-	a.plan = func(t workflow.PlanTask) (workflow.Plan, error) {
-		seen = t
-		return goodPlan(t)
-	}
 	var mu sync.Mutex
 	var testOne string
 	a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
@@ -677,11 +663,7 @@ func TestPlannerDiffLimit(t *testing.T) {
 	}
 	req := request()
 	req.Project.TestOne = "pytest -k {test}"
-	req.Change.Files[1].Diff = "+" + strings.Repeat("x", 200<<10) + "\n"
 	run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
-	if !seen.Truncated || len(seen.Files) != 1 || seen.Files[0].Path != "app/session.py" {
-		t.Fatalf("planner saw %d files, truncated %v", len(seen.Files), seen.Truncated)
-	}
 	if testOne != "pytest -k {test}" {
 		t.Fatalf("expert got test_one %q", testOne)
 	}
@@ -689,23 +671,17 @@ func TestPlannerDiffLimit(t *testing.T) {
 
 func TestParallel(t *testing.T) {
 	files := make([]workflow.File, 6)
-	groups := make([]workflow.Group, 6)
+	groups := make([]pulls.DiffGroup, 6)
 	panel := make([]workflow.Expert, 6)
 	for i := range files {
-		files[i] = workflow.File{Path: fmt.Sprintf("app/m%d.py", i), Added: 1, Diff: "+x\n"}
+		files[i] = workflow.File{Path: fmt.Sprintf("app/m%d.py", i), Added: 1, Diff: gitDiff(fmt.Sprintf("app/m%d.py", i), "x")}
+		groups[i] = group(fmt.Sprintf("m%d", i), "security", false, files[i].Path)
 		panel[i] = workflow.Expert{Name: fmt.Sprintf("e%d", i), Tier: workflow.TierMid, Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}}
 	}
 	setup := func(experts []string, budget int64) (*agents, *atomic.Int32, *workflow.Workflow, workflow.Request) {
-		for i := range groups {
-			picks := make([]workflow.Pick, 0, len(experts))
-			for _, e := range experts {
-				picks = append(picks, workflow.Pick{Name: e})
-			}
-			groups[i] = workflow.Group{Category: "core", Files: []string{files[i].Path}, Experts: picks}
-		}
 		a := base()
-		a.plan = func(workflow.PlanTask) (workflow.Plan, error) {
-			return workflow.Plan{Summary: "six modules", Groups: groups, Confidence: 0.9}, nil
+		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			return pulls.Analysis{OverallSummary: "six modules", Groups: groups}, nil
 		}
 		var running, peak atomic.Int32
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
@@ -722,7 +698,7 @@ func TestParallel(t *testing.T) {
 		}
 		req := request()
 		req.Change = workflow.Change{Files: files, Commits: []string{}}
-		req.Budget = workflow.Budget{Tokens: budget}
+		req.Budget, req.Experts = workflow.Budget{Tokens: budget}, experts
 		return a, &peak, w, req
 	}
 	review := func(w *workflow.Workflow, a *agents, req workflow.Request) workflow.Result {
@@ -734,7 +710,7 @@ func TestParallel(t *testing.T) {
 	}
 
 	t.Run("each expert runs once, however many groups it reviews", func(t *testing.T) {
-		a, _, w, req := setup([]string{"correctness", "security"}, 1_000_000)
+		a, _, w, req := setup(nil, 1_000_000)
 		var mu sync.Mutex
 		seen := map[string][]string{}
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
@@ -823,9 +799,9 @@ func TestThoroughness(t *testing.T) {
 
 	t.Run("a risky path makes its group core", func(t *testing.T) {
 		a := base()
-		a.plan = func(workflow.PlanTask) (workflow.Plan, error) {
-			p, err := goodPlan(workflow.PlanTask{})
-			p.Groups[0].Core = false
+		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			p, err := goodAnalysis(workflow.PlanTask{})
+			p.Groups[0].Critical = false
 			return p, err
 		}
 		req := request()

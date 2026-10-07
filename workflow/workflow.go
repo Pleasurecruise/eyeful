@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-)
 
-const minConfidence = 0.5
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
+)
 
 func (s ciState) spent() []Run      { return s.Runs }
 func (s prepareState) spent() []Run { return s.Runs }
@@ -110,7 +111,11 @@ func New(log *slog.Logger, roster []Expert) (*Workflow, error) {
 		}
 		seen[e.Name] = true
 	}
-	return &Workflow{roster: slices.Clone(roster), log: log.With(slog.String("component", "workflow"))}, nil
+	core, err := pulls.Load()
+	if err != nil {
+		return nil, err
+	}
+	return &Workflow{roster: slices.Clone(roster), core: core, log: log.With(slog.String("component", "workflow"))}, nil
 }
 
 func (w *Workflow) Admit(req Request) error {
@@ -185,45 +190,45 @@ func (w *Workflow) prepare(ctx context.Context, s Session, req Request) (prepare
 	return st, nil
 }
 
-func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Request, t Triage, files map[string]File, tools []ToolResult, st *planState) error {
-	reviewed := make([]string, 0, len(t.Reviewed))
+func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Request, t Triage, files map[string]File, st *planState) error {
+	diff := pulls.DiffsPayload{Ref: pulls.SourceRef{Kind: "local"}, Title: "Changes under review", Commits: []pulls.Commit{}}
+	for _, m := range req.Change.Commits {
+		diff.Commits = append(diff.Commits, pulls.Commit{Message: m})
+	}
+	if len(req.Change.Commits) > 0 {
+		diff.Title, _, _ = strings.Cut(req.Change.Commits[0], "\n")
+	}
+	var patch strings.Builder
 	for _, e := range t.Reviewed {
-		reviewed = append(reviewed, e.Path)
+		patch.WriteString(files[e.Path].Diff)
 	}
-	shown, size := []File{}, 0
-	for _, f := range pick(files, reviewed) {
-		if size += len(f.Diff); size > planDiffLimit {
-			break
-		}
-		shown = append(shown, f)
+	var err error
+	if diff.Files, err = w.core.ParsePatch(patch.String()); err != nil {
+		return err
 	}
-	task := PlanTask{
-		Files: shown, Truncated: len(shown) < len(reviewed), Level: st.Level, Manifest: slices.Concat(t.Reviewed, t.Excluded), Commits: req.Change.Commits, Tools: tools,
-		Experts: make([]string, 0, len(w.roster)), Rejected: []string{},
-	}
-	for _, e := range w.roster {
-		task.Experts = append(task.Experts, e.Name)
-	}
+	task := PlanTask{Diff: diff, Rejected: []string{}}
 	for attempt := 1; attempt <= 2; attempt++ {
 		if !l.allow() {
 			st.Notes = append(st.Notes, "budget exhausted before the planner ran")
 			break
 		}
-		plan, r, err := invoke(ctx, l, Run{Role: RolePlanner}, s.Agents.Plan, task)
+		answer, r, err := invoke(ctx, l, Run{Role: RolePlanner}, s.Agents.Plan, task)
 		if err != nil {
 			return err
 		}
 		st.Runs = append(st.Runs, r)
-		reasons := []string{"the planner failed: " + r.Error}
+		problem := "the planner failed: " + r.Error
 		if r.Error == "" {
-			reasons = w.check(plan, t)
+			if answer, problem, err = w.core.Check(diff, answer); err != nil {
+				return err
+			}
 		}
-		if len(reasons) == 0 {
-			st.Plan, st.Source = plan, PlanFromPlanner
+		if problem == "" {
+			st.Plan, st.Source = w.staff(answer, t, st.Level), PlanFromPlanner
 			break
 		}
-		st.Notes = append(st.Notes, fmt.Sprintf("plan %d rejected: %v", attempt, reasons))
-		task.Rejected = reasons
+		st.Notes = append(st.Notes, fmt.Sprintf("grouping %d rejected: %s", attempt, problem))
+		task.Rejected = []string{problem}
 	}
 	return nil
 }
@@ -245,21 +250,12 @@ func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, 
 		st.Plan, st.Source = w.addSignals(w.defaultPlan(t, level), tools), PlanFromRules
 		return st, nil
 	}
-	if err := w.askPlanner(ctx, s, l, req, t, files, tools, &st); err != nil {
+	if err := w.askPlanner(ctx, s, l, req, t, files, &st); err != nil {
 		return st, err
 	}
 	if st.Source == "" {
 		st.Plan, st.Source = w.defaultPlan(t, level), PlanFromDefault
 		st.Notes = append(st.Notes, fmt.Sprintf("the default experts for %s reviewed the change", level))
-	}
-	if up := levels[level].escalate; st.Source == PlanFromPlanner && st.Plan.Confidence < minConfidence && up != level {
-		st.Level = up
-		st.Notes = append(st.Notes, fmt.Sprintf("planner confidence %.2f is below %.2f; level raised to %s", st.Plan.Confidence, minConfidence, up))
-	}
-	for i, g := range st.Plan.Groups {
-		if slices.ContainsFunc(g.Files, func(f string) bool { return slices.Contains(t.Risk, f) }) {
-			st.Plan.Groups[i].Core = true
-		}
 	}
 	st.Plan = w.addSignals(st.Plan, tools)
 	return st, nil
@@ -301,6 +297,7 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 			res.Plan.Groups = append(res.Plan.Groups, g)
 		}
 		res.Plan.Skipped = append(res.Plan.Skipped, ps.Plan.Skipped...)
+		res.Plan.Summary = strings.TrimSpace(res.Plan.Summary + "\n\n" + ps.Plan.Summary)
 		res.Plan.Confidence = min(res.Plan.Confidence, ps.Plan.Confidence)
 		if slices.Index(Levels, ps.Level) > slices.Index(Levels, res.Level) {
 			res.Level = ps.Level

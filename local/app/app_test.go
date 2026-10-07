@@ -23,6 +23,7 @@ import (
 )
 
 var replies = map[string]string{
+	"`submit_plan`":      `{"overallSummary":"Writes two to app.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["app.txt"]}]}`,
 	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"medium","subject":"Say what changed.","discussion":"d","evidence":"argument"}]}`,
 	"`submit_judgement`": `{"valid":true,"reason":"r"}`,
 	"`submit_commit`":    `{"message":"fix: write two\n\nThe value changed."}`,
@@ -46,6 +47,11 @@ func fakeClaude() error {
 	for _, m := range regexp.MustCompile("`([^`]+/SKILL.md)`").FindAllStringSubmatch(string(prompt), -1) {
 		if _, err := os.Stat(m[1]); err != nil {
 			return fmt.Errorf("a listed skill cannot be read: %w", err)
+		}
+	}
+	if m := regexp.MustCompile(`The full patch is at (\S+);`).FindStringSubmatch(string(prompt)); m != nil {
+		if _, err := os.Stat(m[1]); err != nil {
+			return fmt.Errorf("the patch the planner is pointed at cannot be read: %w", err)
 		}
 	}
 	for submit, reply := range replies {
@@ -374,6 +380,29 @@ func TestReview(t *testing.T) {
 		want := map[string][2]bool{"claude": {false, false}, "codex": {false, true}, "pi": {true, false}}
 		if fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Fatalf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("pulls.review core groups the change and Go picks the experts", func(t *testing.T) {
+		root, _, o := setup(t, true)
+		o.Experts = nil
+		if _, err := app.Review(t.Context(), o); err != nil {
+			t.Fatal(err)
+		}
+		saved, err := filepath.Glob(filepath.Join(root, ".eyeful", "runs", "*", "result.json"))
+		if err != nil || len(saved) != 1 {
+			t.Fatalf("result.json %v: %v", saved, err)
+		}
+		data, err := os.ReadFile(saved[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		var res workflow.Result
+		if err := json.Unmarshal(data, &res); err != nil {
+			t.Fatal(err)
+		}
+		if res.PlanSource != workflow.PlanFromPlanner || res.Plan.Summary != "Writes two to app.txt." || len(res.Plan.Groups) != 1 || res.Plan.Groups[0].Category != "core" || res.Plan.Groups[0].Experts[0].Name != "correctness" {
+			t.Fatalf("plan %s %+v, notes %v", res.PlanSource, res.Plan, res.Uncertainty.Notes)
 		}
 	})
 

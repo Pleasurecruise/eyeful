@@ -1,7 +1,6 @@
 # References
 
-This page lists the standards eyeful reviews against and the two projects it took design ideas
-from. Other pages link here when they mention them.
+This page lists the standards eyeful reviews against and the two projects it builds on. Other pages link here when they mention them.
 
 ## Software quality
 
@@ -82,21 +81,25 @@ from. Other pages link here when they mention them.
 
 ## Projects
 
-eyeful takes ideas about the shape of the workflow from two projects. It uses none of their code.
+eyeful builds on two projects. It runs one of them, `@pulls.review/core`, and takes ideas from both.
 
-From [antfu/pulls.review](https://github.com/antfu/pulls.review), in planning and the report:
+From [antfu/pulls.review](https://github.com/antfu/pulls.review) (MIT), in planning and the report.
+eyeful runs `@pulls.review/core` itself to understand and group the change
+([The plan](PLANNER.md#the-plan)), so these come from its code:
 
-| Idea                                            | Where eyeful uses it                                                                        |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Sort files with rules before any model runs     | [Triage](PLANNER.md#triage): glob rules set aside lockfiles, generated code and the like    |
-| Read the whole change before splitting it       | [The plan](PLANNER.md#the-plan): the planner reads the diff and writes what the change does |
-| Constrain the plan with a schema                | The `submit_plan` schema and [Go's checks](PLANNER.md) on the plan                          |
-| Group the change by intent                      | The plan's `groups`, which the [ranked report](REPORT.md) also sorts by                     |
-| Name the part of the system a group touches     | Each group's `category`, from pulls.review's list                                           |
-| Mark the groups that need extra care            | Each group's `core`, which experts review first and the report lists first                  |
-| Show what the change does before any comment    | The summary and groups at the top of the [terminal output](REPORT.md#terminal)              |
-| Read a working tree through a copy of the index | The [snapshot](LOCAL.md#snapshot) of uncommitted changes                                    |
-| Review a large change one scope at a time       | [Large changes](PLANNER.md#large): scopes split by Go, files over 512 KB set aside          |
+| What                                          | Where eyeful uses it                                                              |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| Read the whole change before splitting it     | The planner's prompt is core's own prompt for a local agent                       |
+| Group the change by intent, by part of system | Core's `Analysis`: groups with a `category` and `critical`, checked by core       |
+| Show what the change does before any comment  | Core's summary and groups at the top of the [terminal output](REPORT.md#terminal) |
+
+And these are ideas eyeful implements on its own:
+
+| Idea                                            | Where eyeful uses it                                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Sort files with rules before any model runs     | [Triage](PLANNER.md#triage): glob rules set aside lockfiles, generated code and the like |
+| Read a working tree through a copy of the index | The [snapshot](LOCAL.md#snapshot) of uncommitted changes                                 |
+| Review a large change one scope at a time       | [Large changes](PLANNER.md#large): scopes split by Go, files over 512 KB set aside       |
 
 From [umputun/revmux](https://github.com/umputun/revmux), in the stages and the feedback:
 

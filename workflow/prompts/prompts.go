@@ -17,6 +17,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
+	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
 func parse[T Role | front | Skill](p string, strict bool) (T, string, error) {
@@ -39,7 +40,11 @@ func parse[T Role | front | Skill](p string, strict bool) (T, string, error) {
 }
 
 func Load() (Set, error) {
-	s := Set{Roles: map[workflow.Role]Role{}}
+	core, err := pulls.Load()
+	if err != nil {
+		return Set{}, err
+	}
+	s := Set{Roles: map[workflow.Role]Role{}, core: core}
 	if err := loadRoles(&s); err != nil {
 		return Set{}, err
 	}

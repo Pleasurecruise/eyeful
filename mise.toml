@@ -26,6 +26,7 @@ run = "docker compose up -d postgres"
 
 [tasks."generate:db"]
 description = "Regenerate internal/db/sqlc from db/queries"
+hide = true
 run = "go tool github.com/sqlc-dev/sqlc/cmd/sqlc generate"
 
 [tasks."dev:web"]
@@ -37,30 +38,37 @@ depends = ["dev:server", "dev:web:vite"]
 hide = true
 run = "pnpm --filter @eyeful/web dev"
 
-[tasks."generate:spec"]
-description = "Regenerate spec/ from handler annotations"
-run = "go tool github.com/swaggo/swag/v2/cmd/swag init --v3.1 --generalInfo swagger.go --dir internal/handlers --output spec --outputTypes go,json,yaml --parseInternal --parseDependency"
-
 [tasks."generate:sdk"]
-description = "Regenerate packages/sdk from spec/"
-depends = ["generate:spec"]
-run = ["pnpm run generate:sdk", "pnpm --filter @eyeful/sdk run typecheck"]
+description = "Regenerate spec/ from handler annotations and packages/sdk from spec/"
+hide = true
+run = [
+	"go tool github.com/swaggo/swag/v2/cmd/swag init --v3.1 --generalInfo swagger.go --dir internal/handlers --output spec --outputTypes go,json,yaml --parseInternal --parseDependency",
+	"pnpm run generate:sdk",
+	"pnpm --filter @eyeful/sdk run typecheck"
+]
+
+[tasks."generate:pulls"]
+description = "Rebuild workflow/pulls/core.js from @pulls.review/core"
+hide = true
+run = "pnpm --filter @eyeful/pulls build"
 
 [tasks."tools:wails"]
 description = "Build the wails3 CLI that apps/desktop/go.mod pins into .tools/bin"
+hide = true
 dir = "apps/desktop"
 env = { GOBIN = "{{config_root}}/.tools/bin" }
 run = "go install tool"
 
 [tasks."generate:bindings"]
 description = "Regenerate the desktop's TypeScript bindings into apps/desktop/frontend/bindings"
+hide = true
 depends = ["tools:wails"]
 dir = "apps/desktop"
 run = "wails3 generate bindings -clean=true -ts"
 
 [tasks.generate]
-description = "Regenerate sqlc code, the OpenAPI spec, the TypeScript SDK and the desktop bindings"
-depends = ["generate:db", "generate:sdk", "generate:bindings"]
+description = "Regenerate sqlc code, the OpenAPI spec, the TypeScript SDK, the pulls.review core bundle and the desktop bindings"
+depends = ["generate:db", "generate:sdk", "generate:pulls", "generate:bindings"]
 
 [tasks.skills]
 description = "Reinstall the review skills in workflow/prompts/skills from skills-lock.json (skills.sh)"
@@ -82,28 +90,16 @@ run = "pnpm --filter @eyeful/docs dev"
 description = "Build the documentation site into docs/.vitepress/dist"
 run = "pnpm --filter @eyeful/docs build"
 
-[tasks."build:web"]
-description = "Build the console into apps/web/dist (embedded by the server)"
-run = "pnpm --filter @eyeful/web build"
-
 [tasks.build]
 description = "Build bin/eyeful-server with the console embedded"
-depends = ["build:web"]
-run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/server"
-
-[tasks."build:cli"]
-description = "Build the local CLI into bin/eyeful"
-run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful ./cmd/eyeful"
+run = [
+	"pnpm --filter @eyeful/web build",
+	"go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/server"
+]
 
 [tasks.install]
 description = "Install the local eyeful CLI into Go's bin directory"
 run = "go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
-
-[tasks."build:desktop"]
-description = "Build the desktop app with the Wails toolchain into apps/desktop/bin"
-depends = ["tools:wails"]
-dir = "apps/desktop"
-run = "wails3 build"
 
 [tasks."dev:desktop"]
 description = "Run the desktop app with Wails live reload"
@@ -141,10 +137,10 @@ run = [
 ]
 
 [tasks.format]
-description = "Format Go and the web console"
+description = "Format Go and TypeScript"
 run = ["gofmt -w cmd internal workflow local apps/web apps/desktop db", "pnpm exec vp fmt"]
 
 [tasks.check]
 description = "Lint, test, and fail if generated files are stale"
 depends = ["lint", "test", "generate"]
-run = "git diff --exit-code -- spec packages/sdk/src internal/db/sqlc"
+run = "git diff --exit-code -- spec packages/sdk/src internal/db/sqlc workflow/pulls/core.js"

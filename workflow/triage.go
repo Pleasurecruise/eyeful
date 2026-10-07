@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	maxPatch      = 512 << 10
-	planDiffLimit = 100 << 10
+	maxPatch = 512 << 10
 )
 
 var (

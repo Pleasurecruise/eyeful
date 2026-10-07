@@ -14,13 +14,13 @@ No version has been tagged yet.
 
 ## Artifacts
 
-| Artifact            | Built by                                                             | Runs on                         |
-| ------------------- | -------------------------------------------------------------------- | ------------------------------- |
-| `bin/eyeful-server` | `mise run build`                                                     | A server, next to PostgreSQL 18 |
-| Container image     | `Dockerfile` (distroless, port 8080)                                 | Any container runtime           |
-| Desktop app         | `mise run package:desktop` (Wails)                                   | macOS, Windows, Linux           |
-| `eyeful`            | `mise run build:cli`, `mise run install`, or a `v*` tag (GoReleaser) | The user's machine              |
-| Documentation site  | `mise run build:docs` (VitePress)                                    | GitHub Pages at `DOCS_URL`      |
+| Artifact            | Built by                                       | Runs on                         |
+| ------------------- | ---------------------------------------------- | ------------------------------- |
+| `bin/eyeful-server` | `mise run build`                               | A server, next to PostgreSQL 18 |
+| Container image     | `Dockerfile` (distroless, port 8080)           | Any container runtime           |
+| Desktop app         | `mise run package:desktop` (Wails)             | macOS, Windows, Linux           |
+| `eyeful`            | `mise run install`, or a `v*` tag (GoReleaser) | The user's machine              |
+| Documentation site  | `mise run build:docs` (VitePress)              | GitHub Pages at `DOCS_URL`      |
 
 The binary embeds the console, the migrations and the OpenAPI document. A cloud deployment is that
 one file plus a database URL, with no separate frontend to host and no separate migration step. CI

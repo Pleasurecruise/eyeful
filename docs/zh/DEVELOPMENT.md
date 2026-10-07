@@ -13,21 +13,20 @@ PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 
 
 ## 常用命令 {#commands}
 
-| 命令                                                         | 作用                                                                                      |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `mise run dev:web`（别名 `dev`）                             | 在 `:8080` 启动服务端，在 `:5173` 启动支持热更新的控制台；打开 `:5173`                    |
-| `mise run dev:server`                                        | 只在 `:8080` 启动服务端（会先迁移），控制台用上一次 `build` 的结果                        |
-| `mise run build`                                             | 先构建控制台，再构建内嵌控制台的 `bin/eyeful-server`                                      |
-| `mise run build:cli`                                         | 把本地命令行构建到 `bin/eyeful`                                                           |
-| `mise run install`                                           | 把本地命令行 `eyeful` 安装到 Go 的 bin 目录，mise 会把它加入 `PATH`；升级 Go 后要重新安装 |
-| `mise run skills`                                            | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
-| `mise run dev:desktop` / `build:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`build`、`package`；不需要服务端  |
-| `mise run dev:docs` / `build:docs`                           | 文档站点（VitePress，内容来自 `docs/`）                                                   |
-| `mise run test`                                              | 带 `-race` 运行 Go 测试；Postgres 相关测试需要设置测试数据库地址                          |
-| `mise run format`                                            | gofmt 和 `vp fmt`                                                                         |
-| `mise run lint`                                              | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
-| `mise run generate`                                          | 依次生成 sqlc、spec、SDK，以及桌面端绑定                                                  |
-| `mise run check`                                             | lint + test + generate，生成的文件有变化时失败                                            |
+| 命令                                       | 作用                                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `mise run dev:web`（别名 `dev`）           | 在 `:8080` 启动服务端，在 `:5173` 启动支持热更新的控制台；打开 `:5173`                    |
+| `mise run dev:server`                      | 只在 `:8080` 启动服务端（会先迁移），控制台用上一次 `build` 的结果                        |
+| `mise run build`                           | 先构建控制台，再构建内嵌控制台的 `bin/eyeful-server`                                      |
+| `mise run install`                         | 把本地命令行 `eyeful` 安装到 Go 的 bin 目录，mise 会把它加入 `PATH`；升级 Go 后要重新安装 |
+| `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
+| `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
+| `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                   |
+| `mise run test`                            | 带 `-race` 运行 Go 测试；Postgres 相关测试需要设置测试数据库地址                          |
+| `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
+| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
+| `mise run generate`                        | 依次生成 sqlc、spec、SDK，以及桌面端绑定                                                  |
+| `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 
 开发时要登录，需要注册一个 GitHub App，设置如下：
 
@@ -47,7 +46,7 @@ PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 
 
 ## 代码生成
 
-sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:spec`）生成 `spec/`，由二进制文件内嵌。`@hey-api/openapi-ts`（`generate:sdk`）生成 `packages/sdk/src`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
+sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:sdk` 的第一步）生成 `spec/`，由二进制文件内嵌。`@hey-api/openapi-ts`（`generate:sdk`）生成 `packages/sdk/src`。`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
 桌面图标的源文件是 `apps/desktop/build/appicon.png`；`generate:icons` 会一并生成 dev 和打包构建使用的 macOS `icons.icns`、`Assets.car`，以及 Windows `icon.ico`。
 
 ## 多语言

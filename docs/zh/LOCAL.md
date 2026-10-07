@@ -9,7 +9,7 @@
 ```sh
 eyeful provider                             # 可用的 agent，哪个已连接，哪个已安装
 eyeful connect claude                       # 也可以是 codex、pi
-eyeful review                               # 由规划器挑选专家
+eyeful review                               # pulls.review core 分组，Go 挑选专家
 eyeful review security                      # 由一个专家审查所有改动的文件
 eyeful review correctness security --base main
 eyeful commit                               # 由 agent 写提交说明，你确认后提交
@@ -81,7 +81,7 @@ agent 读的是仓库里的代码，所以用 `--head` 时，head 必须是当�
 
 ## agent {#agents}
 
-eyeful 以非交互模式运行已连接 agent 自己的命令行工具，每次调用启动一个新进程，工作目录是仓库根目录，做法和 revmux、pulls.review 相同。提示词由 `workflow/prompts` 写好，从标准输入传进去，所以没有长度限制。提示词里带着该角色需要的东西：diff（规划器拿到的是分诊在其范围内保留的文件），以及提供给专家的每个 skill 的名字、描述和路径：审查期间 skill 写在运行目录里，审查结束就删除。agent 用自己的只读工具读用得上的 skill 和其他文件，最后给出一段符合该角色 schema 的 JSON，内容就是该角色本来要提交的结果（见[提示词、skill 和工具](EXPERTS.md#skills-and-tools)）。这段 JSON 缺失或不符合 schema 时，eyeful 附上原因再运行一次，仍然不行就算这次调用失败。eyeful 不给 agent 配置任何 MCP 服务：MCP 只由云端提供（见 [API 约定](API.md#mcp-planned)）。agent 不能运行命令，所以真正运行的命令只有经过确认的项目命令，而且只在快照的检出里运行；agent 交出复现测试，由验证器去运行。
+eyeful 以非交互模式运行已连接 agent 自己的命令行工具，每次调用启动一个新进程，工作目录是仓库根目录，做法和 revmux、pulls.review 相同。提示词由 `workflow/prompts` 写好，从标准输入传进去，所以没有长度限制。提示词里带着该角色需要的东西：规划器拿到的是 pulls.review core 的提示词，含文件清单、diff 和运行目录里 `change.diff` 的路径；以及提供给专家的每个 skill 的名字、描述和路径：审查期间 skill 写在运行目录里，审查结束就删除。agent 用自己的只读工具读用得上的 skill 和其他文件，最后给出一段符合该角色 schema 的 JSON，内容就是该角色本来要提交的结果（见[提示词、skill 和工具](EXPERTS.md#skills-and-tools)）。这段 JSON 缺失或不符合 schema 时，eyeful 附上原因再运行一次，仍然不行就算这次调用失败。eyeful 不给 agent 配置任何 MCP 服务：MCP 只由云端提供（见 [API 约定](API.md#mcp-planned)）。agent 不能运行命令，所以真正运行的命令只有经过确认的项目命令，而且只在快照的检出里运行；agent 交出复现测试，由验证器去运行。
 
 | agent  | 运行方式                                                                                                                                                                                                   | 只读的保证                  | 结果                                               | 模型                                    |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------- | --------------------------------------- |

@@ -22,16 +22,16 @@ func (s Set) Diagnose(t workflow.DiagnoseTask) (string, error) {
 	return input(s.Roles[workflow.RoleCI].Body, t)
 }
 
-func (s Set) Plan(t workflow.PlanTask) (string, error) {
-	var b strings.Builder
-	b.WriteString(s.Roles[workflow.RolePlanner].Body + "\n\n## Diff\n\n")
-	for _, f := range t.Files {
-		b.WriteString(f.Diff)
+func (s Set) Plan(t workflow.PlanTask, patchPath string) (string, json.RawMessage, error) {
+	prompt, err := s.core.Prompt(t.Diff, patchPath)
+	if err != nil {
+		return "", nil, err
 	}
-	if t.Truncated {
-		b.WriteString("\n(The rest of the diff is left out; read the files yourself.)\n")
+	if len(t.Rejected) > 0 {
+		prompt += "\n\nAn earlier answer was rejected: " + strings.Join(t.Rejected, "; ")
 	}
-	return input(b.String(), t)
+	schema, err := s.core.AnalysisJSONSchema()
+	return prompt, schema, err
 }
 
 func (s Set) Review(t workflow.ReviewTask, skills string) (string, error) {

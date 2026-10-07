@@ -11,7 +11,7 @@ coding tools the user is already signed in to.
 ```sh
 eyeful provider                             # the agents, which is connected, which is installed
 eyeful connect claude                       # or codex, pi
-eyeful review                               # the planner picks the experts
+eyeful review                               # pulls.review core groups the change, Go picks the experts
 eyeful review security                      # one expert reviews every changed file
 eyeful review correctness security --base main
 eyeful commit                               # the agent writes the message; you confirm it
@@ -145,7 +145,8 @@ affected, because they run in the snapshot's own checkout.
 eyeful runs the connected agent's own command-line tool in its non-interactive mode, one new process
 per call, in the repository root, the way revmux and pulls.review drive them. The prompt, composed by
 `workflow/prompts`, goes in on standard input, so it has no length limit. It carries what the role
-needs: the diffs (for the planner, those of the files triage kept in its scope), and for an expert
+needs: for the planner, pulls.review core's prompt with the manifest, the diffs and the path of the
+run's `change.diff`; for an expert
 the name, description and path of each skill offered to it, written into the run directory for the
 length of the review and removed after it. The agent reads the skills that apply, and other files with its own read-only tools and
 ends with one JSON block that matches the role's schema, which is the result the role would

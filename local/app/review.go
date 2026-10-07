@@ -92,12 +92,12 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	}
 	defer closeTree()
 	run := filepath.Join(dir, time.Now().UTC().Format("20060102-150405"))
-	skills, removeSkills, err := writeSkills(o, run)
+	skills, patch, removeSkills, err := prepare(o, run, snap.Patch)
 	if err != nil {
 		return report.Output{}, err
 	}
 	defer removeSkills()
-	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Set: set}, idleTimeout, hardTimeout)
+	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, Set: set}, idleTimeout, hardTimeout)
 	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Workspace: ws, Archive: archive.New(filepath.Join(run, "stages"))}, req)
 	if err != nil {
 		return report.Output{}, err
@@ -105,12 +105,16 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	return save(ctx, o, run, snap, objects, res)
 }
 
-func writeSkills(o Options, run string) (string, func(), error) {
+func prepare(o Options, run, diff string) (string, string, func(), error) {
 	dir := filepath.Join(run, "skills")
 	if err := prompts.WriteSkills(dir); err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
-	return dir, func() {
+	patch := filepath.Join(run, "change.diff")
+	if err := os.WriteFile(patch, []byte(diff), 0o600); err != nil {
+		return "", "", nil, fmt.Errorf("save change.diff: %w", err)
+	}
+	return dir, patch, func() {
 		if err := os.RemoveAll(dir); err != nil {
 			o.Log.Warn("remove the skills", "dir", dir, "error", err)
 		}
@@ -228,8 +232,8 @@ func save(ctx context.Context, o Options, dir string, snap subject.Snapshot, obj
 		return report.Output{}, fmt.Errorf("run directory: %w", err)
 	}
 	saved := map[string][]byte{
-		"snapshot.json": snapshot, "change.diff": []byte(snap.Patch),
-		"review.md": []byte(md), "findings.json": findings, "results.sarif": sarif, "result.json": result,
+		"snapshot.json": snapshot,
+		"review.md":     []byte(md), "findings.json": findings, "results.sarif": sarif, "result.json": result,
 	}
 	for name, content := range saved {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {

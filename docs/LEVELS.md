@@ -27,11 +27,11 @@ the upper layers act on.
 
 ## Levels
 
-| Level    | Always runs     | Experts                                                                | What they report                                                | Verification                                                          |
-| -------- | --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- |
-| quick    | L0, L1          | Up to 2 experts on cheap models, only where an L1 tool found something | Problems that change behaviour or break a contract              | none                                                                  |
-| standard | L0, L1, planner | Chosen by the planner                                                  | Problems that change behaviour or break a contract              | Reproductions in verification order, plus the touched packages' tests |
-| deep     | L0, L1, planner | Chosen by the planner, on strong models                                | The same, plus naming, style, wording and small simplifications | Every reproduction, plus the full suite and E2E                       |
+| Level    | Always runs     | Experts                                                                            | What they report                                                | Verification                                                          |
+| -------- | --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- |
+| quick    | L0, L1          | Up to 2 experts on cheap models, only where an L1 tool found something             | Problems that change behaviour or break a contract              | none                                                                  |
+| standard | L0, L1, planner | Picked by Go from the plan's groups                                                | Problems that change behaviour or break a contract              | Reproductions in verification order, plus the touched packages' tests |
+| deep     | L0, L1, planner | Picked by Go from the plan's groups, on strong models; core groups also get design | The same, plus naming, style, wording and small simplifications | Every reproduction, plus the full suite and E2E                       |
 
 The quick level has no planner. Rules send tool output to experts: a `secret_scan` hit to security,
 a `typecheck` error to correctness, an `openapi_diff` break to usability. If no tool finds anything,
@@ -39,7 +39,7 @@ a quick review is just the list of tool results and uses no tokens. For this rea
 level that does not require every line to be reviewed ([Planning and triage](PLANNER.md#triage)).
 
 The level is how closely a review looks, and eyeful sets it from the change alone. At both standard
-and deep the planner reads the change, groups it and picks the experts it needs
+and deep pulls.review core groups the change and Go picks the experts each group needs
 ([The plan](PLANNER.md#the-plan)); there is no limit on how many. What changes is the bar for a
 finding. At standard the experts report only problems that change behaviour or break a contract, and
 Go leaves out any `low` finding that arrives anyway, which the feedback counts. At deep the experts
@@ -61,7 +61,7 @@ A few signals start an expert at every level:
 Nobody picks the level; eyeful chooses it from the change, the way revmux runs one default profile
 instead of asking. A change that touches a `risk` path from
 `.eyeful/config.yml` or a `CODEOWNERS` path, or a diff of more than 2,000 changed lines, gets deep, and everything else
-gets standard. If the planner reports low confidence, the level goes up; it does not go down. A
+gets standard. A
 review can move up a level while running and reuse what has already run.
 
 Each level has a budget in tokens and money, and each command the verifier runs has its own timeout.

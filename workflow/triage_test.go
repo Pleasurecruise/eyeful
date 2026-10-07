@@ -3,6 +3,7 @@ package workflow_test
 import (
 	"errors"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -73,11 +74,7 @@ func TestSplitPatch(t *testing.T) {
 
 func TestTriage(t *testing.T) {
 	a := base()
-	var manifest []workflow.Entry
-	a.plan = func(t workflow.PlanTask) (workflow.Plan, error) {
-		manifest = t.Manifest
-		return goodPlan(t)
-	}
+	a.plan = goodAnalysis
 	req := request()
 	req.Project = workflow.Project{Skip: []string{"docs/api/**"}, Risk: []string{"app/auth/**"}}
 	req.Change.Files = []workflow.File{
@@ -99,8 +96,9 @@ func TestTriage(t *testing.T) {
 		"api/types.pb.go": workflow.ClassGenerated, "api/client.go": workflow.ClassGenerated, "logo.png": workflow.ClassBinary,
 		"docs/api/index.md": workflow.ClassSkipped,
 	}
+	manifest := slices.Concat(res.Triage.Reviewed, res.Triage.Excluded)
 	if len(manifest) != len(want) || len(res.Triage.Reviewed) != 4 || len(res.Triage.Excluded) != 6 {
-		t.Fatalf("manifest %+v", manifest)
+		t.Fatalf("triage %+v", res.Triage)
 	}
 	for _, e := range manifest {
 		if want[e.Path] != e.Class {
