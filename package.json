@@ -4,9 +4,6 @@
 	"license": "AGPL-3.0-only",
 	"type": "module",
 	"scripts": {
-		"format": "vp fmt",
-		"lint": "vp lint",
-		"check": "vp check",
 		"generate:sdk": "openapi-ts"
 	},
 	"devDependencies": {

@@ -12,24 +12,22 @@
 	"scripts": {
 		"dev": "vp dev",
 		"build": "vp build && node -e \"require('node:fs').writeFileSync('dist/.gitkeep', '')\"",
-		"preview": "vp preview",
 		"prepare": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations",
-		"typecheck": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json",
-		"typecheck:watch": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json --watch"
+		"typecheck": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
 		"@eyeful/sdk": "workspace:*",
 		"@eyeful/ui": "workspace:*",
-		"@lucide/svelte": "1.51.0"
+		"@lucide/svelte": "1.55.0"
 	},
 	"devDependencies": {
-		"@iconify-json/simple-icons": "1.2.98",
+		"@iconify-json/simple-icons": "1.2.99",
 		"@inlang/paraglide-js": "catalog:",
 		"@sveltejs/adapter-static": "4.0.0",
-		"@sveltejs/kit": "3.0.0",
+		"@sveltejs/kit": "3.0.1",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@tailwindcss/vite": "4.3.3",
-		"@types/node": "26.6.4",
+		"@types/node": "26.6.5",
 		"@typescript/native": "npm:typescript@7.0.2",
 		"svelte": "catalog:",
 		"svelte-check": "4.7.6",

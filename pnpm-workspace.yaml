@@ -15,10 +15,10 @@ update:
   ignoreDeps:
     - typescript
 catalog:
-  '@inlang/paraglide-js': 2.25.4
-  svelte: 5.57.1
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vite-plus: 1.0.0
+  '@inlang/paraglide-js': 2.27.0
+  svelte: 5.57.2
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vite-plus: 1.1.0
 overrides:
   vite@*: 'catalog:'
 peerDependencyRules:
@@ -26,5 +26,3 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: '*'
-minimumReleaseAgeExclude:
-  - '@pulls.review/core@0.3.1'

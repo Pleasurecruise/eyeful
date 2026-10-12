@@ -23,15 +23,14 @@
 		"./app.css": "./dist/app.css"
 	},
 	"scripts": {
-		"dev": "svelte-package --watch",
 		"prepare": "svelte-kit sync && svelte-package",
 		"typecheck": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
 		"@fontsource-variable/inter": "5.3.0",
 		"@internationalized/date": "3.12.4",
-		"@lucide/svelte": "1.52.0",
-		"@pierre/diffs": "1.5.1",
+		"@lucide/svelte": "1.55.0",
+		"@pierre/diffs": "1.5.2",
 		"@pierre/trees": "1.0.0-beta.6",
 		"bits-ui": "2.19.5",
 		"cn": "0.4.0",
@@ -43,7 +42,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "4.0.0",
-		"@sveltejs/kit": "3.0.0",
+		"@sveltejs/kit": "3.0.1",
 		"@sveltejs/package": "3.0.0",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@tailwindcss/vite": "4.3.3",
