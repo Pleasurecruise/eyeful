@@ -57,6 +57,14 @@ This page lists the standards eyeful reviews against and the two projects it bui
 - Y. Jia and M. Harman, "An Analysis and Survey of the Development of Mutation Testing", _IEEE
   Transactions on Software Engineering_, 2011. Mutation testing, used to check whether tests fail
   when the code breaks.
+- C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. Fail-to-pass and pass-to-pass, the verifier's last two [gates](VERIFICATION.md#the-verifier), and the test statuses `PASSED`, `FAILED` and `ERROR` it records for every run.
+- Martian, "Code Review Bench", 2026, <https://github.com/withmartian/code-review-benchmark>. The offline set of 50 pull requests with golden comments, and the judge prompt and scoring that [`match.py`](EVALUATION.md#tooling) follows.
+- R. Just, D. Jalali and M. D. Ernst, "Defects4J: A Database of Existing Faults to Enable Controlled
+  Testing Studies for Java Programs", ISSTA 2014. A fault is tied to the change that introduced it,
+  the `introduced` gate.
+- N. Alshahwan et al., "Automated Unit Test Improvement using Large Language Models at Meta", FSE
+  Companion 2024. A generated test is kept only if it builds and gives the same result over five
+  runs, the `runs` and `not_flaky` gates.
 
 ## Usability and accessibility
 
@@ -120,7 +128,7 @@ an external reference.
 
 |                           | Claude Code ultrareview       | revmux                                           | eyeful                                                                        |
 | ------------------------- | ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Who picks reviewers       | Not published                 | The caller picks a profile with a fixed roster   | A planner for each change, checked by Go against the level                    |
+| Who picks reviewers       | Not published                 | The caller picks a profile with a fixed roster   | A planner for each change, checked by Go against the change's files           |
 | What is reviewed          | Bugs                          | What the profile's lenses cover                  | Design, functionality, security, tests, usability, readability                |
 | How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code and gives a verdict | The verifier runs a reproduction test; weaker findings are labelled as such   |
 | Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text per finding   | Conventional Comments: blocking ones on the line, the rest in a ranked report |

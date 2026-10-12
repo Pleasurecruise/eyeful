@@ -12,6 +12,7 @@ type Worktree struct {
 	root   string
 	dir    string
 	env    []string
+	base   string
 	change string
 	log    *slog.Logger
 }

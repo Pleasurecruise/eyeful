@@ -34,8 +34,11 @@ var kindStrength = map[EvidenceKind]Strength{
 }
 
 func strength(f Finding, v Verification) Strength {
-	if f.Repro != nil && (v.Status == StatusReproduced || v.Status == StatusFixed) {
-		return oracleStrength[f.Repro.Oracle]
+	if v.Status == StatusReproduced || v.Status == StatusFixed {
+		return oracleStrength[v.Repro.Oracle]
+	}
+	if v.Status == StatusRejected {
+		return StrengthWeak
 	}
 	return kindStrength[f.Evidence]
 }
@@ -54,20 +57,24 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 	var out []Merged
 	for _, f := range kept {
 		v := verdicts[f.ID]
-		if v.Status == StatusNotReproduced || v.Status == StatusRejected {
-			continue
-		}
 		if n := len(out); n > 0 && near(out[n-1].Findings[len(out[n-1].Findings)-1], f) {
 			m := &out[n-1]
 			m.Findings = append(m.Findings, f)
 			m.Strength = max(m.Strength, strength(f, v))
 			m.Group = min(m.Group, f.Group)
+			if v.Status != StatusRejected {
+				m.Objection = ""
+			}
 			if !slices.Contains(m.Experts, f.Expert) {
 				m.Experts = append(m.Experts, f.Expert)
 			}
 			continue
 		}
-		out = append(out, Merged{ID: f.ID, Path: f.Path, Line: f.Line, Findings: []Finding{f}, Experts: []string{f.Expert}, Strength: strength(f, v), Group: f.Group})
+		m := Merged{ID: f.ID, Path: f.Path, Line: f.Line, Findings: []Finding{f}, Experts: []string{f.Expert}, Strength: strength(f, v), Group: f.Group}
+		if v.Status == StatusRejected {
+			m.Objection = v.Reason
+		}
+		out = append(out, m)
 	}
 	for i := range out {
 		slices.Sort(out[i].Experts)
@@ -76,13 +83,16 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 }
 
 func (w *Workflow) comment(m Merged, d Draft, verdicts map[string]Verification) Comment {
+	if !slices.ContainsFunc(m.Findings, func(f Finding) bool { return f.Severity != SeverityLow }) {
+		d.Label = LabelNitpick
+	}
 	blocking := "non-blocking"
 	if d.Label == LabelIssue && m.Strength == StrengthStrong {
 		blocking = "blocking"
 	}
 	c := Comment{
 		Finding: m.ID, Label: d.Label, Decorations: []string{blocking}, Short: d.Short, Subject: d.Subject, Discussion: d.Discussion,
-		Path: m.Path, Line: m.Line, Experts: m.Experts, Strength: m.Strength,
+		Path: m.Path, Line: m.Line, Experts: m.Experts, Strength: m.Strength, Objection: m.Objection,
 	}
 	for _, name := range m.Experts {
 		if e, ok := w.expert(name); ok && e.Area != "" && !slices.Contains(c.Decorations, e.Area) {
@@ -92,8 +102,13 @@ func (w *Workflow) comment(m Merged, d Draft, verdicts map[string]Verification) 
 	for _, f := range m.Findings {
 		v := verdicts[f.ID]
 		c.Scenario = cmp.Or(c.Scenario, f.Scenario)
-		if c.Test == nil && f.Repro != nil && (v.Status == StatusReproduced || v.Status == StatusFixed) {
-			c.Test = &f.Repro.Test
+		for _, r := range f.Related {
+			if !slices.Contains(c.Related, r) {
+				c.Related = append(c.Related, r)
+			}
+		}
+		if c.Repro == nil && slices.Contains([]Status{StatusReproduced, StatusFixed, StatusPreExisting}, v.Status) {
+			c.Repro = v.Repro
 		}
 		if c.Fix == nil && v.Status == StatusFixed {
 			c.Fix = v.Fix

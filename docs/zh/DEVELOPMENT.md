@@ -13,20 +13,20 @@ PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 
 
 ## 常用命令 {#commands}
 
-| 命令                                       | 作用                                                                                      |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `mise run dev:web`（别名 `dev`）           | 在 `:8080` 启动服务端，在 `:5173` 启动支持热更新的控制台；打开 `:5173`                    |
-| `mise run dev:server`                      | 只在 `:8080` 启动服务端（会先迁移），控制台用上一次 `build` 的结果                        |
-| `mise run build`                           | 先构建控制台，再构建内嵌控制台的 `bin/eyeful-server`                                      |
-| `mise run install`                         | 把本地命令行 `eyeful` 安装到 Go 的 bin 目录，mise 会把它加入 `PATH`；升级 Go 后要重新安装 |
-| `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
-| `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
-| `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                   |
-| `mise run test`                            | 带 `-race` 运行 Go 测试；Postgres 相关测试需要设置测试数据库地址                          |
-| `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
-| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
-| `mise run generate`                        | 依次生成 sqlc、spec、SDK，以及桌面端绑定                                                  |
-| `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
+| 命令                                       | 作用                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `mise run dev:web`（别名 `dev`）           | 在 `:8080` 启动服务端，在 `:5173` 启动支持热更新的控制台；打开 `:5173`                      |
+| `mise run dev:server`                      | 只在 `:8080` 启动服务端（会先迁移），控制台用上一次 `build` 的结果                          |
+| `mise run build`                           | 先构建控制台，再构建内嵌控制台的 `bin/eyeful-server`                                        |
+| `mise run install`                         | 把本地命令行 `eyeful` 安装到 Go 的 bin 目录，mise 会把它加入 `PATH`；升级 Go 后要重新安装   |
+| `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                     |
+| `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端             |
+| `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                     |
+| `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试；Postgres 相关测试需要设置测试数据库地址 |
+| `mise run format`                          | gofmt 和 `vp fmt`                                                                           |
+| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                             |
+| `mise run generate`                        | 依次生成 sqlc、spec、SDK，以及桌面端绑定                                                    |
+| `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                              |
 
 开发时要登录，需要注册一个 GitHub App，设置如下：
 
@@ -55,10 +55,10 @@ sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:sdk` 的�
 
 ## 工具链说明 {#toolchain-notes}
 
-- Vite+ 1.0.0 通过 `vp migrate` 接入。pnpm catalog 把 `vite` 指向 `@voidzero-dev/vite-plus-core`。
+- Vite+ 1.1.0 通过 `vp migrate` 接入。pnpm catalog 把 `vite` 指向 `@voidzero-dev/vite-plus-core`。
 - 类型检查用 TypeScript 7.0.2（`@typescript/native`、`svelte-check --tsgo`）。`typescript` 保持在 6.0.3，因为 `svelte-kit sync` 和 SDK 生成器要用它的 JS API；它不参与 `pnpm update`。
 - VitePress 用的是 2.0.0-alpha.20。1.6.4 在 Vite+ 下会出错，因为它调用了已经移除的 `transformWithEsbuild`，2.x 则适配当前的 Vite。
-- swag v2.0.0-rc6 和 Wails v3.0.0-beta.27 还没有正式版。
+- swag v2.0.0-rc6 和 Wails v3.0.0-beta.28 还没有正式版。
 - 项目用到的工具都是 Go 工具，mise 只安装工具链。sqlc 和 swag 写在根 `go.mod` 的 `tool` 中，用 `go tool` 运行。`wails3` 命令行写在 `apps/desktop/go.mod` 的 `tool` 中，版本始终和 Wails 库一致。`tools:wails` 把它构建到 `.tools/bin`（不进 git），`mise.toml` 只在仓库目录内把这个目录加进 `PATH`，因为 Wails 的 Taskfile 会调用 `wails3`。桌面端的任务会先执行它。
 
 ## 重新生成前端

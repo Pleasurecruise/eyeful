@@ -111,12 +111,8 @@ func TestTriage(t *testing.T) {
 
 	req.Level = ""
 	req.Change.Files = append(req.Change.Files, workflow.File{Path: "app/auth/token.py"})
-	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); res.Level != workflow.LevelDeep || len(res.Triage.Risk) != 1 {
+	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); res.Level != workflow.LevelStandard || len(res.Triage.Risk) != 1 {
 		t.Errorf("risk path: level %s, risk %v", res.Level, res.Triage.Risk)
-	}
-	req.Change.Files = []workflow.File{{Path: "app/session.py", Added: 3}}
-	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); res.Level != workflow.LevelStandard {
-		t.Errorf("small change: level %s", res.Level)
 	}
 
 	req.Project.Risk = []string{"app/[x"}

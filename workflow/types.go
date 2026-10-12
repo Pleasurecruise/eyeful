@@ -9,14 +9,17 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
-const maxParallel = 4
+const (
+	maxParallel   = 4
+	reproRuns     = 5
+	expertPercent = 75
+)
 
 type Level string
 
 const (
 	LevelQuick    Level = "quick"
 	LevelStandard Level = "standard"
-	LevelDeep     Level = "deep"
 )
 
 type Tier string
@@ -117,8 +120,17 @@ const (
 	StatusNotReproduced Status = "not_reproduced"
 	StatusReproduced    Status = "reproduced"
 	StatusFixed         Status = "fix_verified"
+	StatusPreExisting   Status = "pre_existing"
 	StatusConfirmed     Status = "confirmed"
 	StatusRejected      Status = "rejected"
+)
+
+type TestStatus string
+
+const (
+	TestPassed TestStatus = "PASSED"
+	TestFailed TestStatus = "FAILED"
+	TestError  TestStatus = "ERROR"
 )
 
 type Label string
@@ -142,6 +154,7 @@ const (
 	RolePlanner    Role = "planner"
 	RoleExpert     Role = "expert"
 	RoleFix        Role = "fix"
+	RoleRepro      Role = "repro"
 	RoleJudge      Role = "judge"
 	RoleSummarizer Role = "summarizer"
 )
@@ -188,6 +201,7 @@ type Request struct {
 	Budget       Budget   `json:"budget"`
 	Verification Mode     `json:"verification"`
 	Experts      []string `json:"experts"`
+	Dependent    bool     `json:"dependent"`
 }
 
 type Skill struct {
@@ -201,6 +215,8 @@ type Expert struct {
 	Tier     Tier           `json:"tier"`
 	Skills   []Skill        `json:"skills"`
 	Evidence []EvidenceKind `json:"evidence"`
+	Solo     bool           `json:"solo,omitempty"`
+	Blind    bool           `json:"blind,omitempty"`
 }
 
 type Entry struct {
@@ -262,10 +278,17 @@ type Edit struct {
 }
 
 type Repro struct {
-	Test   Edit   `json:"test"`
+	Test   Edit   `json:"test,omitzero"`
 	Run    string `json:"run"`
+	Fails  string `json:"fails"`
 	Oracle Oracle `json:"oracle"`
 	Quote  string `json:"quote,omitempty"`
+	Source string `json:"source,omitempty"`
+}
+
+type Location struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
 }
 
 type Claim struct {
@@ -274,12 +297,12 @@ type Claim struct {
 	CWE        string       `json:"cwe,omitempty"`
 	Path       string       `json:"path"`
 	Line       int          `json:"line"`
+	Related    []Location   `json:"related,omitempty"`
 	Severity   Severity     `json:"severity"`
 	Subject    string       `json:"subject"`
 	Discussion string       `json:"discussion"`
 	Scenario   string       `json:"scenario,omitempty"`
 	Evidence   EvidenceKind `json:"evidence"`
-	Repro      *Repro       `json:"repro,omitempty"`
 }
 
 type Finding struct {
@@ -314,7 +337,7 @@ type Check struct {
 type Target struct {
 	Tests   []string `json:"tests"`
 	Touched []string `json:"touched"`
-	Full    bool     `json:"full"`
+	Base    bool     `json:"base"`
 }
 
 type TestRun struct {
@@ -324,10 +347,14 @@ type TestRun struct {
 }
 
 type Verification struct {
-	Finding string `json:"finding"`
-	Status  Status `json:"status"`
-	Fix     []Edit `json:"fix,omitempty"`
-	Reason  string `json:"reason,omitempty"`
+	Finding string       `json:"finding"`
+	Status  Status       `json:"status"`
+	Repro   *Repro       `json:"repro,omitempty"`
+	Change  []TestStatus `json:"change,omitempty"`
+	Base    TestStatus   `json:"base,omitempty"`
+	Fixed   TestStatus   `json:"fixed,omitempty"`
+	Fix     []Edit       `json:"fix,omitempty"`
+	Reason  string       `json:"reason,omitempty"`
 }
 
 type Judgement struct {
@@ -336,13 +363,14 @@ type Judgement struct {
 }
 
 type Merged struct {
-	ID       string    `json:"id"`
-	Path     string    `json:"path"`
-	Line     int       `json:"line"`
-	Findings []Finding `json:"findings"`
-	Experts  []string  `json:"experts"`
-	Strength Strength  `json:"strength"`
-	Group    int       `json:"group"`
+	ID        string    `json:"id"`
+	Path      string    `json:"path"`
+	Line      int       `json:"line"`
+	Findings  []Finding `json:"findings"`
+	Experts   []string  `json:"experts"`
+	Strength  Strength  `json:"strength"`
+	Group     int       `json:"group"`
+	Objection string    `json:"objection,omitempty"`
 }
 
 type Draft struct {
@@ -354,19 +382,21 @@ type Draft struct {
 }
 
 type Comment struct {
-	Finding     string   `json:"finding"`
-	Label       Label    `json:"label"`
-	Decorations []string `json:"decorations"`
-	Short       string   `json:"short"`
-	Subject     string   `json:"subject"`
-	Discussion  string   `json:"discussion"`
-	Scenario    string   `json:"scenario,omitempty"`
-	Path        string   `json:"path"`
-	Line        int      `json:"line"`
-	Experts     []string `json:"experts"`
-	Strength    Strength `json:"strength"`
-	Test        *Edit    `json:"test,omitempty"`
-	Fix         []Edit   `json:"fix,omitempty"`
+	Finding     string     `json:"finding"`
+	Label       Label      `json:"label"`
+	Decorations []string   `json:"decorations"`
+	Short       string     `json:"short"`
+	Subject     string     `json:"subject"`
+	Discussion  string     `json:"discussion"`
+	Scenario    string     `json:"scenario,omitempty"`
+	Path        string     `json:"path"`
+	Line        int        `json:"line"`
+	Related     []Location `json:"related,omitempty"`
+	Experts     []string   `json:"experts"`
+	Strength    Strength   `json:"strength"`
+	Repro       *Repro     `json:"repro,omitempty"`
+	Fix         []Edit     `json:"fix,omitempty"`
+	Objection   string     `json:"objection,omitempty"`
 }
 
 type Usage struct {
@@ -402,7 +432,6 @@ type Unverified struct {
 type Uncertainty struct {
 	Absent          []Absence    `json:"absent"`
 	Unread          []Unread     `json:"unread"`
-	Dismissed       []Finding    `json:"dismissed"`
 	Unverified      []Unverified `json:"unverified"`
 	Skipped         []string     `json:"skipped"`
 	Notes           []string     `json:"notes"`
@@ -416,6 +445,7 @@ type Result struct {
 	Diagnosis     Diagnosis      `json:"diagnosis"`
 	Triage        Triage         `json:"triage"`
 	Tools         []ToolResult   `json:"tools"`
+	Regression    *TestRun       `json:"regression,omitempty"`
 	Scopes        []Scope        `json:"scopes"`
 	Plan          Plan           `json:"plan"`
 	PlanSource    PlanSource     `json:"plan_source,omitempty"`
@@ -436,26 +466,36 @@ type PlanTask struct {
 }
 
 type ReviewTask struct {
-	Expert   Expert       `json:"expert"`
-	Level    Level        `json:"level"`
-	Tier     Tier         `json:"tier"`
-	Group    Group        `json:"group"`
-	Plan     Plan         `json:"plan"`
-	Skills   []string     `json:"skills"`
-	Files    []File       `json:"files"`
-	Tools    []ToolResult `json:"tools"`
-	Rejected []string     `json:"rejected"`
-	TestOne  string       `json:"-"`
+	Expert     Expert       `json:"expert"`
+	Tier       Tier         `json:"tier"`
+	Group      Group        `json:"group"`
+	Plan       Plan         `json:"plan,omitzero"`
+	Skills     []string     `json:"skills"`
+	Files      []File       `json:"files"`
+	Tools      []ToolResult `json:"tools"`
+	Regression *TestRun     `json:"regression,omitempty"`
+	Rejected   []string     `json:"rejected"`
+	Earlier    []Claim      `json:"earlier,omitempty"`
+	TestOne    string       `json:"-"`
 }
 
 type FixTask struct {
 	Finding Finding `json:"finding"`
+	Repro   Repro   `json:"repro"`
 	Files   []File  `json:"files"`
 }
 
-type JudgeTask struct {
+type RetestTask struct {
 	Finding Finding `json:"finding"`
-	Files   []File  `json:"files"`
+	Command string  `json:"command"`
+	Repro   *Repro  `json:"repro,omitempty"`
+	Output  string  `json:"output,omitempty"`
+}
+
+type JudgeTask struct {
+	Finding Finding       `json:"finding"`
+	Tried   *Verification `json:"tried,omitempty"`
+	Files   []File        `json:"files"`
 }
 
 type SummaryTask struct {
@@ -467,6 +507,7 @@ type Agents interface {
 	Plan(ctx context.Context, t PlanTask) (pulls.Analysis, Usage, error)
 	Review(ctx context.Context, t ReviewTask) (Report, Usage, error)
 	Fix(ctx context.Context, t FixTask) ([]Edit, Usage, error)
+	Retest(ctx context.Context, t RetestTask) (Repro, Usage, error)
 	Judge(ctx context.Context, t JudgeTask) (Judgement, Usage, error)
 	Summarize(ctx context.Context, t SummaryTask) ([]Draft, Usage, error)
 }
@@ -475,6 +516,7 @@ type Workspace interface {
 	CI(ctx context.Context) (Check, error)
 	Setup(ctx context.Context) error
 	Tools(ctx context.Context, files []string) ([]ToolResult, error)
+	Read(ctx context.Context, path string) (string, error)
 	Test(ctx context.Context, edits []Edit, t Target) (TestRun, error)
 }
 
@@ -497,10 +539,8 @@ type Workflow struct {
 
 type limits struct {
 	experts int
-	nits    bool
 	planner bool
 	verify  bool
-	full    bool
 	tier    Tier
 }
 
@@ -519,7 +559,6 @@ type prepareState struct {
 }
 
 type planState struct {
-	Level  Level      `json:"level"`
 	Plan   Plan       `json:"plan"`
 	Source PlanSource `json:"source"`
 	Notes  []string   `json:"notes"`
@@ -529,8 +568,16 @@ type planState struct {
 type expertState struct {
 	Findings []Claim  `json:"findings"`
 	Unread   []string `json:"unread"`
+	Dropped  []string `json:"dropped,omitempty"`
 	Absent   string   `json:"absent,omitempty"`
 	Runs     []Run    `json:"runs"`
+}
+
+type seat struct {
+	pick   Pick
+	groups []int
+	state  expertState
+	err    error
 }
 
 type verifyState struct {
@@ -538,9 +585,10 @@ type verifyState struct {
 	Runs         []Run        `json:"runs"`
 }
 
-type baselineState struct {
-	Run   TestRun `json:"run"`
-	Error string  `json:"error,omitempty"`
+type suiteState struct {
+	Change TestRun `json:"change"`
+	Base   TestRun `json:"base"`
+	Error  string  `json:"error,omitempty"`
 }
 
 type summaryState struct {
@@ -550,16 +598,16 @@ type summaryState struct {
 }
 
 type stored interface {
-	ciState | prepareState | planState | expertState | verifyState | baselineState | summaryState
+	ciState | prepareState | planState | expertState | verifyState | suiteState | summaryState
 	spent() []Run
 }
 
 type reply interface {
-	Diagnosis | pulls.Analysis | Report | []Edit | Judgement | []Draft
+	Diagnosis | pulls.Analysis | Report | []Edit | Repro | Judgement | []Draft
 }
 
 type task interface {
-	DiagnoseTask | PlanTask | ReviewTask | FixTask | JudgeTask | SummaryTask
+	DiagnoseTask | PlanTask | ReviewTask | FixTask | RetestTask | JudgeTask | SummaryTask
 }
 
 type ledger struct {
@@ -574,5 +622,6 @@ type ledger struct {
 var (
 	ErrInvalidRoster  = errors.New("invalid expert roster")
 	ErrInvalidRequest = errors.New("invalid review request")
+	ErrOtherRequest   = errors.New("the archive holds the stages of another review request")
 	ErrInvalidPatch   = errors.New("invalid patch")
 )

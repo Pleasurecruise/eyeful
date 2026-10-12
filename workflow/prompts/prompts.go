@@ -45,10 +45,10 @@ func Load() (Set, error) {
 		return Set{}, err
 	}
 	s := Set{Roles: map[workflow.Role]Role{}, core: core}
-	if err := loadRoles(&s); err != nil {
+	if err := loadSkills(&s); err != nil {
 		return Set{}, err
 	}
-	if err := loadSkills(&s); err != nil {
+	if err := loadRoles(&s); err != nil {
 		return Set{}, err
 	}
 	if err := loadExperts(&s); err != nil {
@@ -80,6 +80,11 @@ func loadRoles(s *Set) error {
 		for _, name := range append(slices.Clone(r.Tools), r.Submit) {
 			if !slices.ContainsFunc(s.Tools, func(t Tool) bool { return t.Name == name }) {
 				return fmt.Errorf("%w: %s names %q", ErrUnknownTool, p, name)
+			}
+		}
+		for _, sk := range r.Skills {
+			if _, ok := s.Skill(sk.Name); !ok {
+				return fmt.Errorf("%w: %s names %q", ErrUnknownSkill, p, sk.Name)
 			}
 		}
 		if _, dup := s.Roles[r.Role]; dup || !slices.Contains(roles, r.Role) {
@@ -145,7 +150,7 @@ func loadExperts(s *Set) error {
 				return fmt.Errorf("%w: %s names %q", ErrUnknownSkill, p, sk.Name)
 			}
 		}
-		s.Experts = append(s.Experts, Expert{Name: f.Name, Area: f.Area, Tier: f.Tier, Evidence: f.Evidence, Skills: f.Skills, Body: body})
+		s.Experts = append(s.Experts, Expert{Name: f.Name, Area: f.Area, Tier: f.Tier, Evidence: f.Evidence, Skills: f.Skills, Solo: f.Solo, Blind: f.Blind, Body: body})
 	}
 	return nil
 }

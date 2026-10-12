@@ -42,14 +42,15 @@ type Tool struct {
 }
 
 type Role struct {
-	Role   workflow.Role `yaml:"role"`
-	Tools  []string      `yaml:"tools"`
-	Submit string        `yaml:"submit"`
-	Body   string        `yaml:"-"`
+	Role   workflow.Role    `yaml:"role"`
+	Tools  []string         `yaml:"tools"`
+	Submit string           `yaml:"submit"`
+	Skills []workflow.Skill `yaml:"skills"`
+	Body   string           `yaml:"-"`
 }
 
 type task interface {
-	workflow.DiagnoseTask | workflow.PlanTask | workflow.ReviewTask | workflow.FixTask | workflow.JudgeTask | workflow.SummaryTask
+	workflow.DiagnoseTask | workflow.PlanTask | workflow.ReviewTask | workflow.FixTask | workflow.RetestTask | workflow.JudgeTask | workflow.SummaryTask
 }
 
 type Set struct {
@@ -67,10 +68,12 @@ type front struct {
 	Tier     workflow.Tier           `yaml:"tier"`
 	Evidence []workflow.EvidenceKind `yaml:"evidence"`
 	Skills   []workflow.Skill        `yaml:"skills"`
+	Solo     bool                    `yaml:"solo"`
+	Blind    bool                    `yaml:"blind"`
 }
 
 var roles = []workflow.Role{
-	workflow.RoleCI, workflow.RolePlanner, workflow.RoleExpert, workflow.RoleFix, workflow.RoleJudge, workflow.RoleSummarizer,
+	workflow.RoleCI, workflow.RolePlanner, workflow.RoleExpert, workflow.RoleFix, workflow.RoleRepro, workflow.RoleJudge, workflow.RoleSummarizer,
 }
 
 var (

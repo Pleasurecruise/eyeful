@@ -14,23 +14,25 @@ type Verdict string
 const (
 	VerdictConfirmed Verdict = "CONFIRMED"
 	VerdictPlausible Verdict = "PLAUSIBLE"
+	VerdictDisputed  Verdict = "DISPUTED"
 )
 
 type Finding struct {
-	File            string          `json:"file"`
-	Line            int             `json:"line"`
-	Severity        Severity        `json:"severity"`
-	Verdict         Verdict         `json:"verdict"`
-	Category        string          `json:"category"`
-	ShortSummary    string          `json:"short_summary"`
-	Summary         string          `json:"summary"`
-	FailureScenario string          `json:"failure_scenario,omitempty"`
-	Why             string          `json:"why"`
-	Verification    string          `json:"verification"`
-	Label           workflow.Label  `json:"label"`
-	Experts         []string        `json:"experts"`
-	Test            *workflow.Edit  `json:"test,omitempty"`
-	Fix             []workflow.Edit `json:"fix,omitempty"`
+	File            string              `json:"file"`
+	Line            int                 `json:"line"`
+	Related         []workflow.Location `json:"related,omitempty"`
+	Severity        Severity            `json:"severity"`
+	Verdict         Verdict             `json:"verdict"`
+	Category        string              `json:"category"`
+	ShortSummary    string              `json:"short_summary"`
+	Summary         string              `json:"summary"`
+	FailureScenario string              `json:"failure_scenario,omitempty"`
+	Why             string              `json:"why"`
+	Verification    string              `json:"verification"`
+	Label           workflow.Label      `json:"label"`
+	Experts         []string            `json:"experts"`
+	Test            *workflow.Edit      `json:"test,omitempty"`
+	Fix             []workflow.Edit     `json:"fix,omitempty"`
 }
 
 type Counts struct {
@@ -41,7 +43,6 @@ type Counts struct {
 type Output struct {
 	Outcome     workflow.Outcome     `json:"outcome"`
 	Reason      string               `json:"reason,omitempty"`
-	Level       workflow.Level       `json:"level"`
 	Counts      Counts               `json:"counts"`
 	Findings    []Finding            `json:"findings"`
 	Diagnosis   workflow.Diagnosis   `json:"diagnosis"`

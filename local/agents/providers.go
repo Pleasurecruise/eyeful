@@ -15,10 +15,13 @@ import (
 var Providers = []Provider{
 	{
 		Name: "claude", Tool: "claude", Login: "run `claude` and sign in with /login", strip: []string{"ANTHROPIC_API_KEY"},
-		args: func(schema []byte, tier workflow.Tier) []string {
+		args: func(schema []byte, tier workflow.Tier, read bool) []string {
 			args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--json-schema", string(schema), "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--disable-slash-commands"}
 			if model, ok := map[workflow.Tier]string{workflow.TierCheap: "haiku", workflow.TierMid: "sonnet", workflow.TierStrong: "opus"}[tier]; ok {
 				args = append(args, "--model", model)
+			}
+			if !read {
+				return append(args, "--tools", "")
 			}
 			return append(args, "--tools", "Read,Grep,Glob")
 		},
@@ -47,7 +50,7 @@ var Providers = []Provider{
 			u := r.Usage
 			a := answer{text: r.Result, usage: workflow.Usage{
 				Model:    strings.Join(slices.Sorted(maps.Keys(r.ModelUsage)), ", "),
-				Tokens:   u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens,
+				Tokens:   u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens,
 				MicroUSD: int64(r.TotalCostUSD * 1e6),
 			}}
 			if len(r.StructuredOutput) > 0 {
@@ -61,7 +64,7 @@ var Providers = []Provider{
 	},
 	{
 		Name: "codex", Tool: "codex", Login: "run `codex login`",
-		args: func([]byte, workflow.Tier) []string {
+		args: func([]byte, workflow.Tier, bool) []string {
 			return []string{
 				"exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "--ephemeral",
 				"--ignore-user-config", "--ignore-rules", "--disable", "hooks", "--disable", "plugins", "--disable", "apps",
@@ -82,7 +85,7 @@ var Providers = []Provider{
 				case e.Type == "item.completed" && e.Item.Type == "agent_message":
 					a.text = e.Item.Text
 				case e.Type == "turn.completed":
-					a.usage.Tokens += e.Usage.InputTokens + e.Usage.OutputTokens
+					a.usage.Tokens += e.Usage.InputTokens - e.Usage.CachedInputTokens + e.Usage.OutputTokens
 				case e.Type == "turn.failed":
 					return a, fmt.Errorf("%w: %s", ErrFailed, e.Error.Message)
 				case e.Type == "error":
@@ -94,12 +97,15 @@ var Providers = []Provider{
 	},
 	{
 		Name: "pi", Tool: "pi", Login: "run `pi` and sign in with /login",
-		args: func([]byte, workflow.Tier) []string {
-			return []string{
-				"--mode", "json", "--no-session", "--tools", "read,grep,find,ls",
+		args: func(_ []byte, _ workflow.Tier, read bool) []string {
+			tools := []string{"--tools", "read,grep,find,ls"}
+			if !read {
+				tools = []string{"--no-tools"}
+			}
+			return slices.Concat([]string{"--mode", "json", "--no-session"}, tools, []string{
 				"--no-mcp", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-approve",
 				"Follow the instructions above.",
-			}
+			})
 		},
 		parse: func(stdout []byte) (answer, error) {
 			a := answer{usage: workflow.Usage{Model: "pi"}}
@@ -130,7 +136,7 @@ var Providers = []Provider{
 				}
 				a.text = text.String()
 				a.usage.Model = m.Provider + "/" + m.Model
-				a.usage.Tokens += m.Usage.TotalTokens
+				a.usage.Tokens += m.Usage.Input + m.Usage.Output + m.Usage.CacheWrite
 				cost += m.Usage.Cost.Total
 			}
 			a.usage.MicroUSD = int64(cost * 1e6)

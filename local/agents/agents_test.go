@@ -1,6 +1,7 @@
 package agents_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,12 +33,12 @@ var outputs = map[string]string{
 	"codex": `{"type":"thread.started","thread_id":"t"}
 {"type":"turn.started"}
 {"type":"item.completed","item":{"id":"i0","type":"reasoning","text":"thinking"}}
-{"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"` + "```json\\n" + `{\"findings\":[]}` + "\\n```" + `"}}
+{"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"` + "```json\\n" + `{\"findings\":[{\"discussion\":\"wrap it in a ` + "```go" + ` block\"}]}` + "\\n```" + `"}}
 {"type":"turn.completed","usage":{"input_tokens":300,"cached_input_tokens":100,"output_tokens":40}}`,
 	"pi": `{"type":"session","version":3,"id":"s","cwd":"/x"}
 {"type":"message_end","message":{"role":"user","content":"the prompt","timestamp":1}}
-{"type":"message_end","message":{"role":"assistant","content":[{"type":"toolCall","id":"c"}],"provider":"anthropic","model":"claude-sonnet-5-5","usage":{"totalTokens":50,"cost":{"total":0.01}},"stopReason":"toolUse"}}
-{"type":"message_end","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"` + "```json\\n" + `{\"findings\":[]}` + "\\n```" + `"}],"provider":"anthropic","model":"claude-sonnet-5-5","usage":{"totalTokens":70,"cost":{"total":0.02}},"stopReason":"stop"}}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"toolCall","id":"c"}],"provider":"anthropic","model":"claude-sonnet-5-5","usage":{"input":30,"output":10,"cacheRead":900,"cacheWrite":10,"totalTokens":950,"cost":{"total":0.01}},"stopReason":"toolUse"}}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"` + "```json\\n" + `{\"findings\":[]}` + "\\n```" + `"}],"provider":"anthropic","model":"claude-sonnet-5-5","usage":{"input":50,"output":20,"cacheRead":2000,"cacheWrite":0,"totalTokens":2070,"cost":{"total":0.02}},"stopReason":"stop"}}
 {"type":"agent_end","messages":[]}`,
 }
 
@@ -70,7 +71,11 @@ func fake() error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	switch os.Getenv("FAKE_MODE") {
+	mode := os.Getenv("FAKE_MODE")
+	if earlier, err := os.ReadFile(os.Getenv("FAKE_OUT")); mode == "once" && err == nil && bytes.Count(earlier, []byte{'\n'}) == 1 {
+		mode = "fail"
+	}
+	switch mode {
 	case "bad":
 		_, err = fmt.Println(`{"type":"result","subtype":"success","is_error":false,"result":"no json here","usage":{"input_tokens":1,"output_tokens":1}}`)
 	case "silent":
@@ -148,14 +153,15 @@ var task = workflow.ReviewTask{
 
 func TestProviders(t *testing.T) {
 	for _, tt := range []struct {
-		name   string
-		args   []string
-		usage  workflow.Usage
-		apiKey bool
+		name     string
+		args     []string
+		usage    workflow.Usage
+		apiKey   bool
+		findings int
 	}{
-		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence", "--disable-slash-commands"}, workflow.Usage{Model: "claude-opus-5", Tokens: 125, MicroUSD: 250000}, false},
-		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral", "--ignore-user-config", "--disable plugins", "-c project_doc_max_bytes=0"}, workflow.Usage{Model: "codex", Tokens: 340}, true},
-		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls", "--no-mcp", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, MicroUSD: 30000}, true},
+		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence", "--disable-slash-commands"}, workflow.Usage{Model: "claude-opus-5", Tokens: 120, MicroUSD: 250000}, false, 0},
+		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral", "--ignore-user-config", "--disable plugins", "-c project_doc_max_bytes=0"}, workflow.Usage{Model: "codex", Tokens: 240}, true, 1},
+		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls", "--no-mcp", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, MicroUSD: 30000}, true, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a, out, repo := setup(t, tt.name, "ok")
@@ -163,10 +169,15 @@ func TestProviders(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(r.Findings) != 0 || usage != tt.usage {
+			if len(r.Findings) != tt.findings || usage != tt.usage {
 				t.Fatalf("report %+v, usage %+v", r, usage)
 			}
-			c := calls(t, out)[0]
+			_, _, _ = a.Summarize(t.Context(), workflow.SummaryTask{})
+			all := calls(t, out)
+			if blind := strings.Join(all[len(all)-1].Args, " "); strings.Contains(blind, "ead,") {
+				t.Errorf("the summarizer can read files: %s", blind)
+			}
+			c := all[0]
 			joined := strings.Join(c.Args, " ")
 			for _, want := range tt.args {
 				if !strings.Contains(joined, want) {
@@ -214,6 +225,16 @@ func TestDetect(t *testing.T) {
 	c, _ := agents.Find("claude")
 	if _, err := agents.Detect(t.Context(), c); !errors.Is(err, agents.ErrNotInstalled) {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestTransientFailure(t *testing.T) {
+	a, out, _ := setup(t, "pi", "once")
+	if _, _, err := a.Review(t.Context(), task); err != nil {
+		t.Fatalf("a call that failed once was not run again: %v", err)
+	}
+	if n := len(calls(t, out)); n != 2 {
+		t.Fatalf("%d calls, want the failed one and its retry", n)
 	}
 }
 

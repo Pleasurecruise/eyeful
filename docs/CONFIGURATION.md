@@ -21,16 +21,16 @@ risk: ['auth/**', 'payments/**', 'migrations/**']
 skip: ['docs/api/**']
 ```
 
-| Key        | Used by                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------ |
-| `setup`    | Preparation: installs dependencies. In the cloud it is the only step that can reach package registries |
-| `lint`     | The local CI check, and the readability expert's `lint` tool                                           |
-| `test`     | The verifier, for the suite                                                                            |
-| `test_one` | The verifier, for one reproduction test; `{test}` is replaced by the test's identifier, quoted         |
-| `coverage` | The tests expert's `coverage_diff` tool                                                                |
-| `e2e`      | The usability expert's `e2e_run` tool, and verification at the deep level                              |
-| `risk`     | Level selection: a change touching these paths is reviewed at deep                                     |
-| `skip`     | Triage: these paths go to no expert and are listed as not reviewed                                     |
+| Key        | Used by                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `setup`    | Preparation: installs dependencies. In the cloud it is the only step that can reach package registries  |
+| `lint`     | The local CI check, and the readability expert's `lint` tool                                            |
+| `test`     | The verifier, for the suite: before the review, to find the tests the change breaks, and after each fix |
+| `test_one` | The verifier, for one reproduction test; `{test}` is replaced by the test's identifier, quoted          |
+| `coverage` | The tests expert's `coverage_diff` tool                                                                 |
+| `e2e`      | The usability expert's `e2e_run` tool                                                                   |
+| `risk`     | The plan: a group that touches these paths is a core group                                              |
+| `skip`     | Triage: these paths go to no expert and are listed as not reviewed                                      |
 
 These commands are the only project code a review runs, and the user confirms them before the
 review starts ([Before it starts](REVIEW.md#before-it-starts)). Without `test` and `test_one`,

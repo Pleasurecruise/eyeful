@@ -20,6 +20,8 @@
   description: Hand in your findings. eyeful checks them and lists any problems to fix.
 - name: submit_fix
   description: Hand in the edits that fix the problem.
+- name: submit_repro
+  description: Hand in the reproduction.
 - name: submit_judgement
   description: Hand in whether the finding is real.
 - name: submit_comments

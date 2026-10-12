@@ -15,7 +15,7 @@ func Markdown(r workflow.Result) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "# eyeful review\n\n%d findings: %d important, %d nit. Level `%s`, outcome `%s`.\n", len(out.Findings), out.Counts.Important, out.Counts.Nit, out.Level, out.Outcome)
+	fmt.Fprintf(&b, "# eyeful review\n\n%d findings: %d important, %d nit. Outcome `%s`.\n", len(out.Findings), out.Counts.Important, out.Counts.Nit, out.Outcome)
 	if out.Reason != "" {
 		fmt.Fprintf(&b, "%s.\n", out.Reason)
 	}
@@ -26,18 +26,13 @@ func Markdown(r workflow.Result) (string, error) {
 			fmt.Fprintf(&b, "- `%s` %s %s: %s\n  Fix: %s\n", f.Workflow, f.Job, f.Step, f.Cause, f.Fix)
 		}
 	}
+	if r.Regression != nil {
+		fmt.Fprintf(&b, "\n## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
+	}
 	if out.Counts.Important == 0 && out.Outcome != workflow.OutcomeCIFailed {
 		b.WriteString("\nNo blocking issues.\n")
 	}
-	if len(out.Findings) > 0 {
-		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
-		for _, f := range out.Findings {
-			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
-		}
-	}
-	for _, f := range out.Findings {
-		finding(&b, f)
-	}
+	findings(&b, out.Findings)
 	if len(r.Scopes) > 1 {
 		fmt.Fprintf(&b, "\n## Scopes\n\nThe change was reviewed in %d scopes, in this order. Each could be its own change in a stack.\n\n| Scope | Files | Lines |\n| --- | --- | --- |\n", len(r.Scopes))
 		for _, s := range r.Scopes {
@@ -54,8 +49,38 @@ func Markdown(r workflow.Result) (string, error) {
 	return b.String(), nil
 }
 
+func findings(b *strings.Builder, all []Finding) {
+	shown := slices.DeleteFunc(slices.Clone(all), func(f Finding) bool { return f.Label == workflow.LabelNitpick })
+	if len(shown) > 0 {
+		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
+		for _, f := range shown {
+			fmt.Fprintf(b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+		}
+	}
+	for _, f := range shown {
+		finding(b, f)
+	}
+	if len(shown) == len(all) {
+		return
+	}
+	fmt.Fprintf(b, "\n<details><summary>Nitpicks (%d)</summary>\n\n", len(all)-len(shown))
+	for _, f := range all {
+		if f.Label == workflow.LabelNitpick {
+			fmt.Fprintf(b, "- `%s:%d` %s %s (%s)\n", f.File, f.Line, f.Summary, strings.Join(strings.Fields(f.Why), " "), strings.Join(f.Experts, ", "))
+		}
+	}
+	b.WriteString("\n</details>\n")
+}
+
 func finding(b *strings.Builder, f Finding) {
 	fmt.Fprintf(b, "\n## %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Category, f.Verdict, f.File, f.Line, f.Summary)
+	if len(f.Related) > 0 {
+		places := make([]string, len(f.Related))
+		for i, r := range f.Related {
+			places[i] = fmt.Sprintf("`%s:%d`", r.Path, r.Line)
+		}
+		fmt.Fprintf(b, "\nAlso at %s.\n", strings.Join(places, ", "))
+	}
 	if f.FailureScenario != "" {
 		fmt.Fprintf(b, "\nFailure scenario: %s\n", f.FailureScenario)
 	}
@@ -88,9 +113,6 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	}
 	for _, s := range u.Unread {
 		lines = append(lines, fmt.Sprintf("Expert `%s` did not load skill `%s`", s.Expert, s.Skill))
-	}
-	for _, f := range u.Dismissed {
-		lines = append(lines, fmt.Sprintf("Dismissed, not reproduced: `%s:%d` %s (%s)", f.Path, f.Line, f.Subject, f.Expert))
 	}
 	for _, v := range u.Unverified {
 		lines = append(lines, fmt.Sprintf("Unverified `%s`: %s", v.Finding, v.Reason))

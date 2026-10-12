@@ -28,7 +28,7 @@ func Open(ctx context.Context, log *slog.Logger, snap subject.Snapshot, objects 
 	if _, err := git.Run(ctx, snap.Root, []string{"GIT_OBJECT_DIRECTORY=" + objects}, slices.Concat(safe, []string{"worktree", "add", "--detach", dir, snap.Commit})...); err != nil {
 		return nil, errors.Join(err, os.RemoveAll(dir))
 	}
-	w := &Worktree{root: snap.Root, dir: dir, env: []string{"GIT_OBJECT_DIRECTORY=" + objects}, log: log.With(slog.String("worktree", dir))}
+	w := &Worktree{root: snap.Root, dir: dir, base: snap.Base, env: []string{"GIT_OBJECT_DIRECTORY=" + objects}, log: log.With(slog.String("worktree", dir))}
 	if w.change, err = w.settle(ctx); err != nil {
 		return nil, errors.Join(err, w.Close(context.WithoutCancel(ctx)))
 	}
@@ -45,11 +45,12 @@ func (w *Worktree) settle(ctx context.Context) (string, error) {
 	return strings.TrimSpace(out), err
 }
 
-func (w *Worktree) reset(ctx context.Context) (err error) {
-	if _, err := w.git(ctx, "read-tree", w.change); err != nil {
-		return err
+func (w *Worktree) restore(ctx context.Context, tree string) (err error) {
+	args := []string{"checkout", "--no-overlay", tree, "--", "."}
+	if tree == subject.EmptyTree {
+		args = []string{"read-tree", tree}
 	}
-	if _, err := w.git(ctx, "checkout-index", "--all", "--force"); err != nil {
+	if _, err := w.git(ctx, args...); err != nil {
 		return err
 	}
 	out, err := w.git(ctx, "ls-files", "--others", "--exclude-standard", "-z")

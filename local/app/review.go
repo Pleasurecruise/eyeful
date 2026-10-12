@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +39,6 @@ func Experts() ([]workflow.Expert, error) {
 }
 
 func Review(ctx context.Context, o Options) (report.Output, error) {
-	// TODO(app): resume an interrupted review from its run directory.
 	// TODO(app): warn when the branch under review belongs to someone else.
 	set, err := prompts.Load()
 	if err != nil {
@@ -60,10 +60,6 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	if len(change.Files) == 0 {
 		return report.Output{}, say(o.Out, "Nothing to review: the change is empty.\n")
 	}
-	dir, err := store.Dir(snap.Root)
-	if err != nil {
-		return report.Output{}, err
-	}
 	cfg, _, err := project.Read(snap.Root)
 	if err != nil {
 		return report.Output{}, err
@@ -78,7 +74,7 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	}
 	req := workflow.Request{
 		Change: change, Project: cfg.Project(o.Verification == workflow.ModeExecution),
-		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts,
+		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts, Level: o.Level, Dependent: o.Dependent,
 	}
 	if err := wf.Admit(req); err != nil {
 		return report.Output{}, err
@@ -91,13 +87,12 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 		return report.Output{}, err
 	}
 	defer closeTree()
-	run := filepath.Join(dir, time.Now().UTC().Format("20060102-150405"))
-	skills, patch, removeSkills, err := prepare(o, run, snap.Patch)
+	run, skills, patch, removeSkills, err := prepare(o, snap)
 	if err != nil {
 		return report.Output{}, err
 	}
 	defer removeSkills()
-	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, Set: set}, idleTimeout, hardTimeout)
+	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, Trace: filepath.Join(run, "agents"), Set: set}, idleTimeout, hardTimeout)
 	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Workspace: ws, Archive: archive.New(filepath.Join(run, "stages"))}, req)
 	if err != nil {
 		return report.Output{}, err
@@ -105,18 +100,40 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	return save(ctx, o, run, snap, objects, res)
 }
 
-func prepare(o Options, run, diff string) (string, string, func(), error) {
-	dir := filepath.Join(run, "skills")
+func prepare(o Options, snap subject.Snapshot) (string, string, string, func(), error) {
+	run, err := filepath.Abs(o.Run)
+	if err != nil {
+		return "", "", "", nil, fmt.Errorf("run directory: %w", err)
+	}
+	if o.Run == "" {
+		dir, err := store.Dir(snap.Root)
+		if err != nil {
+			return "", "", "", nil, err
+		}
+		run = filepath.Join(dir, time.Now().UTC().Format("20060102-150405"))
+	}
+	snapshot, err := json.MarshalIndent(snap, "", "  ")
+	if err != nil {
+		return "", "", "", nil, fmt.Errorf("encode snapshot: %w", err)
+	}
+	if err := errors.Join(os.MkdirAll(run, 0o700), os.WriteFile(filepath.Join(run, "snapshot.json"), snapshot, 0o600)); err != nil {
+		return "", "", "", nil, fmt.Errorf("save snapshot.json: %w", err)
+	}
+	shared, err := os.MkdirTemp("", "eyeful-agent-")
+	if err != nil {
+		return "", "", "", nil, fmt.Errorf("agent files: %w", err)
+	}
+	dir := filepath.Join(shared, "skills")
 	if err := prompts.WriteSkills(dir); err != nil {
-		return "", "", nil, err
+		return "", "", "", nil, errors.Join(err, os.RemoveAll(shared))
 	}
-	patch := filepath.Join(run, "change.diff")
-	if err := os.WriteFile(patch, []byte(diff), 0o600); err != nil {
-		return "", "", nil, fmt.Errorf("save change.diff: %w", err)
+	patch := filepath.Join(shared, "change.diff")
+	if err := errors.Join(os.WriteFile(patch, []byte(snap.Patch), 0o600), os.WriteFile(filepath.Join(run, "change.diff"), []byte(snap.Patch), 0o600)); err != nil {
+		return "", "", "", nil, errors.Join(fmt.Errorf("save change.diff: %w", err), os.RemoveAll(shared))
 	}
-	return dir, patch, func() {
-		if err := os.RemoveAll(dir); err != nil {
-			o.Log.Warn("remove the skills", "dir", dir, "error", err)
+	return run, dir, patch, func() {
+		if err := os.RemoveAll(shared); err != nil {
+			o.Log.Warn("remove the agent files", "dir", shared, "error", err)
 		}
 	}, nil
 }
@@ -224,16 +241,11 @@ func save(ctx context.Context, o Options, dir string, snap subject.Snapshot, obj
 	if err != nil {
 		return report.Output{}, fmt.Errorf("encode result: %w", err)
 	}
-	snapshot, err := json.MarshalIndent(snap, "", "  ")
-	if err != nil {
-		return report.Output{}, fmt.Errorf("encode snapshot: %w", err)
-	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return report.Output{}, fmt.Errorf("run directory: %w", err)
 	}
 	saved := map[string][]byte{
-		"snapshot.json": snapshot,
-		"review.md":     []byte(md), "findings.json": findings, "results.sarif": sarif, "result.json": result,
+		"review.md": []byte(md), "findings.json": findings, "results.sarif": sarif, "result.json": result,
 	}
 	for name, content := range saved {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {

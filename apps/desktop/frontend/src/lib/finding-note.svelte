@@ -12,7 +12,11 @@
 			{finding.severity === Severity.SeverityImportant ? m.important() : m.nit()}
 		</Badge>
 		<Badge variant="outline">
-			{finding.verdict === Verdict.VerdictConfirmed ? m.confirmed() : m.plausible()}
+			{finding.verdict === Verdict.VerdictConfirmed
+				? m.confirmed()
+				: finding.verdict === Verdict.VerdictDisputed
+					? m.disputed()
+					: m.plausible()}
 		</Badge>
 		<span class="font-medium">{finding.short_summary}</span>
 	</div>

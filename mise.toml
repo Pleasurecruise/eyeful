@@ -3,6 +3,7 @@ go = "latest"
 node = "latest"
 pnpm = "latest"
 golangci-lint = "latest"
+python = "latest"
 
 [env]
 _.file = { path = ".env", redact = true }
@@ -114,12 +115,13 @@ dir = "apps/desktop"
 run = "wails3 package"
 
 [tasks.test]
-description = "Run Go tests with the race detector"
+description = "Run Go tests with the race detector, and the evaluation scripts' tests"
 run = [
 	"go test -race -p 1 ./...",
 	"cd {{config_root}}/workflow && go test -race ./...",
 	"cd {{config_root}}/local && go test -race ./...",
-	"cd {{config_root}}/apps/desktop && go vet ./..."
+	"cd {{config_root}}/apps/desktop && go vet ./...",
+	"cd {{config_root}}/eval && python3 -m unittest --quiet test_eval"
 ]
 
 [tasks.lint]

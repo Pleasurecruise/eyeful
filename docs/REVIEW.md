@@ -1,16 +1,17 @@
 # A review, end to end
 
 This page follows one review from the user's confirmation to the comments a person reads. The
-stages are implemented in the `workflow` module ([Architecture](ARCHITECTURE.md#workflow)), but no
-review runs them yet: the API accepts a review and a worker claims it, then a placeholder executor
-ends it with result `none`, because the agents and the sandbox `workflow` needs are not built.
+stages are implemented in the `workflow` module ([Architecture](ARCHITECTURE.md#workflow)), and a
+local review runs all of them ([Running locally](LOCAL.md)). No cloud review does yet: the API
+accepts a review and a worker claims it, then a placeholder executor ends it with result `none`,
+because the cloud's agents and sandbox are not built.
 
 ```mermaid
 flowchart TB
     confirm["Confirm<br/>subject, budget, commands"] --> planning["Planning and triage<br/>CI check, triage, L1 tools, plan"]
     planning -->|CI failed| diagnose(["Diagnosis of the failure"])
     planning -->|plan| experts["Experts<br/>in parallel"]
-    experts --> verify["Verify<br/>run reproductions and fixes"]
+    experts --> verify["Verify<br/>write and run reproductions and fixes"]
     verify --> summarize["Summarize<br/>merge, label, rank"]
     summarize --> feedback(["Line comments<br/>and a ranked report"])
 ```
@@ -18,8 +19,8 @@ flowchart TB
 ## Before it starts {#before-it-starts}
 
 Before creating a review, the client shows what will be reviewed (a branch against its base, or
-local changes), the budget, and the project commands that will run; eyeful chooses the level itself
-([Levels](LEVELS.md#choosing-the-level)). The review is
+local changes), the budget, and the project commands that will run. How closely the review looks is
+not a setting ([Levels](LEVELS.md#choosing-the-level)). The review is
 created when the user confirms. Once it starts it cannot be cancelled; a review that is still queued
 can be deleted.
 
@@ -29,12 +30,12 @@ agent proposing commands for the user to confirm is planned.
 
 ## Stages {#stages}
 
-| Stage     | What it does                                                        | If it fails                                | Page                                         |
-| --------- | ------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------- |
-| planning  | CI check, checkout and setup, triage and L1 tools, the plan         | See below                                  | [Planning and triage](PLANNER.md)            |
-| experts   | Each selected expert reviews its files with its standards and tools | The expert is dropped and listed as absent | [Experts](EXPERTS.md)                        |
-| verify    | The verifier runs reproduction tests and suggested fixes            | The finding stays unverified               | [Evidence and verification](VERIFICATION.md) |
-| summarize | Merges findings, writes them as Conventional Comments, ranks them   | Findings are formatted by rules instead    | [Review feedback](REPORT.md)                 |
+| Stage     | What it does                                                                     | If it fails                                | Page                                         |
+| --------- | -------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------- |
+| planning  | CI check, checkout and setup, triage and L1 tools, the project's tests, the plan | See below                                  | [Planning and triage](PLANNER.md)            |
+| experts   | Each selected expert reviews its files with its standards and tools              | The expert is dropped and listed as absent | [Experts](EXPERTS.md)                        |
+| verify    | A reproduction is written for each finding above `low` and run, then its fix     | The judge reads the finding instead        | [Evidence and verification](VERIFICATION.md) |
+| summarize | Merges findings, writes them as Conventional Comments, ranks them                | Findings are formatted by rules instead    | [Review feedback](REPORT.md)                 |
 
 When a stage fails, only that stage's work is lost, and the feedback says what failed. Two failures
 end a review early. If the CI check fails, the review ends with result `ci_failed` and a diagnosis.
@@ -46,7 +47,7 @@ Each stage writes its output (the plan, each expert's findings, each verifier ru
 archive when it finishes. If a worker dies, the next worker resumes from the last finished stage,
 and model calls that already completed are not repeated.
 
-The level of a review sets how many experts it may use, on which models, and how much it verifies
+The level of a review is a ceiling on what it may spend, and it never decides what an expert reports
 ([Levels](LEVELS.md)).
 
 ## The review standard {#review-standard}
@@ -69,12 +70,12 @@ lists the sources.
 
 A review moves from `queued` to `running` to `done`. A finished review has one of these results:
 
-| Result      | Meaning                                                                      |
-| ----------- | ---------------------------------------------------------------------------- |
-| `complete`  | Every stage ran                                                              |
-| `none`      | Nothing could be reviewed; `reason` explains why, for example a failed clone |
-| `ci_failed` | The CI check failed, and the feedback explains the failure                   |
-| `partial`   | The budget ran out, and the feedback holds what was verified by then         |
+| Result      | Meaning                                                                          |
+| ----------- | -------------------------------------------------------------------------------- |
+| `complete`  | Every stage ran                                                                  |
+| `none`      | Nothing could be reviewed; `reason` explains why, for example a failed clone     |
+| `ci_failed` | The CI check failed, and the feedback explains the failure                       |
+| `partial`   | The budget ran out or an expert handed in no report; the feedback holds the rest |
 
 How workers claim, renew and finish reviews, and what happens when one dies, is in
 [Scheduling and leases](SCHEDULING.md#reviews-over-workers).

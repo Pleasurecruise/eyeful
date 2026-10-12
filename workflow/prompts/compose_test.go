@@ -30,8 +30,17 @@ func TestCompose(t *testing.T) {
 	}
 	review.TestOne = "go test -run {test}"
 	onDemand, err := s.Review(review, "")
-	if err != nil || strings.Contains(onDemand, "## Skills") || !strings.Contains(onDemand, "`go test -run {test}`") {
+	if err != nil || strings.Contains(onDemand, "## Skills") || strings.Contains(onDemand, "do not use evidence `repro_test`") {
 		t.Fatalf("on demand %v:\n%s", err, onDemand)
+	}
+	retest := workflow.RetestTask{Finding: workflow.Finding{Claim: workflow.Claim{Path: "app/session.py"}}}
+	offered, err := s.Retest(retest, "/skills")
+	if err != nil || !strings.Contains(offered, "- `python-testing-patterns`, `/skills/python-testing-patterns/SKILL.md`: ") || strings.Contains(offered, "golang-testing") {
+		t.Fatalf("retest %v:\n%s", err, offered)
+	}
+	retest.Finding.Path = "README.md"
+	if bare, err := s.Retest(retest, "/skills"); err != nil || strings.Contains(bare, "## Skills") {
+		t.Fatalf("a finding in a file no testing skill covers %v:\n%s", err, bare)
 	}
 	written := t.TempDir()
 	if err := prompts.WriteSkills(written); err != nil {

@@ -59,11 +59,11 @@ share.
 [A review](REVIEW.md#stages). It runs no agent, no command and no storage itself. The caller passes
 three interfaces in a `Session`, and each side of eyeful supplies its own:
 
-| Interface   | Provides                                                                                                                                       | Cloud                          | Local                                     |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------- |
-| `Agents`    | One call per role: diagnose CI, plan, review as an expert, fix, judge, summarize. Each returns its typed result and the tokens and money spent | pi processes (planned)         | CLI runs, `local/agents`                  |
-| `Workspace` | The CI check, `setup`, the L1 tools, and test runs on a fresh copy with given edits applied                                                    | The review's sandbox (planned) | The snapshot's checkout, `local/worktree` |
-| `Archive`   | Loading and saving each stage's output by key                                                                                                  | The run archive (planned)      | `.eyeful/runs/`, `local/archive`          |
+| Interface   | Provides                                                                                                                                                             | Cloud                          | Local                                     |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------- |
+| `Agents`    | One call per role: diagnose CI, plan, review as an expert, fix, write a reproduction, judge, summarize. Each returns its typed result and the tokens and money spent | pi processes (planned)         | CLI runs, `local/agents`                  |
+| `Workspace` | The CI check, `setup`, the L1 tools, reading a file, and test runs on a fresh copy of the change or its base with given edits applied                                | The review's sandbox (planned) | The snapshot's checkout, `local/worktree` |
+| `Archive`   | Loading and saving each stage's output by key                                                                                                                        | The run archive (planned)      | `.eyeful/runs/`, `local/archive`          |
 
 Go owns every loop. `workflow` checks each plan, report and summary against its rules, keeps the
 budget, decides retries and when to stop, and saves each stage's output to the archive before the
@@ -140,9 +140,11 @@ neither binary contains the other side's code. The desktop app is a fourth modul
 | `internal/db`, `db/`    | pgx pool, embedded migrations, SQL queries and sqlc output                                                                                                                                               |
 | `spec/`, `packages/sdk` | Generated OpenAPI 3.1 document and TypeScript client                                                                                                                                                     |
 
+`eval/` holds the [evaluation](EVALUATION.md#tooling): Python scripts, standard library only, that
+build subjects, run the conditions through the `eyeful` command, and compute the results.
+
 Planned directories: `internal/checkout`, `internal/pi` and `internal/sandbox`; `internal/source`
-and `internal/sink` (producers and consumers of reviews), `internal/outbox`, `plugins/` and
-`eval/`.
+and `internal/sink` (producers and consumers of reviews), `internal/outbox` and `plugins/`.
 
 Go commands live in `cmd/` and server code in `internal/`, following the official
 [module layout](https://go.dev/doc/modules/layout).

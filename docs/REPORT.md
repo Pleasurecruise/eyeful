@@ -24,7 +24,7 @@ eyeful uses all nine labels the specification recommends:
 | Label        | Meaning in the specification                        | eyeful uses it for                                                        |
 | ------------ | --------------------------------------------------- | ------------------------------------------------------------------------- |
 | `praise`     | Something positive, sincerely meant                 | A clear improvement an expert noticed                                     |
-| `nitpick`    | A trivial, preference-based request; non-blocking   | A style point the project's style guide does not cover                    |
+| `nitpick`    | A trivial, preference-based request; non-blocking   | A `low` finding: one that changes no behaviour, such as a name or wording |
 | `suggestion` | A proposed improvement, explicit about what and why | An improvement, with a patch when the fix is clear                        |
 | `issue`      | A specific problem, best paired with a suggestion   | A problem with strong evidence, or a rule the style guide states          |
 | `todo`       | A small, trivial but necessary change               | A version string, a changelog line, a missing export                      |
@@ -81,7 +81,9 @@ for more than agreement within one family. The merged findings are then sorted b
 3. the number of experts that reported it;
 4. the plan's change groups, then file and line.
 
-All `nitpick` comments are folded into one collapsed section at the end. The report closes with:
+All `nitpick` comments are folded into one collapsed section at the end, one line each. A comment
+is a `nitpick` when every finding behind it has severity `low`, whatever label the summarizer gave
+it. The report closes with:
 
 - for a change split into [scopes](PLANNER.md#large), the scopes in order with their files, lines
   and findings, and each finding names its scope;
@@ -108,7 +110,9 @@ The GitHub outputs and the console view are planned.
 `eyeful review` presents findings the way Claude Code's ultrareview does. It opens with the counts
 and, as pulls.review does before any comment, what the change does: the planner's summary and a
 table of its groups, core groups first, each with its category, why its files changed and the files.
-Then comes "No blocking issues" or a table of findings sorted by severity:
+The project's tests that pass on the base commit and fail on the change are listed next
+([Tests the change breaks](VERIFICATION.md#regressions)). Then comes "No blocking issues" or a table
+of findings sorted by severity, without the nitpicks:
 
 ```text
 | Severity     | File:Line            | Issue                                     |
@@ -119,14 +123,15 @@ Then comes "No blocking issues" or a table of findings sorted by severity:
 
 A blocking `issue` is 🔴 Important and every other label is 🟡 Nit. Each finding then gets a
 heading with its severity, its area and a verdict: CONFIRMED when its evidence is strong, such as a
-reproduction eyeful saw fail with an outside oracle, and PLAUSIBLE otherwise. Below the heading come
+reproduction eyeful saw fail with an outside oracle, DISPUTED when the judge rejected it
+([the judge](VERIFICATION.md#the-judge)), and PLAUSIBLE otherwise. Below the heading come
 the one-sentence summary, the failure scenario (the input that triggers the problem and what goes
 wrong), a collapsed "Why this was flagged" with the reasoning, how eyeful verified it and the
-reproduction test, and the verified fix as a diff. The files triage set aside and the uncertainty
-checklist close the output.
+reproduction test, and the verified fix as a diff. The folded nitpicks, the files triage set aside
+and the uncertainty checklist close the output.
 
 Each run also saves the same findings as `findings.json`, with the field names of Claude Code's
-findings list (`file`, `line`, `summary`, `short_summary`, `failure_scenario`, `category`,
+findings list (`file`, `line`, `related`, `summary`, `short_summary`, `failure_scenario`, `category`,
 `verdict`) plus `severity`, along with `review.md`,
 `findings.json`, `results.sarif` and the full `result.json` ([Running locally](LOCAL.md)).
 
@@ -144,7 +149,8 @@ marked resolved in the new review.
 
 The summarizer writes the label, subject and discussion of each merged finding; Go adds the
 decorations, `blocking` only on an `issue` with strong evidence, and the area of each expert behind
-it. Go rejects the summary when a merged finding does not get exactly one comment, a label is not
+it, turns the label of a `low` finding into `nitpick`, and attaches the judge's objection to a
+disputed one. Go rejects the summary when a merged finding does not get exactly one comment, a label is not
 one of the nine, or an `issue` lacks strong evidence.
 
 If the summarizer fails or its summary is rejected, the feedback is formatted by rules instead.

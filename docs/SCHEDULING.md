@@ -51,8 +51,8 @@ strong:
 | Commit point | Once an agent has reported anything, a later failure fails the agent instead of switching models.            |
 | Lanes        | `max_concurrency` per key; extra requests wait in FIFO order. Waiting never causes a fallback or a cooldown. |
 
-Planned: per-review affinity (one candidate per role) and classification of provider errors. Level
-budgets are kept by `workflow` ([Levels](LEVELS.md#choosing-the-level)).
+Planned: per-review affinity (one candidate per role) and classification of provider errors. Review
+budgets are kept by `workflow` ([Levels](LEVELS.md#budget)).
 
 ## Rate limits {#rate-limits}
 
@@ -70,4 +70,4 @@ servers is planned.
 - The run archive. `workflow` already saves each stage's output through its `Archive` interface and
   skips the stages it finds there ([Architecture](ARCHITECTURE.md#workflow)), but nothing stores
   them yet, so a reclaimed review cannot resume from its last finished stage.
-- Retrying a failed `Finish`, SSE progress, and moving a running review up a level.
+- Retrying a failed `Finish` and SSE progress.

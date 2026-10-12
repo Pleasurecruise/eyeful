@@ -18,7 +18,7 @@ type Provider struct {
 	Tool  string
 	Login string
 	strip []string
-	args  func(schema []byte, tier workflow.Tier) []string
+	args  func(schema []byte, tier workflow.Tier, read bool) []string
 	parse func(stdout []byte) (answer, error)
 }
 
@@ -32,6 +32,7 @@ type Config struct {
 	Dir      string
 	Skills   string
 	Patch    string
+	Trace    string
 	Set      prompts.Set
 }
 
@@ -66,7 +67,7 @@ type summaryReply struct {
 }
 
 type reply interface {
-	workflow.Diagnosis | pulls.Analysis | workflow.Report | fixReply | workflow.Judgement | summaryReply | commitReply
+	workflow.Diagnosis | pulls.Analysis | workflow.Report | fixReply | workflow.Repro | workflow.Judgement | summaryReply | commitReply
 }
 
 type claudeEvent struct {
@@ -135,8 +136,10 @@ type piContent struct {
 }
 
 type piUsage struct {
-	TotalTokens int64  `json:"totalTokens"`
-	Cost        piCost `json:"cost"`
+	Input      int64  `json:"input"`
+	Output     int64  `json:"output"`
+	CacheWrite int64  `json:"cacheWrite"`
+	Cost       piCost `json:"cost"`
 }
 
 type piCost struct {

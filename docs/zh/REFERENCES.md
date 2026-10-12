@@ -34,6 +34,10 @@
 - ISO/IEC/IEEE 29119，_Software testing_（软件测试）。测试设计技术和术语。
 - A. van Deursen、L. Moonen、A. van den Bergh、G. Kok，"Refactoring Test Code"，XP 2001。测试坏味道。
 - Y. Jia、M. Harman，"An Analysis and Survey of the Development of Mutation Testing"，_IEEE Transactions on Software Engineering_，2011。变异测试，用来检查代码出错时测试会不会失败。
+- C. E. Jimenez 等，"SWE-bench: Can Language Models Resolve Real-World GitHub Issues?"，ICLR 2024。fail-to-pass 和 pass-to-pass，即验证器的最后两道[关卡](VERIFICATION.md#the-verifier)；验证器为每次运行记录的测试状态 `PASSED`、`FAILED` 和 `ERROR` 也来自它。
+- Martian，"Code Review Bench"，2026，<https://github.com/withmartian/code-review-benchmark>。离线集的 50 个 pull request 和标准评论，以及 [`match.py`](EVALUATION.md#tooling) 沿用的评判提示词和计分方式。
+- R. Just、D. Jalali、M. D. Ernst，"Defects4J: A Database of Existing Faults to Enable Controlled Testing Studies for Java Programs"，ISSTA 2014。缺陷要对应到引入它的改动，即 `introduced` 关卡。
+- N. Alshahwan 等，"Automated Unit Test Improvement using Large Language Models at Meta"，FSE Companion 2024。生成的测试只有能构建、并且连续五次结果相同才保留，即 `runs` 和 `not_flaky` 关卡。
 
 ## 可用性与无障碍
 
@@ -86,7 +90,7 @@ revmux 的验证阶段只读代码、不运行，[效果评测](EVALUATION.md)�
 
 |            | Claude Code ultrareview | revmux                                 | eyeful                                                |
 | ---------- | ----------------------- | -------------------------------------- | ----------------------------------------------------- |
-| 谁挑审查者 | 未公开                  | 调用方选 profile，阵容固定             | 规划器按改动挑选，Go 按档位检查                       |
+| 谁挑审查者 | 未公开                  | 调用方选 profile，阵容固定             | 规划器按改动挑选，Go 按改动的文件检查                 |
 | 审查什么   | bug                     | profile 里各个 lens 覆盖的内容         | 设计、功能、安全、测试、可用性、可读性                |
 | 怎么验证   | 在云端沙箱中复现        | 另一个 agent 读代码后给出结论          | 验证器运行复现测试，较弱的发现标明证据强度            |
 | 反馈形式   | 发现列表，不附修复      | JSON 或 Markdown，每条发现附一段 `fix` | Conventional Comments，阻塞的放在行内，其余进排序报告 |

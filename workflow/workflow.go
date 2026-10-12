@@ -1,11 +1,13 @@
 package workflow
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 
@@ -19,7 +21,7 @@ func (s prepareState) spent() []Run { return s.Runs }
 func (s planState) spent() []Run    { return s.Runs }
 func (s expertState) spent() []Run  { return s.Runs }
 func (s verifyState) spent() []Run  { return s.Runs }
-func (baselineState) spent() []Run  { return nil }
+func (suiteState) spent() []Run     { return nil }
 func (s summaryState) spent() []Run { return s.Runs }
 
 func checkpoint[T stored](ctx context.Context, a Archive, l *ledger, key string, fn func() (T, error)) (T, error) {
@@ -50,6 +52,30 @@ func checkpoint[T stored](ctx context.Context, a Archive, l *ledger, key string,
 		return st, fmt.Errorf("save %s: %w", key, err)
 	}
 	return st, nil
+}
+
+func (w *Workflow) admit(ctx context.Context, a Archive, req Request) error {
+	if err := w.Admit(req); err != nil {
+		return err
+	}
+	req.Budget, req.Verification, req.Project.TestOne = Budget{}, "", ""
+	want, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("encode request: %w", err)
+	}
+	kept, ok, err := a.Load(ctx, "request")
+	switch {
+	case err != nil:
+		return fmt.Errorf("load request: %w", err)
+	case ok && !bytes.Equal(kept, want):
+		return ErrOtherRequest
+	case ok:
+		return nil
+	}
+	if err := a.Save(ctx, "request", want); err != nil {
+		return fmt.Errorf("save request: %w", err)
+	}
+	return nil
 }
 
 func (l *ledger) allow() bool {
@@ -224,7 +250,7 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 			}
 		}
 		if problem == "" {
-			st.Plan, st.Source = w.staff(answer, t, st.Level), PlanFromPlanner
+			st.Plan, st.Source = w.staff(answer, t), PlanFromPlanner
 			break
 		}
 		st.Notes = append(st.Notes, fmt.Sprintf("grouping %d rejected: %s", attempt, problem))
@@ -234,7 +260,7 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 }
 
 func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, level Level, t Triage, files map[string]File, tools []ToolResult) (planState, error) {
-	st := planState{Level: level, Notes: []string{}, Runs: []Run{}}
+	st := planState{Notes: []string{}, Runs: []Run{}}
 	switch {
 	case len(req.Experts) > 0:
 		picks := make([]Pick, 0, len(req.Experts))
@@ -261,9 +287,42 @@ func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, 
 	return st, nil
 }
 
+func (r Request) executes(setupErr string) bool {
+	return r.Verification == ModeExecution && levels[cmp.Or(r.Level, LevelStandard)].verify && setupErr == ""
+}
+
+func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string, files map[string]File, res *Result) (suiteState, error) {
+	if !req.executes(setupErr) {
+		return suiteState{}, nil
+	}
+	st, err := checkpoint(ctx, s.Archive, l, "suite", func() (suiteState, error) {
+		var st suiteState
+		target := Target{Touched: slices.Sorted(maps.Keys(files))}
+		var err error
+		if st.Change, err = s.Workspace.Test(ctx, nil, target); err == nil && !st.Change.Passed {
+			target.Base = true
+			st.Base, err = s.Workspace.Test(ctx, nil, target)
+		}
+		if err != nil {
+			st.Error = err.Error()
+		}
+		return st, nil
+	})
+	if err != nil {
+		return st, err
+	}
+	broken := slices.DeleteFunc(slices.Clone(st.Change.Failed), func(t string) bool { return slices.Contains(st.Base.Failed, t) })
+	switch {
+	case st.Error != "":
+		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "the project's tests could not run before the review, so they gave the experts no lead and no fix is verified: "+st.Error)
+	case len(broken) > 0:
+		res.Regression = &TestRun{Failed: broken, Output: st.Change.Output}
+	}
+	return st, nil
+}
+
 func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request, prep prepareState, files map[string]File, res *Result) (bool, error) {
 	res.Scopes = scopes(slices.SortedFunc(slices.Values(prep.Triage.Reviewed), func(a, b Entry) int { return cmp.Compare(a.Path, b.Path) }), 0)
-	res.Level = chooseLevel(req.Level, prep.Triage)
 	res.Plan = Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
 	var unscoped []string
 	for _, r := range prep.Tools {
@@ -274,8 +333,9 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 		}
 	}
 	level, short := res.Level, false
+	panel := &ledger{budget: Budget{Tokens: l.budget.Tokens * expertPercent / 100, MicroUSD: l.budget.MicroUSD * expertPercent / 100}, parent: l}
 	for si, sc := range res.Scopes {
-		sl := l.share(len(res.Scopes))
+		sl := panel.share(len(res.Scopes))
 		tools := hitsFor(prep.Tools, sc.Files)
 		if si == 0 {
 			tools = hitsFor(prep.Tools, slices.Concat(sc.Files, unscoped))
@@ -299,16 +359,13 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 		res.Plan.Skipped = append(res.Plan.Skipped, ps.Plan.Skipped...)
 		res.Plan.Summary = strings.TrimSpace(res.Plan.Summary + "\n\n" + ps.Plan.Summary)
 		res.Plan.Confidence = min(res.Plan.Confidence, ps.Plan.Confidence)
-		if slices.Index(Levels, ps.Level) > slices.Index(Levels, res.Level) {
-			res.Level = ps.Level
-		}
 		if si == 0 || ps.Source != PlanFromPlanner {
 			res.PlanSource = ps.Source
 		}
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, ps.Notes...)
-		w.log.Info("plan", slog.String("scope", sc.Name), slog.String("level", string(ps.Level)), slog.String("source", string(ps.Source)), slog.Int("groups", len(ps.Plan.Groups)))
+		w.log.Info("plan", slog.String("scope", sc.Name), slog.String("source", string(ps.Source)), slog.Int("groups", len(ps.Plan.Groups)))
 
-		findings, u, err := w.experts(ctx, s, sl, res.Plan, from, ps.Level, files, tools, req.Project.TestOne)
+		findings, u, err := w.experts(ctx, s, sl, res.Plan, from, level, files, tools, res.Regression, req)
 		if err != nil {
 			return false, err
 		}
@@ -328,9 +385,9 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	res := Result{
 		Diagnosis: Diagnosis{Failures: []Failure{}}, Tools: []ToolResult{}, Findings: []Finding{}, Verifications: []Verification{},
 		Comments: []Comment{}, Runs: []Run{},
-		Uncertainty: Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Dismissed: []Finding{}, Unverified: []Unverified{}, Skipped: []string{}, Notes: []string{}},
+		Uncertainty: Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Unverified: []Unverified{}, Skipped: []string{}, Notes: []string{}},
 	}
-	if err := w.Admit(req); err != nil {
+	if err := w.admit(ctx, s.Archive, req); err != nil {
 		return res, err
 	}
 	if len(req.Change.Files) == 0 {
@@ -352,12 +409,16 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	if err != nil {
 		return res, err
 	}
-	res.Triage, res.Tools = prep.Triage, prep.Tools
+	res.Triage, res.Tools, res.Level = prep.Triage, prep.Tools, cmp.Or(req.Level, LevelStandard)
 	res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, prep.Skipped...)
 
 	files := map[string]File{}
 	for _, f := range req.Change.Files {
 		files[f.Path] = f
+	}
+	suite, err := w.tests(ctx, s, l, req, prep.SetupError, files, &res)
+	if err != nil {
+		return res, err
 	}
 	// TODO(workflow): re-reviews that pass the previous round's findings to each expert.
 	short, err := w.passes(ctx, s, l, req, prep, files, &res)
@@ -366,25 +427,22 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	}
 	findings := res.Findings
 
-	verdicts, err := w.verify(ctx, s, l, req, res.Level, prep.SetupError, findings, files)
+	verdicts, err := w.verify(ctx, s, l, req, req.executes(prep.SetupError), suite, findings, files)
 	if err != nil {
 		return res, err
 	}
 	res.Verifications = verdicts
-	byFinding := res.Uncertainty.record(findings, verdicts)
+	byFinding := res.Uncertainty.record(verdicts)
 	if req.Verification == ModeNone {
 		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "verification was off for this review")
 	}
 
 	merged := merge(findings, byFinding)
-	sum, err := checkpoint(ctx, s.Archive, l, "summary", func() (summaryState, error) { return w.summarize(ctx, s, l, merged, byFinding) })
+	sum, err := checkpoint(ctx, s.Archive, l, "summary/"+string(req.Verification), func() (summaryState, error) { return w.summarize(ctx, s, l, merged, byFinding) })
 	if err != nil {
 		return res, err
 	}
 	res.Comments = sum.Comments
-	if !levels[res.Level].nits {
-		res.Comments = slices.DeleteFunc(res.Comments, func(c Comment) bool { return c.Label == LabelNitpick })
-	}
 	if sum.Fallback != "" {
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, "comments were formatted by rules: "+sum.Fallback)
 	}
@@ -392,24 +450,29 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	res.Runs = l.runs
 	res.Uncertainty.BudgetExhausted = l.exhausted || short
 	res.Outcome = OutcomeComplete
-	if res.Uncertainty.BudgetExhausted {
-		res.Outcome, res.Reason = OutcomePartial, "the budget ran out"
+	if reason := res.Uncertainty.shortfall(); reason != "" {
+		res.Outcome, res.Reason = OutcomePartial, reason
 	}
 	w.log.Info("done", slog.String("outcome", string(res.Outcome)), slog.Int("comments", len(res.Comments)))
 	return res, nil
 }
 
-func (u *Uncertainty) record(findings []Finding, verdicts []Verification) map[string]Verification {
+func (u *Uncertainty) shortfall() string {
+	switch {
+	case u.BudgetExhausted:
+		return "the budget ran out"
+	case len(u.Absent) > 0:
+		return fmt.Sprintf("%d of the experts picked did not hand in a report", len(u.Absent))
+	}
+	return ""
+}
+
+func (u *Uncertainty) record(verdicts []Verification) map[string]Verification {
 	byFinding := map[string]Verification{}
 	for _, v := range verdicts {
 		byFinding[v.Finding] = v
 		if v.Status == StatusUnverified {
 			u.Unverified = append(u.Unverified, Unverified{Finding: v.Finding, Reason: v.Reason})
-		}
-	}
-	for _, f := range findings {
-		if st := byFinding[f.ID].Status; st == StatusNotReproduced || st == StatusRejected {
-			u.Dismissed = append(u.Dismissed, f)
 		}
 	}
 	return byFinding

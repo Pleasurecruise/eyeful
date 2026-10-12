@@ -10,15 +10,14 @@ import (
 var levels = map[Level]limits{
 	LevelQuick:    {experts: 2, tier: TierCheap},
 	LevelStandard: {experts: 4, planner: true, verify: true},
-	LevelDeep:     {experts: 4, nits: true, planner: true, verify: true, full: true},
 }
 
 var crew = map[pulls.DiffCategory][]string{
-	"security": {"correctness", "security"},
-	"core":     {"correctness"},
-	"api":      {"correctness"},
-	"data":     {"correctness"},
-	"cli":      {"correctness"},
+	"security": {"correctness", "skeptic", "security"},
+	"core":     {"correctness", "skeptic"},
+	"api":      {"correctness", "skeptic"},
+	"data":     {"correctness", "skeptic"},
+	"cli":      {"correctness", "skeptic"},
 	"ui":       {"usability"},
 	"i18n":     {"usability"},
 	"tests":    {"tests"},
@@ -30,7 +29,7 @@ var crew = map[pulls.DiffCategory][]string{
 	"deps":     {"security"},
 }
 
-var Levels = []Level{LevelQuick, LevelStandard, LevelDeep}
+var Levels = []Level{LevelQuick, LevelStandard}
 
 var signals = map[Tool]string{
 	ToolSecretScan:      "security",
@@ -41,16 +40,6 @@ var signals = map[Tool]string{
 
 var everyLevelSignals = []Tool{ToolSecretScan, ToolDependencyAudit, ToolOpenAPIDiff}
 
-func chooseLevel(requested Level, t Triage) Level {
-	if requested != "" {
-		return requested
-	}
-	if len(t.Risk) > 0 || size(slices.Concat(t.Reviewed, t.Excluded)) > largeChange {
-		return LevelDeep
-	}
-	return LevelStandard
-}
-
 func (w *Workflow) expert(name string) (Expert, bool) {
 	i := slices.IndexFunc(w.roster, func(e Expert) bool { return e.Name == name })
 	if i < 0 {
@@ -59,17 +48,14 @@ func (w *Workflow) expert(name string) (Expert, bool) {
 	return w.roster[i], true
 }
 
-func (w *Workflow) staff(a pulls.Analysis, t Triage, level Level) Plan {
+func (w *Workflow) staff(a pulls.Analysis, t Triage) Plan {
 	p := Plan{Summary: a.OverallSummary, Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
 	for _, g := range a.Groups {
 		for _, leaf := range append([]pulls.DiffGroupLeaf{g.DiffGroupLeaf}, g.Children...) {
 			core := leaf.Critical || slices.ContainsFunc(leaf.FilePaths, func(f string) bool { return slices.Contains(t.Risk, f) })
 			names := slices.Clone(crew[leaf.Category])
 			if core {
-				names = append(names, "correctness", "security")
-			}
-			if core && level == LevelDeep {
-				names = append(names, "design")
+				names = append(names, "correctness", "skeptic", "security", "design")
 			}
 			summary := leaf.Label
 			if leaf.Summary != "" {
@@ -105,6 +91,9 @@ func (w *Workflow) defaultPlan(t Triage, level Level) Plan {
 	for _, e := range w.roster {
 		if len(picks) == levels[level].experts {
 			break
+		}
+		if e.Solo {
+			continue
 		}
 		picks = append(picks, Pick{Name: e.Name, Why: "default expert for the level"})
 	}

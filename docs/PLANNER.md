@@ -2,8 +2,9 @@
 
 The first stage of a review checks whether the change is ready to review, sets aside files that need
 no review, and decides which experts review the rest. It runs in three steps, cheapest first.
-`workflow` implements the steps and every rule on this page. The L1 tools, the CI reading on GitHub
-and the planner's prompt and `submit_plan` tool belong to the runtimes, which are not built yet.
+`workflow` implements the steps and every rule on this page, and a local review runs them with the
+planner's prompt ([Running locally](LOCAL.md#agents)). The L1 tools, the CI reading on GitHub and
+the `submit_plan` tool of the cloud runtime are not built yet.
 
 ```mermaid
 flowchart LR
@@ -27,8 +28,9 @@ continues.
 
 Locally there is no CI run to read. The verifier runs the `lint` command from
 [`.eyeful/config.yml`](CONFIGURATION.md#project) and the L1 `typecheck` in the work directory. The
-full `test` command runs only at deep, since a project's whole suite can take longer than the
-review.
+`test` command is not part of this check. With `execution` it runs after it, before the experts
+start, and a test the change breaks becomes a lead for them rather than the end of the review
+([Tests the change breaks](VERIFICATION.md#regressions)).
 
 If the check fails, no expert starts. The CI agent, the only agent this step can start, reads the
 logs of the failed jobs (or the local command output) and reports, for each failure, the workflow,
@@ -79,15 +81,16 @@ same scopes, in the cloud and locally:
 4. Each scope may spend an equal share of the review's budget. A scope that uses up its share
    starts no more agents, the review ends `partial`, and the scopes after it still run.
 
-The level is chosen once for the whole change ([Choosing the level](LEVELS.md#choosing-the-level)),
-and verification and the summary run once over the findings of every scope. The report lists the
+The project's tests run once for the whole change, before the first scope
+([Tests the change breaks](VERIFICATION.md#regressions)), and verification and the summary run once
+over the findings of every scope. The report lists the
 scopes in order, which the author can use to split the change into a stack
 ([The ranked report](REPORT.md#ranked-report)); eyeful never creates branches or pull requests.
 
 ## The plan {#the-plan}
 
-The quick level has no planner; rules send each tool result to an expert. At standard and deep, the
-plan has two steps: [`@pulls.review/core`](https://github.com/antfu/pulls.review) works out what
+The quick level has no planner; rules send each tool result to an expert. At standard, the plan has
+two steps: [`@pulls.review/core`](https://github.com/antfu/pulls.review) works out what
 the change does and groups it, and Go picks the experts for each group by rule.
 
 ### Grouping the change
@@ -139,17 +142,16 @@ A group is core when core marks it `critical` or when it holds a `risk` path fro
 Go turns each group into experts with a fixed table, so the same grouping always gets the same
 experts:
 
-| Category                             | Experts               |
-| ------------------------------------ | --------------------- |
-| `security`                           | correctness, security |
-| `core`, `api`, `data`, `cli`         | correctness           |
-| `ui`, `i18n`                         | usability             |
-| `tests`                              | tests                 |
-| `docs`, `examples`                   | readability           |
-| `config`, `build`, `scripts`, `deps` | security              |
-| `assets`, `other`                    | none                  |
-| a core group, in addition            | correctness, security |
-| a core group at deep, in addition    | design                |
+| Category                             | Experts                                |
+| ------------------------------------ | -------------------------------------- |
+| `security`                           | correctness, skeptic, security         |
+| `core`, `api`, `data`, `cli`         | correctness, skeptic                   |
+| `ui`, `i18n`                         | usability                              |
+| `tests`                              | tests                                  |
+| `docs`, `examples`                   | readability                            |
+| `config`, `build`, `scripts`, `deps` | security                               |
+| `assets`, `other`                    | none                                   |
+| a core group, in addition            | correctness, skeptic, security, design |
 
 Each expert then runs once over all of its groups ([Experts](EXPERTS.md)). Go also adds the experts
 that signals call for ([Levels](LEVELS.md)) and sets their budgets.

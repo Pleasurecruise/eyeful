@@ -25,7 +25,6 @@
 			...u.absent.map((a) => m.absent(a)),
 			...u.unread.map((r) => m.unread(r)),
 			...u.unverified.map((v) => m.unverified(v)),
-			...(u.dismissed.length ? [m.dismissed({ count: u.dismissed.length })] : []),
 			...u.skipped,
 			...u.notes
 		];
@@ -68,7 +67,6 @@
 						>
 							{outcomes[output.outcome]()}
 						</Badge>
-						<Badge variant="outline">{output.level}</Badge>
 						{#if output.not_reviewed.length}
 							<span class="text-muted-foreground">
 								{m.files_not_reviewed({ count: output.not_reviewed.length })}
@@ -101,7 +99,11 @@
 									{f.severity === Severity.SeverityImportant ? m.important() : m.nit()}
 								</Badge>
 								<Badge variant="outline">
-									{f.verdict === Verdict.VerdictConfirmed ? m.confirmed() : m.plausible()}
+									{f.verdict === Verdict.VerdictConfirmed
+										? m.confirmed()
+										: f.verdict === Verdict.VerdictDisputed
+											? m.disputed()
+											: m.plausible()}
 								</Badge>
 								{#if f.category}<Badge variant="outline">{f.category}</Badge>{/if}
 							</div>

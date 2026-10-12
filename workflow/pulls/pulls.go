@@ -45,11 +45,7 @@ func call[T []FileChange | string | json.RawMessage | checked](c *Core, name str
 		}
 		res = v
 	}
-	data, err := rt.AppendJSON(nil, res)
-	if err != nil {
-		return out, fmt.Errorf("%w: %s result: %w", ErrCore, name, err)
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
+	if err := rt.Unmarshal(res, &out); err != nil {
 		return out, fmt.Errorf("%w: %s result: %w", ErrCore, name, err)
 	}
 	return out, nil

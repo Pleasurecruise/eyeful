@@ -18,6 +18,9 @@ type Options struct {
 	Range        subject.Range
 	Experts      []string
 	Verification workflow.Mode
+	Level        workflow.Level
+	Dependent    bool
+	Run          string
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)
 	Out          io.Writer
 	Err          io.Writer

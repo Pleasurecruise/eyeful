@@ -19,13 +19,13 @@ func TestLoad(t *testing.T) {
 	if _, err := workflow.New(slog.New(slog.DiscardHandler), s.Roster()); err != nil {
 		t.Fatalf("roster: %v", err)
 	}
-	for _, name := range []string{"correctness", "design", "readability", "security", "tests", "usability"} {
+	for _, name := range []string{"correctness", "design", "generalist", "readability", "security", "tests", "usability"} {
 		e, ok := s.Expert(name)
 		if !ok || len(e.Skills) == 0 || e.Body == "" {
 			t.Errorf("%s: %+v", name, e)
 		}
 	}
-	if len(s.Roles) != 6 || len(s.Skills) != 22 || len(s.Tools) != 13 {
+	if len(s.Roles) != 7 || len(s.Skills) != 22 || len(s.Tools) != 14 {
 		t.Fatalf("roles %d, skills %d, tools %d", len(s.Roles), len(s.Skills), len(s.Tools))
 	}
 	for name, r := range s.Roles {

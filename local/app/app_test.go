@@ -35,6 +35,9 @@ func fakeClaude() error {
 		_, err := fmt.Println("9.9.9 (fake)")
 		return err
 	}
+	if os.Getenv("FAKE_DOWN") != "" {
+		return errors.New("the agent is down")
+	}
 	prompt, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return err
@@ -238,6 +241,26 @@ func TestReview(t *testing.T) {
 		}
 		if left, _ := filepath.Glob(filepath.Join(root, ".eyeful", "runs", "*", "skills")); len(left) != 0 {
 			t.Fatalf("the skills were left in %v", left)
+		}
+	})
+
+	t.Run("a run directory is resumed, for its own request only", func(t *testing.T) {
+		root, _, o := setup(t, true)
+		o.Run = filepath.Join(t.TempDir(), "run")
+		first, err := app.Review(t.Context(), o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("FAKE_DOWN", "1")
+		again, err := app.Review(t.Context(), o)
+		if err != nil || len(again.Findings) != len(first.Findings) || len(first.Findings) != 1 {
+			t.Fatalf("resumed review called an agent again: %+v, %v", again, err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "app.txt"), []byte("three\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := app.Review(t.Context(), o); !errors.Is(err, workflow.ErrOtherRequest) {
+			t.Fatalf("another change reused the run directory: %v", err)
 		}
 	})
 

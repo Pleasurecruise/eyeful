@@ -9,21 +9,32 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow"
 )
 
-func verification(c workflow.Comment, f workflow.Finding) string {
+func verification(c workflow.Comment, f workflow.Finding, old bool) string {
+	var text string
 	switch {
-	case c.Test != nil && len(c.Fix) > 0:
-		return fmt.Sprintf("eyeful ran the reproduction test %s: it failed on the change and passed with the suggested fix, and the suite stayed green.", c.Test.Path)
-	case c.Test != nil:
-		return fmt.Sprintf("eyeful ran the reproduction test %s and it failed on the change; no fix was verified.", c.Test.Path)
-	case f.Repro != nil:
-		return "A reproduction test was proposed but eyeful did not see it fail."
+	case c.Objection != "":
+		return fmt.Sprintf("A judge agent read the code and disputes this finding: %s It is kept for you to decide.", c.Objection)
+	case c.Repro == nil && f.Evidence == workflow.EvidenceReproTest:
+		return "eyeful did not see a reproduction test fail for it."
+	case c.Repro == nil:
+		return fmt.Sprintf("Not executed; the evidence is %s.", strings.ReplaceAll(string(f.Evidence), "_", " "))
+	case old:
+		return fmt.Sprintf("eyeful ran the reproduction test %s: it fails on the change and fails the same way on the base commit, so the problem was there before this change.", c.Repro.Run)
+	case len(c.Fix) > 0:
+		text = fmt.Sprintf("eyeful ran the reproduction test %s: it failed on the change in every run, not on the base commit, and passed with the suggested fix, and the suite stayed green.", c.Repro.Run)
+	default:
+		text = fmt.Sprintf("eyeful ran the reproduction test %s and it failed on the change in every run, not on the base commit; no fix was verified.", c.Repro.Run)
 	}
-	return fmt.Sprintf("Not executed; the evidence is %s.", strings.ReplaceAll(string(f.Evidence), "_", " "))
+	text += fmt.Sprintf(" Expected behaviour from: %s", c.Repro.Oracle)
+	if c.Repro.Oracle == workflow.OracleSpec {
+		text += fmt.Sprintf(" (%q)", c.Repro.Quote)
+	}
+	return text + "."
 }
 
 func Findings(r workflow.Result) (Output, error) {
 	out := Output{
-		Outcome: r.Outcome, Reason: r.Reason, Level: r.Level, Findings: []Finding{},
+		Outcome: r.Outcome, Reason: r.Reason, Findings: []Finding{},
 		Diagnosis: r.Diagnosis, NotReviewed: r.Triage.Excluded, Uncertainty: r.Uncertainty,
 	}
 	for _, c := range r.Comments {
@@ -36,23 +47,23 @@ func Findings(r workflow.Result) (Output, error) {
 		}
 		f := r.Findings[i]
 		item := Finding{
-			File: c.Path, Line: c.Line, Severity: SeverityNit, Verdict: VerdictPlausible,
+			File: c.Path, Line: c.Line, Related: c.Related, Severity: SeverityNit, Verdict: VerdictPlausible,
 			Category: strings.Join(slices.DeleteFunc(slices.Clone(c.Decorations), func(d string) bool { return slices.Contains(mergeDecorations, d) }), ", "), ShortSummary: c.Short, Summary: c.Subject,
-			FailureScenario: c.Scenario, Why: c.Discussion, Verification: verification(c, f),
-			Label: c.Label, Experts: c.Experts, Test: c.Test, Fix: c.Fix,
+			FailureScenario: c.Scenario, Why: c.Discussion,
+			Verification: verification(c, f, baselineState(r, f.ID) == "unchanged"),
+			Label:        c.Label, Experts: c.Experts, Fix: c.Fix,
+		}
+		if c.Repro != nil && c.Repro.Test != (workflow.Edit{}) {
+			item.Test = &c.Repro.Test
 		}
 		if slices.Contains(c.Decorations, "blocking") {
 			item.Severity = SeverityImportant
 		}
-		if c.Strength == workflow.StrengthStrong {
+		switch {
+		case c.Strength == workflow.StrengthStrong:
 			item.Verdict = VerdictConfirmed
-		}
-		if f.Repro != nil && f.Repro.Oracle != "" {
-			item.Verification += fmt.Sprintf(" Expected behaviour from: %s", f.Repro.Oracle)
-			if f.Repro.Quote != "" {
-				item.Verification += fmt.Sprintf(" (%q)", f.Repro.Quote)
-			}
-			item.Verification += "."
+		case c.Objection != "":
+			item.Verdict = VerdictDisputed
 		}
 		out.Findings = append(out.Findings, item)
 	}

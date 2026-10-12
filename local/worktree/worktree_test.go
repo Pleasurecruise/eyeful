@@ -114,10 +114,22 @@ func TestWorktree(t *testing.T) {
 		t.Fatalf("suite on the change: %+v, %v", run, err)
 	}
 
+	before := worktree.NewWorkspace(w, project.Config{TestOne: "test -f repro.txt && grep -q one app.txt && test ! -f new.txt # {test}"}, 2*time.Second)
+	if run, err := before.Test(ctx, []workflow.Edit{repro}, workflow.Target{Tests: []string{"t"}, Base: true}); err != nil || !run.Passed {
+		t.Fatalf("repro on the base commit: %+v, %v", run, err)
+	}
+	if run, err := before.Test(ctx, []workflow.Edit{repro}, workflow.Target{Tests: []string{"t"}}); err != nil || run.Passed {
+		t.Fatalf("the base commit's files stayed after a base run: %+v, %v", run, err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(w.Dir(), "app.txt")); string(data) != "two\n" || !exists(filepath.Join(w.Dir(), "new.txt")) || !exists(filepath.Join(w.Dir(), "setup-ran")) {
+		t.Fatalf("a base run did not put the change back: app.txt %q", data)
+	}
+
 	for name, e := range map[string]workflow.Edit{
 		"parent":  {Path: "../escape.txt", New: "x"},
 		"git dir": {Path: ".git/hooks/pre-commit", New: "x"},
 		"absent":  {Path: "app.txt", Old: "missing", New: "x"},
+		"replace": {Path: "app.txt", New: "fixed"},
 	} {
 		if _, err := ws.Test(ctx, []workflow.Edit{e}, workflow.Target{Tests: []string{"t"}}); err == nil {
 			t.Errorf("%s: edit accepted", name)

@@ -25,7 +25,7 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 | `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`                 |
 | `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                       |
 | `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                      |
-| `mise run test`                            | Go tests with `-race`; Postgres tests need the test URL                                          |
+| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests; Postgres tests need the test URL         |
 | `mise run format`                          | gofmt and `vp fmt`                                                                               |
 | `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                             |
 | `mise run generate`                        | sqlc, then the spec, then the SDK; the desktop bindings                                          |
@@ -76,14 +76,14 @@ strings in. A message added to `en.json` is added to `zh.json` in the same chang
 
 ## Toolchain notes {#toolchain-notes}
 
-- Vite+ 1.0.0 was set up with `vp migrate`. The pnpm catalog aliases `vite` to
+- Vite+ 1.1.0 was set up with `vp migrate`. The pnpm catalog aliases `vite` to
   `@voidzero-dev/vite-plus-core`.
 - Type checks run on TypeScript 7.0.2 (`@typescript/native`, `svelte-check --tsgo`). `typescript`
   stays at 6.0.3, because `svelte-kit sync` and the SDK generator need its JS API, and it is excluded
   from `pnpm update`.
 - VitePress is at 2.0.0-alpha.20. Version 1.6.4 fails under Vite+ because it calls the removed
   `transformWithEsbuild`, while 2.x targets the current Vite.
-- swag v2.0.0-rc6 and Wails v3.0.0-beta.27 have no stable releases yet.
+- swag v2.0.0-rc6 and Wails v3.0.0-beta.28 have no stable releases yet.
 - Project tools are Go tools, and mise installs only toolchains. sqlc and swag are `tool` lines in
   the root `go.mod`, run with `go tool`. The `wails3` CLI is a `tool` line in `apps/desktop/go.mod`,
   so it always matches the Wails library. `tools:wails` builds it into `.tools/bin` (ignored by git),

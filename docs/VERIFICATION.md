@@ -2,7 +2,8 @@
 
 This page describes how eyeful decides how far to trust a finding. Experts read code, call their
 tools and propose tests. The verifier, which is plain Go code in `workflow`, runs those tests and
-records the outcome. It runs them through the review's workspace, which is not built yet.
+records the outcome. It runs them through the review's workspace: locally a disposable checkout of
+the snapshot ([Running locally](LOCAL.md#how-a-local-review-runs)); the cloud sandbox is not built yet.
 
 ## The oracle problem {#oracle}
 
@@ -24,6 +25,19 @@ behaviour it expects, and the verifier records it:
 | `base`     | The base commit behaves differently, though the change may have intended that                               | medium   |
 | `agent`    | Only the expert's own reading of the code                                                                   | weak     |
 
+The verifier grades the oracle and does not take the expert's word for it. A `spec` oracle names
+the file that holds its quote, or no file when the quote is a commit message of the change, and
+the verifier looks the quote up; a quote it cannot find there, ignoring line breaks and spacing,
+turns the oracle into `agent`. An `implicit` oracle claims a failure the runtime prints, such as a
+crash, so its `fails` text must not be something the test wrote itself: when the test file contains
+that text, the expectation is the test's own and the oracle becomes `agent`. An `existing` oracle hands in no test of its own: it names a test
+already in the repository, and the verifier runs that. A `base` oracle is decided by the run on the
+base commit and not by the expert: it holds only when the test passes there, and an oracle that
+would otherwise be `agent` becomes `base` when it does, because the base commit was then seen to
+behave differently. The finding keeps the oracle the expert declared, and the verification records
+the reproduction as it ran with the graded oracle, so the evaluation can measure what the oracle
+rule changes.
+
 A finding with a `base` or `agent` oracle cannot be blocking. Its reproduction is turned into a
 `question` for the author, with the failing test attached. The suggested fix is written by a
 separate agent, which sees the finding and the test but not the expert's reasoning, so that the fix
@@ -31,26 +45,47 @@ is not just the expert's assumption written a second time.
 
 ## Evidence kinds {#evidence-kinds}
 
-| Kind           | Produced by              | What ran                                                               | Strength                   |
-| -------------- | ------------------------ | ---------------------------------------------------------------------- | -------------------------- |
-| `repro_test`   | correctness, security    | A test that fails on the change                                        | the strength of its oracle |
-| `cve`          | security                 | `dependency_audit` or `cve_lookup` matched a known advisory            | strong                     |
-| `api_break`    | usability                | `openapi_diff` found a breaking change                                 | strong                     |
-| `coverage`     | tests                    | The coverage command, compared line by line with the diff              | strong                     |
-| `tool`         | any                      | Another tool: `sast`, `secret_scan`, `typecheck`, `lint`, `a11y_check` | medium                     |
-| `e2e`          | usability                | The project's E2E command, with screenshots                            | medium                     |
-| `trigger_path` | security                 | Nothing; the expert describes how the problem is reached               | medium                     |
-| `argument`     | design, readability, any | Nothing; the expert explains, citing code or a standard                | weak                       |
+| Kind           | Produced by                    | What ran                                                               | Strength                   |
+| -------------- | ------------------------------ | ---------------------------------------------------------------------- | -------------------------- |
+| `repro_test`   | correctness, skeptic, security | A test that fails on the change                                        | the strength of its oracle |
+| `cve`          | security                       | `dependency_audit` or `cve_lookup` matched a known advisory            | strong                     |
+| `api_break`    | usability                      | `openapi_diff` found a breaking change                                 | strong                     |
+| `coverage`     | tests                          | The coverage command, compared line by line with the diff              | strong                     |
+| `tool`         | any                            | Another tool: `sast`, `secret_scan`, `typecheck`, `lint`, `a11y_check` | medium                     |
+| `e2e`          | usability                      | The project's E2E command, with screenshots                            | medium                     |
+| `trigger_path` | security                       | Nothing; the expert describes how the problem is reached               | medium                     |
+| `argument`     | design, readability, any       | Nothing; the expert explains, citing code or a standard                | weak                       |
 
-Sometimes a reproduction is proposed but not run, because the level does not allow it, the budget
-ran out, or the project could not be set up. The finding then keeps the weaker kind and is marked
-unverified.
+An expert finds problems and does not prove them: it hands in a finding with the scenario that
+triggers it, and a `repro_test` finding says only that a test could show it. The reproduction is
+written afterwards, by another agent, so the cost of proof never decides what an expert reports.
+When no reproduction can run, because verification is not `execution`, the project has no test
+command or could not be set up, the judge reads the finding instead.
 
 ## Tests prove findings
 
 eyeful does not write tests to raise coverage. A test is how an expert shows that a functional error
 exists: if the expert is right, a small test fails on the change. The test belongs to the finding,
 and it is offered to the author only together with the fix it proves.
+
+## Tests the change breaks {#regressions}
+
+Running code is also a way to find problems, and not only to prove the ones an expert already
+suspects. With `execution`, before any expert starts, the verifier runs the project's tests (`test`)
+on the change. When they fail it runs them once more on the base commit, and whatever passes there
+and fails on the change is a regression: a fact about the change that no reading of the diff gives.
+
+Each expert that can report `repro_test` findings is given the failing tests and the end of the
+failing run. It looks for the changed line behind each failure its files can explain and reports it
+as a finding that names the failing test, so the reproduction is that test as it stands and its
+oracle is `existing`. The feedback lists the tests the change breaks whether or not an expert
+explained them.
+
+Locally the workspace cannot tell the tests of one failing command apart, so a regression names the
+command and the output names the tests. In the cloud the [CI check](PLANNER.md#ci-check) has already
+required the project's own CI to pass, so this step finds only what that CI does not run. When the
+tests cannot run at all, the feedback says so, the experts get no lead, and no fix is verified,
+because `pass_to_pass` compares against this same run.
 
 ## The verifier {#the-verifier}
 
@@ -59,28 +94,84 @@ The verifier is the only part of eyeful that runs the project's code. It runs on
 
 Strength is known only after verification, so the verifier needs an order that does not depend on
 it. It takes findings whose test has an `implicit`, `existing` or `spec` oracle first, then sorts by
-the severity the expert declared, then by how many experts reported the same lines. The level
-decides how many findings get verified ([Levels](LEVELS.md)).
+the severity the expert declared, then by how many experts reported the same lines. A `low` finding
+is not verified at all: it claims no behaviour that a test or the judge could check, and it is
+reported as a nitpick ([Review feedback](REPORT.md#ranked-report)).
 
-For a finding with a reproduction test, the verifier:
+For each `repro_test` finding a reproduction agent writes a test from the finding and its scenario;
+the agents of all findings write at once. The reproduction is accepted only when the test passes
+every gate below, in this order. The gates are the ones benchmarks use to accept a bug or a generated test: fail-to-pass and
+pass-to-pass from SWE-bench, the base commit from Defects4J, and repeated runs from Meta's
+TestGen-LLM ([References](REFERENCES.md)).
 
-1. copies the checkout of the change, adds the test and runs it, and the test has to fail;
-2. applies the suggested fix to a fresh copy that also has the test, runs it again, and the test has
-   to pass;
-3. runs the tests of the packages the change touches on that copy. At deep it runs the full suite
-   instead, in the order build, unit, integration, E2E, and stops at the first failure. Nothing that
-   passed before may fail.
+| Gate               | The verifier                                                                 | When it does not hold                                            |
+| ------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `runs`             | adds the test to a fresh copy of the change and runs it                      | the judge reads the finding: the reproduction could not run      |
+| `not_flaky`        | runs it five times; every run has to end the same way                        | the judge reads the finding: the reproduction is flaky           |
+| `fails_as_claimed` | looks for the reproduction's `fails` text in the failing output              | the judge reads the finding: the test passes, or fails otherwise |
+| `introduced`       | runs it once on the base commit, where it must not fail with the same text   | `pre_existing`: reported, never blocking                         |
+| `fail_to_pass`     | applies the suggested fix to a fresh copy that also has the test and runs it | reproduced, no verified fix                                      |
+| `pass_to_pass`     | runs the tests of the packages the change touches on that copy               | reproduced, no verified fix                                      |
+
+`fails` is a short text the reproduction agent says the test prints when it fails for the claimed reason, such
+as its assertion message. It separates the failure the finding predicts from a test that does not
+compile or cannot import its subject, which would otherwise count as a reproduction. On the base
+commit the same text decides between two cases: a test that fails there with `fails` shows a problem
+that was already present, while a test that fails there in another way, usually because the code it
+calls is new, says nothing against the finding, and verification goes on. An agent on a user's machine cannot run its own test before handing it in, so when the first
+five runs fail without the `fails` text the verifier asks the reproduction agent once for a
+corrected reproduction, showing the one that ran, the command and the output, and starts the gates
+again with the answer. The verification records the reproduction that ran last. Two rules keep the test honest: it is always a new file, so it cannot replace code or a test that is already there, and a
+fix that edits the reproduction test is not verified. Experts often report the same defect more than once, so findings on the same file within two lines
+are checked together. The reproduction is written and run for the one with the highest severity;
+the others are not checked again, since they end up in the same comment, which takes its evidence
+from the one that was. When the reproduction shows nothing they all go to the judge, which works the
+same way: it reads the first, and only when it does not confirm that one does it read each of the
+others, so a wrong finding cannot take a right one beside it down with it. `pass_to_pass`
+compares with the run on the change that was made before the review
+([Tests the change breaks](#regressions)): nothing that passed before the fix may fail after it.
 
 ```mermaid
 flowchart LR
-    repro["Change + test"] -->|test fails| fixed["Change + test + fix"]
-    repro -->|test passes| reject["Not reproduced"]
+    repro["Change + test<br/>five runs"] -->|fails with the claimed text every time| base["Base + test"]
+    repro -->|passes, is flaky, or fails otherwise| judge["The judge reads it"]
+    base -->|passes, or fails otherwise| fixed["Change + test + fix"]
+    base -->|fails with the claimed text| old["Pre-existing"]
     fixed -->|test passes, nothing else breaks| verified["Reproduced, fix verified"]
     fixed -->|test or other tests fail| nofix["Reproduced, no verified fix"]
 ```
 
-A reproduced finding then has the strength of its oracle. A finding whose test passes on the change
-gets no comment; the uncertainty checklist lists it as dismissed.
+Each verification records what the runs showed, in the test statuses of SWE-bench's harness: every
+run on the change, the run on the base commit and the run with the fix is `PASSED`, `FAILED` when it
+fails with the `fails` text, or `ERROR` when it fails in any other way. The gate a finding stopped
+at follows from these, so the [evaluation](EVALUATION.md) can count how many findings each gate
+turns away. A reproduced finding then has the strength of its oracle. A finding
+whose test did not show it, because none was written, it passed on the change, was flaky or failed
+in another way, is not dropped: the test may have been the weak part, so the judge reads the finding
+with the record of that attempt and confirms or disputes it. A confirmed or pre-existing finding
+keeps the weak strength of an unrun reproduction, so it cannot block.
+
+## The judge {#the-judge}
+
+A reproduction is not the only way a finding is checked. With `execution`, a finding that no test
+can show, or whose test did not show it, goes to a judge agent, and with `read_only`, where no
+command runs, every finding does. The judge reads the code and the finding, and the record of the test when one was tried, and
+calls the finding valid only when the problem exists in the changed code, the change introduces or
+exposes it (behaviour that a caller in the repository or the users of a public interface still
+rely on, and that is gone without a commit message announcing it, counts as introduced), and it changes observable behaviour or breaks a stated contract (an issue,
+documentation, an API schema or an existing test). Style remarks and concerns that name no failing
+input are not valid.
+
+The judge does not decide whether a finding is shown. Evidence sets how strong a comment is, never
+whether it exists: a finding the judge rejects stays in the feedback as a weak, non-blocking
+comment marked DISPUTED, with the judge's reason beside it, and the person reading decides. One
+agent reading one finding once is not reliable enough to delete it. Two judgements of the same
+finding can differ, and a rejection that removed the finding would lose real problems without a
+trace. The cost is more comments to read, which the [evaluation](EVALUATION.md) measures as
+precision.
+
+This is the definition the evaluation's labelling uses, so the two conditions
+differ in their evidence and not in what they count as a defect.
 
 All of this depends on the project installing and its tests running, which is the main practical
 limit of the approach. Many repositories need services such as a database, or more than one setup
@@ -122,16 +213,18 @@ gitleaks, is read as it is. An expert's `submit_report` findings are converted i
 Standard fields hold what the standard defines them for, and eyeful's own fields go in the property
 bag:
 
-| SARIF field      | Holds                                                                        |
-| ---------------- | ---------------------------------------------------------------------------- |
-| `ruleId`, `taxa` | The rule or tool check, and the CWE identifier where there is one            |
-| `level`          | `error` for a blocking `issue`, `warning` for other issues, `note` otherwise |
-| `kind`           | `fail` once the verifier reproduced it, `review` while it needs a person     |
-| `message`        | The subject and the discussion of the comment                                |
-| `locations`      | File and line                                                                |
-| `codeFlows`      | A security trigger path, step by step                                        |
-| `fixes`          | The suggested fix, as artifact changes                                       |
-| `properties`     | `expert`, `evidence`, `oracle`, `label`, `decorations`, `corroboratedBy`     |
+| SARIF field        | Holds                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `ruleId`, `taxa`   | The rule or tool check, and the CWE identifier where there is one                              |
+| `level`            | `error` for a blocking `issue`, `warning` for other issues, `note` otherwise                   |
+| `kind`             | `fail` once the verifier reproduced it, `review` while it needs a person                       |
+| `baselineState`    | Of a reproduced result: `new`, or `unchanged` when the base commit fails too                   |
+| `message`          | The subject and the discussion of the comment                                                  |
+| `locations`        | File and line                                                                                  |
+| `relatedLocations` | The other places the same problem shows                                                        |
+| `codeFlows`        | A security trigger path, step by step                                                          |
+| `fixes`            | The suggested fix, as artifact changes                                                         |
+| `properties`       | `expert`, `evidence`, `oracle`, `label`, `decorations`, `corroboratedBy`, `repro`, `objection` |
 
 The finding from the example, with the pull request description as its oracle:
 
@@ -140,6 +233,7 @@ The finding from the example, with the pull request description as its oracle:
 	"ruleId": "eyeful/correctness/boundary",
 	"level": "error",
 	"kind": "fail",
+	"baselineState": "new",
 	"message": { "text": "A session is still valid at exactly expires_at." },
 	"locations": [
 		{
@@ -179,7 +273,7 @@ The finding from the example, with the pull request description as its oracle:
 The same SARIF file is used to write the review comments, to upload to GitHub code scanning, and for
 the [evaluation](EVALUATION.md).
 
-## Relation to CI
+## Relation to CI {#relation-to-ci}
 
 For the test suites eyeful does not run, the project's own CI remains the authority. In the cloud,
 the [CI check](PLANNER.md#ci-check) has already required them to pass before the review started.

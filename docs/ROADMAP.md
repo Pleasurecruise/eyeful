@@ -4,14 +4,15 @@ This page lists what each version delivers and what it has to show before releas
 documents describe the design and mark what is planned; this one puts that work in order. A version
 is released when its exit criteria hold and no hard measure in `.agents/POLARIS.md` has regressed.
 
-The thesis depends on one question: whether execution-based verification removes false positives
-([Evaluation](EVALUATION.md#research-question)). The next version therefore builds only what that
-question needs and runs the experiment. The local and cloud clients come after the data exists.
+The thesis asks three questions: whether a planned panel detects more than a single agent, how
+much of what is reported is actionable under each kind of verification, and what execution can
+confirm and at what cost ([Evaluation](EVALUATION.md#research-question)). The next version therefore
+builds only what those questions need and runs the experiment. The local and cloud clients come after the data exists.
 
 ```mermaid
 flowchart TB
     v0["v0 Foundation<br/>done"] --> v1["v1.0 Research core and evaluation<br/>in progress"]
-    v1 --> v11["v1.1 Local review<br/>planned"]
+    v1 --> v11["v1.1 Local review<br/>mostly built"]
     v11 --> v2["v2.0 Cloud review<br/>planned"]
     v2 --> later["Later<br/>planned"]
 ```
@@ -33,21 +34,30 @@ v1.0 contains only what the experiment needs, driven from the command line again
 - The `workflow` module: planning and triage, experts, verifier and summarizer
   ([stages](REVIEW.md#stages)). The CI check is reduced to running the dataset's own tests.
 - The two experts whose findings can be reproduced, correctness and security, with their skills,
-  tools and checklists ([Experts](EXPERTS.md)).
-- The verifier with the oracle rule ([Evidence and verification](VERIFICATION.md)), and the
-  read-only judge used as the comparison condition.
-- Agents in pi only, with model keys that eyeful controls, so every token is counted
+  tools and checklists, and the generalist that reviews alone as the single-agent baseline
+  ([Experts](EXPERTS.md)).
+- The verifier with its six gates and the graded oracle
+  ([Evidence and verification](VERIFICATION.md)), and the read-only judge used as the comparison
+  condition.
+- Agents in pi, with model keys that eyeful controls, so every token is counted the same way
   ([Agents in pi](CLOUD.md#agents-in-pi)).
-- Subjects running in SWE-bench's Docker environments, and in containers for the injected-bug set.
+- Subjects running in SWE-bench's Docker environments, and in containers for the injected-defect
+  set.
 - The run archive, which holds every number the thesis reports, and stage checkpoints.
 - The quick and standard levels, with feedback as SARIF and Markdown.
-- `eval/`: the datasets, the three conditions, the labelling workflow and the ablations
-  ([Evaluation](EVALUATION.md)).
+- `eval/`: the datasets, the configurations and conditions, the labelling workflow and the
+  ablations ([Evaluation](EVALUATION.md)).
+
+Built so far: the workflow with all of the above except agents in pi; `eval/` with the subject
+builder, the runners for eyeful and revmux, the labelling sheet and the analysis; and a
+[pilot](EVALUATION.md#pilot) on SWE-bench subjects, driven through the local `eyeful` command with
+Claude Code as the agent. Still to do: the injected-defect subjects themselves, the SWE-bench
+subjects the pilot left out, three repetitions of every review, the labelling, and agents in pi.
 
 Exit criteria:
 
-- The main experiment has run on both bug sets in all three conditions, and the findings are
-  labelled as the evaluation describes.
+- The main experiment has run on both datasets, in both configurations and all three conditions,
+  three times each, and the findings are labelled as the evaluation describes.
 - Every `issue (blocking)` in those runs was seen failing by the verifier and has an `implicit`,
   `existing` or `spec` oracle.
 - A review that runs out of budget returns what it verified, marked partial. A worker killed in the
@@ -57,7 +67,7 @@ Exit criteria:
 Until v1.0 is released, the console, the desktop app, Gitee sign-in, CORS, rate limits and MCP get
 no new features. They keep working and keep their tests.
 
-## v1.1: Local review (planned)
+## v1.1: Local review (mostly built)
 
 v1.1 runs the same workflow on the user's machine ([Running locally](LOCAL.md)). It adds
 `local/agents`, which runs the user's own coding agent CLIs without MCP; the snapshot and its disposable checkout
@@ -77,7 +87,7 @@ server, and no credential or model key leaves the machine.
 v2.0 runs the workflow on pull requests ([Running in the cloud](CLOUD.md)). It adds the CI check
 against GitHub Actions; `internal/checkout` and `internal/sandbox`, with one credential-free sandbox
 per review; sources, the outbox and sinks; comments posted as a `COMMENT` review with the optional
-Check Run; the deep level with the full suite and E2E; SSE progress; and a `runner` command.
+Check Run; E2E runs; SSE progress; and a `runner` command.
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
 its sandbox, and a worker killed mid-review loses nothing and runs nothing twice.

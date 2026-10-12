@@ -88,12 +88,25 @@ func (s *Workspace) CI(ctx context.Context) (workflow.Check, error) {
 	if err != nil {
 		return workflow.Check{}, err
 	}
-	return workflow.Check{Passed: passed, Log: out}, s.tree.reset(ctx)
+	return workflow.Check{Passed: passed, Log: out}, s.tree.restore(ctx, s.tree.change)
 }
 
 func (s *Workspace) Tools(context.Context, []string) ([]workflow.ToolResult, error) {
 	// TODO(worktree): run the L1 tools for the project's languages.
 	return []workflow.ToolResult{}, nil
+}
+
+func (s *Workspace) Read(_ context.Context, path string) (_ string, err error) {
+	root, err := os.OpenRoot(s.tree.dir)
+	if err != nil {
+		return "", fmt.Errorf("open repository: %w", err)
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	data, err := root.ReadFile(filepath.FromSlash(path))
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	return string(data), nil
 }
 
 func (s *Workspace) acquire(ctx context.Context) (func(), error) {
@@ -126,7 +139,12 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 		return workflow.TestRun{}, fmt.Errorf("%w: add test and test_one to %s", ErrNoCommand, project.Path)
 	}
 	run := workflow.TestRun{Failed: []string{}}
-	err = s.apply(edits)
+	if t.Base {
+		err = s.tree.restore(ctx, s.tree.base)
+	}
+	if err == nil {
+		err = s.apply(edits)
+	}
 	if err == nil {
 		var out string
 		run.Passed, out, err = s.run(ctx, command)
@@ -135,7 +153,7 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 			run.Failed = label
 		}
 	}
-	return run, errors.Join(err, s.tree.reset(context.WithoutCancel(ctx)))
+	return run, errors.Join(err, s.tree.restore(context.WithoutCancel(ctx), s.tree.change))
 }
 
 func (s *Workspace) apply(edits []workflow.Edit) (err error) {
@@ -150,6 +168,9 @@ func (s *Workspace) apply(edits []workflow.Edit) (err error) {
 			return fmt.Errorf("%w: %q", ErrUnsafeTarget, e.Path)
 		}
 		content := e.New
+		if _, err := root.Stat(p); e.Old == "" && err == nil {
+			return fmt.Errorf("%w: %s exists, and an edit without text to replace only adds a file", ErrInvalidEdit, e.Path)
+		}
 		if e.Old != "" {
 			data, err := root.ReadFile(p)
 			if err != nil {
@@ -176,6 +197,9 @@ func (ReadOnly) CI(context.Context) (workflow.Check, error) { return workflow.Ch
 func (ReadOnly) Setup(context.Context) error                { return nil }
 func (ReadOnly) Tools(context.Context, []string) ([]workflow.ToolResult, error) {
 	return []workflow.ToolResult{}, nil
+}
+func (ReadOnly) Read(context.Context, string) (string, error) {
+	return "", fmt.Errorf("%w: verification is not execution", ErrNoCommand)
 }
 func (ReadOnly) Test(context.Context, []workflow.Edit, workflow.Target) (workflow.TestRun, error) {
 	return workflow.TestRun{}, fmt.Errorf("%w: verification is not execution", ErrNoCommand)

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -76,7 +77,6 @@ func decode[T reply](text string) (T, error) {
 	body := strings.TrimSpace(text)
 	if i := strings.LastIndex(body, "```json"); i >= 0 {
 		body = body[i+len("```json"):]
-		body, _, _ = strings.Cut(body, "```")
 	} else if i, j := strings.Index(body, "{"), strings.LastIndex(body, "}"); i >= 0 && j > i {
 		body = body[i : j+1]
 	}
@@ -89,10 +89,10 @@ func decode[T reply](text string) (T, error) {
 }
 
 func ask[T reply](ctx context.Context, a *Agents, role workflow.Role, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
-	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt, nil)
+	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, true, prompt, nil)
 }
 
-func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
+func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, read bool, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
 	var zero T
 	if data == nil {
 		schema, err := jsonschema.For[T](nil)
@@ -110,11 +110,11 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 	})
 	var usage workflow.Usage
 	var bad error
-	for range 2 {
+	for attempt := range 2 {
 		runCtx, stop := context.WithCancelCause(ctx)
 		hard := time.AfterFunc(a.hard, func() { stop(fmt.Errorf("%w: %s", ErrHardTimeout, a.hard)) })
 		idle := time.AfterFunc(a.idle, func() { stop(fmt.Errorf("%w: %s", ErrIdle, a.idle)) })
-		cmd := exec.CommandContext(runCtx, p.Tool, p.args(data, tier)...)
+		cmd := exec.CommandContext(runCtx, p.Tool, p.args(data, tier, read)...)
 		cmd.Dir, cmd.Env, cmd.WaitDelay = a.cfg.Dir, env, 5*time.Second
 		var stdout bytes.Buffer
 		stderr := tail.New(stderrLimit)
@@ -129,12 +129,22 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 		}
 		stop(nil)
 		a.log.Info("agent run", slog.String("role", name), slog.Int("seconds", int(time.Since(start).Seconds())), slog.Any("error", runErr))
+		if a.cfg.Trace != "" {
+			file := filepath.Join(a.cfg.Trace, fmt.Sprintf("%s-%d", strings.ReplaceAll(name, " ", "-"), start.UnixMilli()))
+			if err := errors.Join(os.MkdirAll(a.cfg.Trace, 0o700), os.WriteFile(file+".prompt.md", []byte(prompt), 0o600), os.WriteFile(file+".jsonl", stdout.Bytes(), 0o600)); err != nil {
+				a.log.Warn("keep the agent's output", slog.String("role", name), slog.Any("error", err))
+			}
+		}
 		ans, err := p.parse(stdout.Bytes())
 		usage.Model = ans.usage.Model
 		usage.Tokens += ans.usage.Tokens
 		usage.MicroUSD += ans.usage.MicroUSD
 		if err = errors.Join(err, runErr); err != nil {
-			return zero, usage, fmt.Errorf("%s: %w: %s (if it is not signed in, %s)", p.Tool, err, tail.Last(strings.TrimSpace(stderr.String()), stderrLimit), p.Login)
+			bad = fmt.Errorf("%s: %w: %s (if it is not signed in, %s)", p.Tool, err, tail.Last(strings.TrimSpace(stderr.String()), stderrLimit), p.Login)
+			if attempt == 1 || ctx.Err() != nil || errors.Is(err, ErrHardTimeout) {
+				return zero, usage, bad
+			}
+			continue
 		}
 		v, err := decode[T](ans.text)
 		if err == nil {
@@ -159,7 +169,7 @@ func (a *Agents) Plan(ctx context.Context, t workflow.PlanTask) (pulls.Analysis,
 	if err != nil {
 		return pulls.Analysis{}, workflow.Usage{}, err
 	}
-	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", prompt, schema)
+	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", true, prompt, schema)
 }
 
 func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Report, workflow.Usage, error) {
@@ -167,7 +177,7 @@ func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Re
 	if err != nil {
 		return workflow.Report{}, workflow.Usage{}, err
 	}
-	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt, nil)
+	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, true, prompt, nil)
 }
 
 func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {
@@ -177,6 +187,14 @@ func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, 
 	}
 	r, usage, err := ask[fixReply](ctx, a, workflow.RoleFix, "", prompt)
 	return r.Edits, usage, err
+}
+
+func (a *Agents) Retest(ctx context.Context, t workflow.RetestTask) (workflow.Repro, workflow.Usage, error) {
+	prompt, err := a.cfg.Set.Retest(t, a.cfg.Skills)
+	if err != nil {
+		return workflow.Repro{}, workflow.Usage{}, err
+	}
+	return ask[workflow.Repro](ctx, a, workflow.RoleRepro, "", prompt)
 }
 
 func (a *Agents) Judge(ctx context.Context, t workflow.JudgeTask) (workflow.Judgement, workflow.Usage, error) {
@@ -192,7 +210,7 @@ func (a *Agents) Summarize(ctx context.Context, t workflow.SummaryTask) ([]workf
 	if err != nil {
 		return nil, workflow.Usage{}, err
 	}
-	r, usage, err := ask[summaryReply](ctx, a, workflow.RoleSummarizer, "", prompt)
+	r, usage, err := run[summaryReply](ctx, a, string(workflow.RoleSummarizer), a.cfg.Set.Roles[workflow.RoleSummarizer].Submit, "", false, prompt, nil)
 	return r.Comments, usage, err
 }
 
@@ -201,6 +219,6 @@ func (a *Agents) CommitMessage(ctx context.Context, patch string) (string, workf
 	if err != nil {
 		return "", workflow.Usage{}, err
 	}
-	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch, nil)
+	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, true, skill+"\n\n## Diff\n\n"+patch, nil)
 	return r.Message, usage, err
 }

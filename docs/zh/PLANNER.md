@@ -1,6 +1,6 @@
 # 规划与分诊
 
-审查的第一个阶段要做三件事：看改动是否到了可以审查的程度，把不需要审查的文件放到一边，再决定剩下的文件由哪些专家来审。这三步按成本从低到高依次进行。本页的步骤和规则都已在 `workflow` 中实现；L1 工具、读取 GitHub 上的 CI 结果、规划器的提示词和 `submit_plan` 工具属于运行时，还没有实现。
+审查的第一个阶段要做三件事：看改动是否到了可以审查的程度，把不需要审查的文件放到一边，再决定剩下的文件由哪些专家来审。这三步按成本从低到高依次进行。本页的步骤和规则都已在 `workflow` 中实现，本地审查会带着规划器的提示词运行它们（见[本地运行](LOCAL.md#agents)）；L1 工具、读取 GitHub 上的 CI 结果，以及云端运行时的 `submit_plan` 工具还没有实现。
 
 ```mermaid
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
 
 在云端，eyeful 读取 head 提交对应的 GitHub Actions 运行记录。还有运行没结束时，审查先等待；全部通过，或者仓库没有配置 workflow，就继续往下走。
 
-在本地没有 CI 记录可读，由验证器在工作目录里运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 中的 `lint` 命令和 L1 的 `typecheck`。完整的 `test` 命令只在 deep 档运行，因为有些项目跑一遍全部测试比整个审查还慢。
+在本地没有 CI 记录可读，由验证器在工作目录里运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 中的 `lint` 命令和 L1 的 `typecheck`。`test` 命令不属于这一步。用 `execution` 时，它在这一步之后、专家开始之前运行；被改动弄坏的测试不会让审查结束，而是成为交给专家的线索（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
 
 校验没通过时，不会启动任何专家，只启动 CI agent。它读取失败任务的日志（本地则读命令输出），对每处失败说明是哪个 workflow、job 和 step，原因是什么，怎么修。审查以 `ci_failed` 结束。CI 通过时这一步没有额外开销，不通过时只多跑一次 agent。
 
@@ -49,11 +49,11 @@ commits: "fix session expiry at the boundary", "show the expiry on the login pag
 3. 每个范围按顺序单独规划、单独分配专家，清单只包含这个范围的文件。规划器看到的清单从不超过一个范围，Go 也按各自的范围检查每份计划。
 4. 每个范围最多花掉审查预算的平均一份。某个范围用完自己那份后不再启动 agent，审查结果为 `partial`，后面的范围照常运行。
 
-档位对整个改动只选一次（见[档位的选择](LEVELS.md#choosing-the-level)），验证和汇总也只对所有范围的发现运行一次。报告按顺序列出这些范围，作者可以据此把改动拆成一组 stacked 改动（见[排序报告](REPORT.md#ranked-report)）；eyeful 从不创建分支或 pull request。
+项目的测试在第一个范围之前对整个改动只跑一次（见[被改动弄坏的测试](VERIFICATION.md#regressions)），验证和汇总也只对所有范围的发现运行一次。报告按顺序列出这些范围，作者可以据此把改动拆成一组 stacked 改动（见[排序报告](REPORT.md#ranked-report)）；eyeful 从不创建分支或 pull request。
 
 ## 审查计划 {#the-plan}
 
-quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 和 deep 档的计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
+quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 档的计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
 
 ### 给改动分组
 
@@ -91,16 +91,15 @@ core 标了 `critical` 的组，或者包含 `.eyeful/config.yml` 中 `risk` 路
 
 Go 用一张固定的表把每个组对应到专家，所以同样的分组总是得到同样的专家：
 
-| 类别                                 | 专家                  |
-| ------------------------------------ | --------------------- |
-| `security`                           | correctness、security |
-| `core`、`api`、`data`、`cli`         | correctness           |
-| `ui`、`i18n`                         | usability             |
-| `tests`                              | tests                 |
-| `docs`、`examples`                   | readability           |
-| `config`、`build`、`scripts`、`deps` | security              |
-| `assets`、`other`                    | 无                    |
-| 核心组另外加上                       | correctness、security |
-| deep 档的核心组再加上                | design                |
+| 类别                                 | 专家                                   |
+| ------------------------------------ | -------------------------------------- |
+| `security`                           | correctness、skeptic、security         |
+| `core`、`api`、`data`、`cli`         | correctness、skeptic                   |
+| `ui`、`i18n`                         | usability                              |
+| `tests`                              | tests                                  |
+| `docs`、`examples`                   | readability                            |
+| `config`、`build`、`scripts`、`deps` | security                               |
+| `assets`、`other`                    | 无                                     |
+| 核心组另外加上                       | correctness、skeptic、security、design |
 
 之后每个专家只运行一次，审查分给它的所有组（见[专家](EXPERTS.md)）。Go 还会补上信号要求的专家（见[档位](LEVELS.md)），并分配预算。
