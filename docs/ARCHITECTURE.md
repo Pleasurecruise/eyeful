@@ -59,11 +59,11 @@ share.
 [A review](REVIEW.md#stages). It runs no agent, no command and no storage itself. The caller passes
 three interfaces in a `Session`, and each side of eyeful supplies its own:
 
-| Interface   | Provides                                                                                                                                                             | Cloud                          | Local                                     |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------- |
-| `Agents`    | One call per role: diagnose CI, plan, review as an expert, fix, write a reproduction, judge, summarize. Each returns its typed result and the tokens and money spent | pi processes (planned)         | CLI runs, `local/agents`                  |
-| `Workspace` | The CI check, `setup`, the L1 tools, reading a file, and test runs on a fresh copy of the change or its base with given edits applied                                | The review's sandbox (planned) | The snapshot's checkout, `local/worktree` |
-| `Archive`   | Loading and saving each stage's output by key                                                                                                                        | The run archive (planned)      | `.eyeful/runs/`, `local/archive`          |
+| Interface   | Provides                                                                                                                                                  | Cloud                          | Local                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------- |
+| `Agents`    | One call per role: diagnose CI, plan, review as an expert, fix, write a reproduction, judge. Each returns its typed result and the tokens and money spent | pi processes (planned)         | CLI runs, `local/agents`                  |
+| `Workspace` | The CI check, `setup`, reading a file, and test runs on a fresh copy of the change or its base with given edits applied                                   | The review's sandbox (planned) | The snapshot's checkout, `local/worktree` |
+| `Archive`   | Loading and saving each stage's output by key                                                                                                             | The run archive (planned)      | `.eyeful/runs/`, `local/archive`          |
 
 Go owns every loop. `workflow` checks each plan, report and summary against its rules, keeps the
 budget, decides retries and when to stop, and saves each stage's output to the archive before the
@@ -196,7 +196,7 @@ flowchart LR
 
 Handlers translate HTTP and contain no business rules or I/O. `server` knows nothing about
 individual resources; it reads the bearer token and the session cookie and hands them to
-`auth`, which does not see HTTP. `review` and `dispatch` take levels and tiers from `workflow`. Only `auth` and `review` call `db/sqlc`. `repository` gets tokens through an
+`auth`, which does not see HTTP. `review` and `dispatch` take tiers from `workflow`. Only `auth` and `review` call `db/sqlc`. `repository` gets tokens through an
 interface that `auth` implements, so neither imports the other, and `app` connects them.
 
 ## Lifecycle {#lifecycle}

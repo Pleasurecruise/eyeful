@@ -147,7 +147,7 @@ func calls(t *testing.T, out string) []call {
 }
 
 var task = workflow.ReviewTask{
-	Expert: workflow.Expert{Name: "security", Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}},
+	Expert: workflow.Expert{Name: "security", Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}},
 	Tier:   workflow.TierStrong, Group: workflow.Group{Files: []string{"a.go"}}, Skills: []string{"security-review"},
 }
 
@@ -172,11 +172,7 @@ func TestProviders(t *testing.T) {
 			if len(r.Findings) != tt.findings || usage != tt.usage {
 				t.Fatalf("report %+v, usage %+v", r, usage)
 			}
-			_, _, _ = a.Summarize(t.Context(), workflow.SummaryTask{})
 			all := calls(t, out)
-			if blind := strings.Join(all[len(all)-1].Args, " "); strings.Contains(blind, "ead,") {
-				t.Errorf("the summarizer can read files: %s", blind)
-			}
 			c := all[0]
 			joined := strings.Join(c.Args, " ")
 			for _, want := range tt.args {

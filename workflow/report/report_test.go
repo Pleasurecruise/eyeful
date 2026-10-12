@@ -20,14 +20,14 @@ func result() workflow.Result {
 			{Category: "security", Summary: "Expired sessions were accepted", Core: true, Files: []string{"app/session.py"}},
 		}},
 		Findings: []workflow.Finding{
-			{ID: "0/correctness/0", Expert: "correctness", Skill: "code-review", Path: "app/session.py", Line: 11, Evidence: workflow.EvidenceReproTest},
-			{ID: "0/security/0", Expert: "security", Skill: "other", Category: "naming", Path: "app/login.py", Line: 3, Evidence: workflow.EvidenceArgument},
-			{ID: "0/skeptic/0", Expert: "skeptic", Skill: "code-review", Path: "app/session.py", Line: 40, Evidence: workflow.EvidenceTriggerPath},
+			{ID: "0/correctness/0", Expert: "correctness", Skill: "code-review", Path: "app/session.py", Line: 11, Evidence: workflow.EvidenceTest},
+			{ID: "0/security/0", Expert: "security", Skill: "other", Category: "naming", Path: "app/login.py", Line: 3, Evidence: workflow.EvidenceInspection},
+			{ID: "0/skeptic/0", Expert: "skeptic", Skill: "code-review", Path: "app/session.py", Line: 40, Evidence: workflow.EvidenceAnalysis},
 		},
 		Comments: []workflow.Comment{
-			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Short: "Session valid at expires_at", Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Strength: workflow.StrengthStrong, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpec, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
-			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Path: "app/login.py", Line: 3, Experts: []string{"security"}},
-			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Short: "Refresh skips the expiry check", Subject: "Refresh skips the expiry check.", Strength: workflow.StrengthWeak, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
+			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Short: "Session valid at expires_at", Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
+			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
+			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Short: "Refresh skips the expiry check", Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
 		},
 		Uncertainty: workflow.Uncertainty{Absent: []workflow.Absence{{Expert: "security", Group: 1, Reason: "timeout"}}},
 	}
@@ -39,20 +39,19 @@ func TestMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"3 findings: 1 important, 2 nit.",
+		"3 findings: 1 fail, 1 review, 1 open.",
 		"## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `tests/test_login.py::test_remember_me`.",
-		"| 🔴 Important | `app/session.py:11` | Session valid at expires_at |",
-		"| 🟡 Nit | `app/session.py:40` | Refresh skips the expiry check |",
+		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
 		"<details><summary>Nitpicks (1)</summary>\n\n- `app/login.py:3` Name the token.",
-		"## 🔴 Important · correctness · CONFIRMED",
+		"## 🔴 error · correctness · fail",
 		"Failure scenario: is_expired(100, now=100) is False",
 		"<details><summary>Why this was flagged</summary>",
 		"failed on the change in every run, not on the base commit, and passed with the suggested fix",
-		`Expected behaviour from: spec`,
+		`Expected behaviour from: specified`,
 		"Also at `app/login.py:7`.",
 		"-now > t\n+now >= t",
-		"## 🟡 Nit · correctness · DISPUTED",
-		"A judge agent read the code and disputes this finding: refresh is only reached after is_expired. It is kept for you to decide.",
+		"<details><summary>Disputed (1)</summary>",
+		"- `app/session.py:40` Refresh skips the expiry check. A judge agent read the code and disputes this finding: refresh is only reached after is_expired. It is kept for you to decide.",
 		"`uv.lock` (lock)", "Expert `security` is absent: timeout",
 		"## What this change does\n\nSessions expire at the expiry second.",
 		"| 1 (core) | security | Expired sessions were accepted | `app/session.py` |\n| 2 | ui |",
@@ -62,13 +61,31 @@ func TestMarkdown(t *testing.T) {
 		}
 	}
 	if strings.Contains(md, "No blocking issues") {
-		t.Error("a review with an important finding says it has no blocking issues")
+		t.Error("a review with a fail finding says it has no blocking issues")
 	}
-	if strings.Index(md, "🔴 Important · ") > strings.Index(md, "🟡 Nit · ") {
-		t.Error("a nit is listed before an important finding")
-	}
-	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 Nit · security") {
+	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 note · security") {
 		t.Error("a nitpick is listed outside the folded section")
+	}
+	if strings.Contains(md, "| `app/session.py:40` |") || strings.Contains(md, "· open") {
+		t.Error("a comment the judge disputes is listed outside the folded section")
+	}
+}
+
+func TestResolved(t *testing.T) {
+	r := result()
+	old := workflow.Finding{ID: "previous/0/correctness/7"}
+	old.Path, old.Line, old.Subject = "app/old.py", 7, "Off by one."
+	r.Findings = append(r.Findings, old)
+	r.Verifications = append(r.Verifications, workflow.Verification{Finding: "previous/0/correctness/7", Status: workflow.StatusResolved, Repro: &workflow.Repro{Run: "tests/test_old.py::test_edge"}})
+	md, err := report.Markdown(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(md, "## Resolved since the last review") || !strings.Contains(md, "- `app/old.py:7` Off by one. (`tests/test_old.py::test_edge`)") {
+		t.Errorf("resolved findings in\n%s", md)
+	}
+	if md, err := report.Markdown(result()); err != nil || strings.Contains(md, "## Resolved") {
+		t.Errorf("a first review lists resolved findings, or fails: %v", err)
 	}
 }
 
@@ -97,12 +114,12 @@ func TestJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out struct {
-		Counts   struct{ Important, Nit int } `json:"counts"`
+		Counts   struct{ Fail, Review, Open int } `json:"counts"`
 		Findings []struct {
 			File            string `json:"file"`
 			Line            int    `json:"line"`
 			Severity        string `json:"severity"`
-			Verdict         string `json:"verdict"`
+			Kind            string `json:"kind"`
 			ShortSummary    string `json:"short_summary"`
 			FailureScenario string `json:"failure_scenario"`
 		} `json:"findings"`
@@ -111,7 +128,7 @@ func TestJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := out.Findings[0]
-	if out.Counts.Important != 1 || out.Counts.Nit != 2 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "important" || f.Verdict != "CONFIRMED" || f.ShortSummary == "" || f.FailureScenario == "" {
+	if out.Counts.Fail != 1 || out.Counts.Review != 1 || out.Counts.Open != 1 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "error" || f.Kind != "fail" || f.ShortSummary == "" || f.FailureScenario == "" {
 		t.Fatalf("%s", data)
 	}
 }
@@ -144,14 +161,14 @@ func TestSARIF(t *testing.T) {
 	if log.Version != "2.1.0" || len(rs) != 3 {
 		t.Fatalf("%s", data)
 	}
-	if r := rs[0]; r.RuleID != "eyeful/correctness/code-review" || r.Level != "error" || r.Kind != "fail" || r.Baseline != "new" || r.Properties.Oracle != "spec" || r.Properties.CorroboratedBy[0] != "security" {
+	if r := rs[0]; r.RuleID != "eyeful/correctness/code-review" || r.Level != "error" || r.Kind != "fail" || r.Baseline != "new" || r.Properties.Oracle != "specified" || r.Properties.CorroboratedBy[0] != "security" {
 		t.Errorf("blocking result %+v", r)
 	}
-	if r := rs[1]; r.RuleID != "eyeful/security/naming" || r.Level != "note" || r.Kind != "review" || r.Baseline != "" {
+	if r := rs[1]; r.RuleID != "eyeful/security/naming" || r.Level != "none" || r.Kind != "review" || r.Baseline != "" {
 		t.Errorf("nitpick result %+v", r)
 	}
 
-	if r := rs[2]; r.Kind != "review" || r.Properties.Objection == "" {
+	if r := rs[2]; r.Kind != "open" || r.Level != "none" || r.Properties.Objection == "" {
 		t.Errorf("disputed result %+v", r)
 	}
 

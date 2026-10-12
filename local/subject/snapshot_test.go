@@ -3,6 +3,7 @@ package subject_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/local/subject"
@@ -54,5 +55,31 @@ func TestCommits(t *testing.T) {
 	}
 	if got, err := subject.Commits(t.Context(), s); err != nil || len(got) != 0 {
 		t.Fatalf("new repository: %q, %v", got, err)
+	}
+}
+
+func TestHistory(t *testing.T) {
+	dir := t.TempDir()
+	run(t, dir, "init", "-q", "-b", "main")
+	write(t, dir, "f.txt", "one\ntwo\n")
+	run(t, dir, "add", ".")
+	run(t, dir, "commit", "-q", "-m", "feat: write one and two")
+	write(t, dir, "f.txt", "one\nthree\n")
+	write(t, dir, "new.txt", "fresh\n")
+	s, err := subject.Read(t.Context(), dir, subject.Range{}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	history, err := subject.History(t.Context(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"## f.txt", "feat: write one and two", "Who last changed the lines replaced at @@ -1,2 +", "2) two"} {
+		if !strings.Contains(history, want) {
+			t.Errorf("history lacks %q:\n%s", want, history)
+		}
+	}
+	if strings.Contains(history, "new.txt") {
+		t.Errorf("a file the change adds has no history:\n%s", history)
 	}
 }

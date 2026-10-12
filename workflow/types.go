@@ -12,14 +12,9 @@ import (
 const (
 	maxParallel   = 4
 	reproRuns     = 5
+	fallbackPanel = 4
 	expertPercent = 75
-)
-
-type Level string
-
-const (
-	LevelQuick    Level = "quick"
-	LevelStandard Level = "standard"
+	judgeBatch    = 8
 )
 
 type Tier string
@@ -61,56 +56,37 @@ const (
 	ClassOversized Class = "oversized"
 )
 
-type Tool string
-
-const (
-	ToolLint            Tool = "lint"
-	ToolTypecheck       Tool = "typecheck"
-	ToolSecretScan      Tool = "secret_scan"
-	ToolDependencyAudit Tool = "dependency_audit"
-	ToolOpenAPIDiff     Tool = "openapi_diff"
-	ToolComplexity      Tool = "complexity"
-	ToolCoverageDiff    Tool = "coverage_diff"
-)
-
 type Severity string
 
 const (
-	SeverityCritical Severity = "critical"
-	SeverityHigh     Severity = "high"
-	SeverityMedium   Severity = "medium"
-	SeverityLow      Severity = "low"
+	SeverityError   Severity = "error"
+	SeverityWarning Severity = "warning"
+	SeverityNote    Severity = "note"
 )
 
 type EvidenceKind string
 
 const (
-	EvidenceReproTest   EvidenceKind = "repro_test"
-	EvidenceCVE         EvidenceKind = "cve"
-	EvidenceAPIBreak    EvidenceKind = "api_break"
-	EvidenceCoverage    EvidenceKind = "coverage"
-	EvidenceTool        EvidenceKind = "tool"
-	EvidenceE2E         EvidenceKind = "e2e"
-	EvidenceTriggerPath EvidenceKind = "trigger_path"
-	EvidenceArgument    EvidenceKind = "argument"
+	EvidenceTest       EvidenceKind = "test"
+	EvidenceAnalysis   EvidenceKind = "analysis"
+	EvidenceInspection EvidenceKind = "inspection"
 )
 
 type Oracle string
 
 const (
-	OracleImplicit Oracle = "implicit"
-	OracleExisting Oracle = "existing"
-	OracleSpec     Oracle = "spec"
-	OracleBase     Oracle = "base"
-	OracleAgent    Oracle = "agent"
+	OracleSpecified Oracle = "specified"
+	OracleDerived   Oracle = "derived"
+	OracleImplicit  Oracle = "implicit"
+	OracleHuman     Oracle = "human"
 )
 
-type Strength int
+type Kind string
 
 const (
-	StrengthWeak Strength = iota + 1
-	StrengthMedium
-	StrengthStrong
+	KindFail   Kind = "fail"
+	KindReview Kind = "review"
+	KindOpen   Kind = "open"
 )
 
 type Status string
@@ -123,6 +99,7 @@ const (
 	StatusPreExisting   Status = "pre_existing"
 	StatusConfirmed     Status = "confirmed"
 	StatusRejected      Status = "rejected"
+	StatusResolved      Status = "resolved"
 )
 
 type TestStatus string
@@ -137,26 +114,20 @@ type Label string
 
 const (
 	LabelIssue      Label = "issue"
-	LabelTodo       Label = "todo"
-	LabelChore      Label = "chore"
-	LabelSuggestion Label = "suggestion"
 	LabelQuestion   Label = "question"
-	LabelThought    Label = "thought"
-	LabelNote       Label = "note"
+	LabelSuggestion Label = "suggestion"
 	LabelNitpick    Label = "nitpick"
-	LabelPraise     Label = "praise"
 )
 
 type Role string
 
 const (
-	RoleCI         Role = "ci"
-	RolePlanner    Role = "planner"
-	RoleExpert     Role = "expert"
-	RoleFix        Role = "fix"
-	RoleRepro      Role = "repro"
-	RoleJudge      Role = "judge"
-	RoleSummarizer Role = "summarizer"
+	RoleCI      Role = "ci"
+	RolePlanner Role = "planner"
+	RoleExpert  Role = "expert"
+	RoleFix     Role = "fix"
+	RoleRepro   Role = "repro"
+	RoleJudge   Role = "judge"
 )
 
 type PlanSource string
@@ -164,7 +135,6 @@ type PlanSource string
 const (
 	PlanFromPlanner PlanSource = "planner"
 	PlanFromDefault PlanSource = "default"
-	PlanFromRules   PlanSource = "rules"
 	PlanFromRequest PlanSource = "request"
 )
 
@@ -179,8 +149,9 @@ type File struct {
 }
 
 type Change struct {
-	Files   []File   `json:"files"`
-	Commits []string `json:"commits"`
+	Files       []File   `json:"files"`
+	Commits     []string `json:"commits"`
+	Description string   `json:"description,omitempty"`
 }
 
 type Project struct {
@@ -197,11 +168,10 @@ type Budget struct {
 type Request struct {
 	Change       Change   `json:"change"`
 	Project      Project  `json:"project"`
-	Level        Level    `json:"level"`
 	Budget       Budget   `json:"budget"`
 	Verification Mode     `json:"verification"`
 	Experts      []string `json:"experts"`
-	Dependent    bool     `json:"dependent"`
+	Previous     Result   `json:"previous,omitzero"`
 }
 
 type Skill struct {
@@ -230,18 +200,6 @@ type Triage struct {
 	Reviewed []Entry  `json:"reviewed"`
 	Excluded []Entry  `json:"excluded"`
 	Risk     []string `json:"risk"`
-}
-
-type Hit struct {
-	Path    string `json:"path"`
-	Line    int    `json:"line"`
-	Rule    string `json:"rule"`
-	Message string `json:"message"`
-}
-
-type ToolResult struct {
-	Tool Tool  `json:"tool"`
-	Hits []Hit `json:"hits"`
 }
 
 type Pick struct {
@@ -358,8 +316,9 @@ type Verification struct {
 }
 
 type Judgement struct {
-	Valid  bool   `json:"valid"`
-	Reason string `json:"reason"`
+	Finding string `json:"finding"`
+	Valid   bool   `json:"valid"`
+	Reason  string `json:"reason"`
 }
 
 type Merged struct {
@@ -368,17 +327,9 @@ type Merged struct {
 	Line      int       `json:"line"`
 	Findings  []Finding `json:"findings"`
 	Experts   []string  `json:"experts"`
-	Strength  Strength  `json:"strength"`
+	Kind      Kind      `json:"kind"`
 	Group     int       `json:"group"`
 	Objection string    `json:"objection,omitempty"`
-}
-
-type Draft struct {
-	Finding    string `json:"finding"`
-	Label      Label  `json:"label"`
-	Short      string `json:"short"`
-	Subject    string `json:"subject"`
-	Discussion string `json:"discussion"`
 }
 
 type Comment struct {
@@ -393,7 +344,8 @@ type Comment struct {
 	Line        int        `json:"line"`
 	Related     []Location `json:"related,omitempty"`
 	Experts     []string   `json:"experts"`
-	Strength    Strength   `json:"strength"`
+	Severity    Severity   `json:"severity"`
+	Kind        Kind       `json:"kind"`
 	Repro       *Repro     `json:"repro,omitempty"`
 	Fix         []Edit     `json:"fix,omitempty"`
 	Objection   string     `json:"objection,omitempty"`
@@ -441,10 +393,8 @@ type Uncertainty struct {
 type Result struct {
 	Outcome       Outcome        `json:"outcome"`
 	Reason        string         `json:"reason,omitempty"`
-	Level         Level          `json:"level"`
 	Diagnosis     Diagnosis      `json:"diagnosis"`
 	Triage        Triage         `json:"triage"`
-	Tools         []ToolResult   `json:"tools"`
 	Regression    *TestRun       `json:"regression,omitempty"`
 	Scopes        []Scope        `json:"scopes"`
 	Plan          Plan           `json:"plan"`
@@ -466,17 +416,18 @@ type PlanTask struct {
 }
 
 type ReviewTask struct {
-	Expert     Expert       `json:"expert"`
-	Tier       Tier         `json:"tier"`
-	Group      Group        `json:"group"`
-	Plan       Plan         `json:"plan,omitzero"`
-	Skills     []string     `json:"skills"`
-	Files      []File       `json:"files"`
-	Tools      []ToolResult `json:"tools"`
-	Regression *TestRun     `json:"regression,omitempty"`
-	Rejected   []string     `json:"rejected"`
-	Earlier    []Claim      `json:"earlier,omitempty"`
-	TestOne    string       `json:"-"`
+	Expert      Expert   `json:"expert"`
+	Tier        Tier     `json:"tier"`
+	Group       Group    `json:"group"`
+	Plan        Plan     `json:"plan,omitzero"`
+	Skills      []string `json:"skills"`
+	Files       []File   `json:"files"`
+	Commits     []string `json:"commits"`
+	Description string   `json:"description,omitempty"`
+	Regression  *TestRun `json:"regression,omitempty"`
+	Rejected    []string `json:"rejected"`
+	Earlier     []Claim  `json:"earlier,omitempty"`
+	TestOne     string   `json:"-"`
 }
 
 type FixTask struct {
@@ -493,13 +444,11 @@ type RetestTask struct {
 }
 
 type JudgeTask struct {
-	Finding Finding       `json:"finding"`
-	Tried   *Verification `json:"tried,omitempty"`
-	Files   []File        `json:"files"`
-}
-
-type SummaryTask struct {
-	Findings []Merged `json:"findings"`
+	Findings    []Finding      `json:"findings"`
+	Tried       []Verification `json:"tried,omitempty"`
+	Files       []File         `json:"files"`
+	Commits     []string       `json:"commits"`
+	Description string         `json:"description,omitempty"`
 }
 
 type Agents interface {
@@ -508,14 +457,12 @@ type Agents interface {
 	Review(ctx context.Context, t ReviewTask) (Report, Usage, error)
 	Fix(ctx context.Context, t FixTask) ([]Edit, Usage, error)
 	Retest(ctx context.Context, t RetestTask) (Repro, Usage, error)
-	Judge(ctx context.Context, t JudgeTask) (Judgement, Usage, error)
-	Summarize(ctx context.Context, t SummaryTask) ([]Draft, Usage, error)
+	Judge(ctx context.Context, t JudgeTask) ([]Judgement, Usage, error)
 }
 
 type Workspace interface {
 	CI(ctx context.Context) (Check, error)
 	Setup(ctx context.Context) error
-	Tools(ctx context.Context, files []string) ([]ToolResult, error)
 	Read(ctx context.Context, path string) (string, error)
 	Test(ctx context.Context, edits []Edit, t Target) (TestRun, error)
 }
@@ -537,13 +484,6 @@ type Workflow struct {
 	log    *slog.Logger
 }
 
-type limits struct {
-	experts int
-	planner bool
-	verify  bool
-	tier    Tier
-}
-
 type ciState struct {
 	Check     Check     `json:"check"`
 	Diagnosis Diagnosis `json:"diagnosis"`
@@ -551,11 +491,10 @@ type ciState struct {
 }
 
 type prepareState struct {
-	Triage     Triage       `json:"triage"`
-	SetupError string       `json:"setup_error,omitempty"`
-	Tools      []ToolResult `json:"tools"`
-	Skipped    []string     `json:"skipped"`
-	Runs       []Run        `json:"runs"`
+	Triage     Triage   `json:"triage"`
+	SetupError string   `json:"setup_error,omitempty"`
+	Skipped    []string `json:"skipped"`
+	Runs       []Run    `json:"runs"`
 }
 
 type planState struct {
@@ -585,29 +524,28 @@ type verifyState struct {
 	Runs         []Run        `json:"runs"`
 }
 
+type judgeState struct {
+	Verifications []Verification `json:"verifications"`
+	Runs          []Run          `json:"runs"`
+}
+
 type suiteState struct {
 	Change TestRun `json:"change"`
 	Base   TestRun `json:"base"`
 	Error  string  `json:"error,omitempty"`
 }
 
-type summaryState struct {
-	Comments []Comment `json:"comments"`
-	Fallback string    `json:"fallback,omitempty"`
-	Runs     []Run     `json:"runs"`
-}
-
 type stored interface {
-	ciState | prepareState | planState | expertState | verifyState | suiteState | summaryState
+	ciState | prepareState | planState | expertState | verifyState | judgeState | suiteState
 	spent() []Run
 }
 
 type reply interface {
-	Diagnosis | pulls.Analysis | Report | []Edit | Repro | Judgement | []Draft
+	Diagnosis | pulls.Analysis | Report | []Edit | Repro | []Judgement
 }
 
 type task interface {
-	DiagnoseTask | PlanTask | ReviewTask | FixTask | RetestTask | JudgeTask | SummaryTask
+	DiagnoseTask | PlanTask | ReviewTask | FixTask | RetestTask | JudgeTask
 }
 
 type ledger struct {

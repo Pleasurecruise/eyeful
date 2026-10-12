@@ -24,8 +24,9 @@ planned. The standards named here are listed in [References](REFERENCES.md).
 
 The skeptic reviews the same groups as the correctness expert, but blind: it gets the files and
 not the plan, so a wrong reading of the change by the planner cannot mislead every reviewer at
-once. It asks what relied on each line the change removes and which input each added line does not
-expect. The planner never picks the generalist. It runs only when named, as in `eyeful review generalist`,
+once. It asks what relied on each line the change removes and which input, state or order of calls
+each added line does not expect, and its skills are the ones about that: concurrency and
+asynchronous code. The planner never picks the generalist. It runs only when named, as in `eyeful review generalist`,
 and then reviews the whole change by itself with every skill the other experts share between them: it
 is the single-agent baseline the [evaluation](EVALUATION.md) compares the panel with. The
 experiment's questions cover only correctness and security findings, the ones that can be
@@ -37,7 +38,7 @@ tier selects a list of models through [provider routing](SCHEDULING.md#agent-run
 
 An agent eyeful starts gets a prompt, a set of skills and a set of tools. The prompt says who the
 agent is and gives a few lines of guidance. For an expert it is the body of its expert file; the
-planner, the fix agent, the reproduction agent, the judge, the summarizer and the
+planner, the fix agent, the reproduction agent, the judge and the
 CI agent have theirs under
 `workflow/prompts/roles/`. Standards and checklists are not part of the prompt.
 
@@ -52,18 +53,34 @@ reproduction agent's are `golang-testing`, `python-testing-patterns` and
 `javascript-testing-patterns`: it is offered the one for the language of the finding's file, so its
 test follows that language's conventions where the tests beside the file do not settle them.
 
-| Skill                                            | From                                | Installs on skills.sh | Expert                                |
-| ------------------------------------------------ | ----------------------------------- | --------------------- | ------------------------------------- |
-| `code-review`                                    | `anthropics/knowledge-work-plugins` | 9.7K                  | correctness, skeptic                  |
-| `tdd`                                            | `mattpocock/skills`                 | 1M                    | tests                                 |
-| `golang-error-handling`, `golang-concurrency`    | `samber/cc-skills-golang`           | about 42K each        | correctness, skeptic, Go files        |
-| `python-error-handling`, `async-python-patterns` | `wshobson/agents`                   | 13.3K, 17.1K          | correctness, skeptic, Python files    |
-| `typescript-advanced-types`                      | `wshobson/agents`                   | 83.9K                 | correctness, skeptic, JS and TS files |
-| `security-review`                                | `getsentry/skills`                  | 18.9K                 | security                              |
-| `golang-security`                                | `samber/cc-skills-golang`           | 42.4K                 | security, Go files                    |
-| `git-commit`                                     | `github/awesome-copilot`            | 45.9K                 | `eyeful commit` only                  |
+A skill belongs to one expert of the panel: eyeful refuses to start when two of them name the same
+skill, because two experts reading from one checklist report the same things twice. The generalist
+is outside the panel and has all of them.
 
-The install counts are from October 2026.
+| Skill                         | From                                | Expert, and the files it is offered for                     |
+| ----------------------------- | ----------------------------------- | ----------------------------------------------------------- |
+| `code-review`                 | `anthropics/knowledge-work-plugins` | correctness                                                 |
+| `golang-error-handling`       | `samber/cc-skills-golang`           | correctness, Go                                             |
+| `python-error-handling`       | `wshobson/agents`                   | correctness, Python                                         |
+| `typescript-advanced-types`   | `wshobson/agents`                   | correctness, JavaScript and TypeScript                      |
+| `golang-concurrency`          | `samber/cc-skills-golang`           | skeptic, Go                                                 |
+| `async-python-patterns`       | `wshobson/agents`                   | skeptic, Python                                             |
+| `security-review`             | `getsentry/skills`                  | security                                                    |
+| `golang-security`             | `samber/cc-skills-golang`           | security, Go                                                |
+| `codebase-design`             | `mattpocock/skills`                 | design                                                      |
+| `golang-design-patterns`      | `samber/cc-skills-golang`           | design, Go                                                  |
+| `python-design-patterns`      | `wshobson/agents`                   | design, Python                                              |
+| `nodejs-backend-patterns`     | `wshobson/agents`                   | design, JavaScript and TypeScript                           |
+| `tdd`                         | `mattpocock/skills`                 | tests                                                       |
+| `golang-testing`              | `samber/cc-skills-golang`           | tests and the reproduction agent, Go                        |
+| `python-testing-patterns`     | `wshobson/agents`                   | tests and the reproduction agent, Python                    |
+| `javascript-testing-patterns` | `wshobson/agents`                   | tests and the reproduction agent, JavaScript and TypeScript |
+| `accessibility`               | `addyosmani/web-quality-skills`     | usability                                                   |
+| `golang-code-style`           | `samber/cc-skills-golang`           | readability, Go                                             |
+| `golang-naming`               | `samber/cc-skills-golang`           | readability, Go                                             |
+| `python-code-style`           | `wshobson/agents`                   | readability, Python                                         |
+| `modern-javascript-patterns`  | `wshobson/agents`                   | readability, JavaScript and TypeScript                      |
+| `git-commit`                  | `github/awesome-copilot`            | `eyeful commit` only                                        |
 
 `workflow/prompts/tools.yaml` defines every tool, and each role file names the tools its role gets
 and the one it submits with. The cloud runtime provides exactly those. A local review has no tool
@@ -71,14 +88,17 @@ server: the diffs are part of the input, and eyeful writes the skills into a tem
 the length of the review, so the input lists each offered skill's name, description and path; the
 agent reads the ones that apply, and any other file, with its own tools. eyeful cannot tell which skills a local expert read, so a local
 review leaves unread skills out of the uncertainty checklist. It ends with a JSON block holding what the submit tool would have
-taken ([Agents](LOCAL.md#agents)). `git_log`, `git_blame` and `try_repro` have no
-local counterpart, so a local reproduction agent hands in its test unrun and the verifier runs it,
+taken ([Agents](LOCAL.md#agents)). The messages of the change's commits, which the instructions tell an expert and the judge to read
+as the author's word, are in their input, since a local agent cannot run `git log`. In place of `git_log` and `git_blame`, eyeful writes one file for the review, beside the patch,
+with the commits that last touched each changed file before the change and who last changed the
+lines it replaces, and tells the experts, the judge and the fix agent where it is. Only `try_repro`
+has no local counterpart, so a local reproduction agent hands in its test unrun and the verifier runs it,
 asking once for a correction when the test fails for another reason than the one claimed
 ([the verifier](VERIFICATION.md#the-verifier)).
 
 | Tool                                           | Gives the agent                                                               | Roles                            |
 | ---------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------- |
-| `git_diff`                                     | The change, for one file or all of them                                       | all but the summarizer           |
+| `git_diff`                                     | The change, for one file or all of them                                       | every role                       |
 | `git_log`                                      | The history before the change                                                 | CI agent, planner, expert, judge |
 | `git_blame`                                    | Who last changed a range of lines                                             | expert, fix agent, judge         |
 | `list_skills`, `load_skill`, `read_skill_file` | The skills offered to it and their reference files                            | expert, reproduction agent       |
@@ -89,11 +109,11 @@ The agent's own tools for reading files stay available. eyeful denies its reques
 run commands, so the only commands that run are eyeful's fixed ones. In the cloud, a submit tool
 checks what it receives and returns the problems it finds, so the agent can correct them in the same
 session; `submit_report` runs the same checks Go applies to a report. Locally the same checks run
-when the reply arrives, and a rejected report goes back to the expert once. The L1 tools, `find_references` and
-`lookup_standard` are planned.
+when the reply arrives, and a rejected report goes back to the expert once.
 
-Tools marked L1 below run during triage on every review, before any expert starts. The others run
-only when an expert calls them.
+Every other tool an expert's section names is planned: the L1 tools that would run during triage
+([Levels](LEVELS.md#planned)), `find_references`, `lookup_standard` and the tools an expert would
+call itself. None of them is in `tools.yaml`, and no review waits for one.
 
 ## Keeping standards in view {#context}
 
@@ -103,11 +123,11 @@ and reads a skill's reference files only when it needs them.
 
 1. An expert reviews one change group per session, with that group's files, the skills offered for
    them and, unless its file says `blind`, the plan. A group never spans more than one [scope](PLANNER.md#large).
-   With `execution`, an expert that can report `repro_test` findings is also told which of the
+   With `execution`, an expert that can report `test` findings is also told which of the
    project's tests the change breaks ([Tests the change breaks](VERIFICATION.md#regressions)).
 2. An expert reads every changed hunk of its files and reports every problem the change
    introduces, without proving it: a finding that turns out wrong costs one check, while a problem
-   left out is found by nobody. It grades each finding itself, from `critical` to `low`, where `low`
+   left out is found by nobody. It grades each finding itself, `error`, `warning` or `note`, where `note`
    is for what changes no behaviour: a name, style, wording or a small simplification. Nothing
    tells an expert to leave a kind of problem out. Behaviour the change removes while something still relies on it, a caller or test it
    leaves in place or the users of a public interface, is a finding too unless a commit message
@@ -115,14 +135,11 @@ and reads a skill's reference files only when it needs them.
    `related` lists every other changed place where it shows, so one wrong edit repeated across
    three sibling files is one finding with two related places, checked once. Go
    rejects a related place outside the expert's group. Each finding names the skill it relies on, or `other` with a short category and, if one applies,
-   a CWE identifier. A finding a test could show (`repro_test`) or one with a trigger path also
+   a CWE identifier. A finding a test could show (`test`) or one that rests on `analysis` also
    needs a scenario: the call or input that triggers it, what happens and what should happen. The
    reproduction agent writes the test from it ([the verifier](VERIFICATION.md#the-verifier)). A finding that cites a skill not offered to the expert is rejected, which stops
    an expert from inventing a standard. Go also rejects a finding on a file outside the expert's
-   group, without a line or a subject, with an evidence kind its expert file does not list, or with
-   `cve`, `api_break` or `coverage` evidence that no `dependency_audit`, `openapi_diff` or
-   `coverage_diff` hit on that file backs; an expert is not offered one of those three kinds at all
-   when its tool found nothing in the group. A rejected report goes back to the expert once with the
+   group, without a line or a subject, or with an evidence kind its expert file does not list. A rejected report goes back to the expert once with the
    reasons. A finding that is still invalid in the second report is dropped and listed in the
    uncertainty checklist, and the valid findings beside it are kept.
 3. eyeful records which skills each expert loaded with `load_skill`. A skill it was offered and did
@@ -144,7 +161,7 @@ are any. Its skills are `codebase-design`, plus
 exists. Its tools are `complexity` (L1, lizard on the changed
 functions), `dependency_graph` (which packages now depend on which) and `find_references`.
 
-Most design findings rest on an argument, so they become `suggestion`, `question` or `thought`
+Most design findings rest on `inspection`, so they become `suggestion`
 comments, unless a metric crosses the project's threshold. Every design comment names the principle
 it relies on.
 
@@ -156,8 +173,8 @@ and behaviour at each call site that `find_references` turns up.
 
 It works from Google's questions on functionality, the SEI CERT coding standard for the language
 where there is one, and CWE for classifying each defect. Its skill is `code-review`, plus
-`golang-error-handling` and `golang-concurrency` for Go files, `python-error-handling` and
-`async-python-patterns` for Python files, and `typescript-advanced-types` for JavaScript and TypeScript files. Its tools are `typecheck` (L1:
+`golang-error-handling` for Go files, `python-error-handling` for Python files, and
+`typescript-advanced-types` for JavaScript and TypeScript files. Its tools are `typecheck` (L1:
 `tsc --noEmit`, `go vet`, `mypy`, planned), `static_analysis` (`staticcheck` or ESLint's correctness
 rules, by language, planned).
 
@@ -175,8 +192,9 @@ documentation, stored data), and for each line it adds, for the input, state or 
 author did not expect. It reports what breaks for someone, also when the change looks
 deliberate.
 
-It has the correctness expert's skills, because it reviews against the same standards, and no tool
-of its own. Two experts that reach the same lines by different routes are counted as corroboration
+Its skills are `golang-concurrency` for Go files and `async-python-patterns` for Python files, the
+checklists for state and ordering, and it has no tool of its own. It used to share the correctness
+expert's six skills, and the two then reported largely the same findings. Two experts that reach the same lines by different routes are counted as corroboration
 ([Report](REPORT.md)); what only the skeptic reports is what a shared account of the change hid.
 
 ## security
@@ -192,8 +210,9 @@ files. Its tools are `secret_scan` (L1, gitleaks over the diff),
 depending on the lockfile), `cve_lookup` (OSV records for each added or upgraded dependency) and
 `sast` (Semgrep's OWASP rules on the changed files).
 
-A known CVE or a leaked secret is evidence on its own. Other findings need a call a test can make
-or a trigger path. Every finding carries its CWE identifier.
+Once those tools run, a known CVE or a leaked secret will be evidence on its own. Today every
+finding needs a call a test can make, an analysis of the path that reaches it, or an inspection of
+the code against a standard. Every finding carries its CWE identifier.
 
 ## tests
 
@@ -210,7 +229,9 @@ on the base commit, where a test of new behaviour should fail) and `mutate` (Str
 go-mutesting on the changed lines only).
 
 A new test that also passes on the base commit, or that still passes after the line it claims to
-test is mutated, does not test anything new. Missing coverage is reported as a `suggestion`; this
+test is mutated, does not test anything new. Until `mutate` runs, the expert asks the same question
+by reading: for each test the change adds or edits it names the mistake in the code under test that
+would make the test fail, and a test no such mistake fails is a finding. Missing coverage is reported as a `suggestion`; this
 expert does not write the missing tests.
 
 ## usability
@@ -256,7 +277,7 @@ finding must contain. `security.md`:
 name: security
 area: security
 tier: strong
-evidence: [repro_test, cve, trigger_path, argument]
+evidence: [test, analysis, inspection]
 skills:
   - name: security-review
   - name: golang-security
@@ -274,12 +295,12 @@ stays: if removing it changes no measured result, it is removed.
 
 ## What an expert sees
 
-An expert receives the diff, the files the plan assigned to it, the plan, the L1 tool output for
-those files, its skills, and the output of the tools it calls. It does not see other experts'
-output, so when two experts report the same problem they arrived at it separately; only the
-evaluation's `--dependent` [ablation](EVALUATION.md#ablations) runs them one after another and shows
-each the findings before it. Each expert runs
-in its own process.
+An expert receives the diff, the files the plan assigned to it, the plan and its skills. It does
+not see other experts' output, so when two experts report the same problem they arrived at it
+separately. The one thing an expert is told is already found comes from running
+code and not from another agent: in a re-review, a finding of the last review on its files whose
+test still fails ([Rounds](REPORT.md#rounds)). It does not report that again and looks around it,
+because problems cluster. Each expert runs in its own process.
 
 ## When an expert fails
 

@@ -43,16 +43,17 @@ prints. Hand in the whole reproduction again with the mistake put right.
 - `fails` is a short text the test prints only when it fails for the reason the finding gives, such
   as its own assertion message or the panic it provokes. Do not put text there that a run prints
   whether or not the claim is true, such as an import error.
-- `oracle` says where the expected behaviour comes from:
+- `oracle` says where the expected behaviour comes from. Its values are the kinds of test oracle
+  in Barr et al., "The Oracle Problem in Software Testing":
+  - `specified` for text you quote word for word in `quote`, with the file that holds it in
+    `source`, or no `source` when it is a commit message of this change. eyeful looks the quote up,
+    and a quote it cannot find counts as `human`;
+  - `derived` for what the version before this change did: a test already in the repository, which
+    you name in `run` while leaving `test` out, or the base commit's behaviour, which your new test
+    passes on;
   - `implicit` for a crash, an unhandled error, a race or a timeout, where `fails` is what the
     runtime prints and not a message your test wrote;
-  - `existing` for a test already in the repository, which you name in `run` while leaving `test`
-    out;
-  - `spec` for text you quote word for word in `quote`, with the file that holds it in `source`, or
-    no `source` when it is a commit message of this change. eyeful looks the quote up, and a quote
-    it cannot find counts as your own reading;
-  - `base` for the base commit's behaviour;
-  - `agent` for only your own reading.
+  - `human` when the expected behaviour is only your own reading, so a person has to decide.
 
 ## How eyeful checks it
 
@@ -74,6 +75,6 @@ Call `submit_repro` once. For example:
 	},
 	"run": "tests/test_session_expiry.py::test_expired_at_exact_boundary",
 	"fails": "still valid at expires_at",
-	"oracle": "base"
+	"oracle": "derived"
 }
 ```

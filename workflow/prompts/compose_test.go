@@ -24,13 +24,16 @@ func TestCompose(t *testing.T) {
 	}
 
 	review := workflow.ReviewTask{Expert: workflow.Expert{Name: "security"}, Skills: []string{"security-review"}}
-	listed, err := s.Review(review, "/skills")
-	if err != nil || !strings.Contains(listed, "- `security-review`, `/skills/security-review/SKILL.md`: ") || strings.Contains(listed, "name: security-review") || !strings.Contains(listed, "do not use evidence `repro_test`") {
+	listed, err := s.Review(review, "/skills", "/run/history.md")
+	if err != nil || !strings.Contains(listed, "- `security-review`, `/skills/security-review/SKILL.md`: ") || strings.Contains(listed, "name: security-review") || !strings.Contains(listed, "do not use evidence `test`") {
 		t.Fatalf("listed %v:\n%s", err, listed)
 	}
+	if !strings.Contains(listed, "## History") || !strings.Contains(listed, "`/run/history.md`") {
+		t.Fatalf("an expert is not told where the history is:\n%s", listed)
+	}
 	review.TestOne = "go test -run {test}"
-	onDemand, err := s.Review(review, "")
-	if err != nil || strings.Contains(onDemand, "## Skills") || strings.Contains(onDemand, "do not use evidence `repro_test`") {
+	onDemand, err := s.Review(review, "", "")
+	if err != nil || strings.Contains(onDemand, "## Skills") || strings.Contains(onDemand, "## History") || strings.Contains(onDemand, "do not use evidence `test`") {
 		t.Fatalf("on demand %v:\n%s", err, onDemand)
 	}
 	retest := workflow.RetestTask{Finding: workflow.Finding{Claim: workflow.Claim{Path: "app/session.py"}}}
@@ -49,7 +52,7 @@ func TestCompose(t *testing.T) {
 	if body, err := os.ReadFile(filepath.Join(written, "security-review", "SKILL.md")); err != nil || !strings.Contains(string(body), "name: security-review") {
 		t.Fatalf("written skill %v", err)
 	}
-	if _, err := s.Review(workflow.ReviewTask{Expert: workflow.Expert{Name: "nobody"}}, ""); err == nil {
+	if _, err := s.Review(workflow.ReviewTask{Expert: workflow.Expert{Name: "nobody"}}, "", ""); err == nil {
 		t.Fatal("an expert without a prompt was composed")
 	}
 }

@@ -1,6 +1,9 @@
 package subject
 
-import "errors"
+import (
+	"errors"
+	"regexp"
+)
 
 type Range struct {
 	Base string
@@ -22,9 +25,13 @@ type Branch struct {
 }
 
 const (
-	EmptyTree  = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-	maxCommits = 50
+	EmptyTree    = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	maxCommits   = 50
+	fileCommits  = 5
+	historyLimit = 256 << 10
 )
+
+var hunk = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+`)
 
 var (
 	ErrNotRepository = errors.New("not a git repository")

@@ -8,13 +8,6 @@ import (
 	"sync"
 )
 
-// TODO(workflow): accept cve findings backed by cve_lookup once expert tools run through eyeful.
-var backing = map[EvidenceKind]Tool{
-	EvidenceCVE:      ToolDependencyAudit,
-	EvidenceAPIBreak: ToolOpenAPIDiff,
-	EvidenceCoverage: ToolCoverageDiff,
-}
-
 func Validate(t ReviewTask, r Report) []string {
 	reasons := make([]string, 0, len(r.Findings))
 	for i, f := range r.Findings {
@@ -57,8 +50,8 @@ func checkFinding(t ReviewTask, f Claim, i int) []string {
 	if f.Subject == "" {
 		bad("needs a subject")
 	}
-	if !slices.Contains([]Severity{SeverityCritical, SeverityHigh, SeverityMedium, SeverityLow}, f.Severity) {
-		bad(fmt.Sprintf("severity %q is not critical, high, medium or low", f.Severity))
+	if !slices.Contains([]Severity{SeverityError, SeverityWarning, SeverityNote}, f.Severity) {
+		bad(fmt.Sprintf("severity %q is not error, warning or note", f.Severity))
 	}
 	for _, msg := range checkEvidence(t, f) {
 		bad(msg)
@@ -71,12 +64,7 @@ func checkEvidence(t ReviewTask, f Claim) []string {
 	if !slices.Contains(t.Expert.Evidence, f.Evidence) {
 		reasons = append(reasons, fmt.Sprintf("evidence %q is not one %s produces", f.Evidence, t.Expert.Name))
 	}
-	if tool, ok := backing[f.Evidence]; ok && !slices.ContainsFunc(t.Tools, func(r ToolResult) bool {
-		return r.Tool == tool && slices.ContainsFunc(r.Hits, func(h Hit) bool { return h.Path == f.Path })
-	}) {
-		reasons = append(reasons, fmt.Sprintf("evidence %q needs a %s hit on %q", f.Evidence, tool, f.Path))
-	}
-	if f.Scenario == "" && (f.Evidence == EvidenceReproTest || f.Evidence == EvidenceTriggerPath) {
+	if f.Scenario == "" && (f.Evidence == EvidenceTest || f.Evidence == EvidenceAnalysis) {
 		reasons = append(reasons, "needs a scenario: the input or sequence that triggers it and what goes wrong")
 	}
 	return reasons
@@ -117,7 +105,7 @@ func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task Review
 	return st, nil
 }
 
-func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan, from int, level Level, files map[string]File, tools []ToolResult, broken *TestRun, req Request) ([]Finding, Uncertainty, error) {
+func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan, from int, files map[string]File, broken *TestRun, known []Claim, req Request) ([]Finding, Uncertainty, error) {
 	var seats []*seat
 	for gi := from; gi < len(plan.Groups); gi++ {
 		for _, p := range plan.Groups[gi].Experts {
@@ -132,7 +120,6 @@ func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan,
 	scoped := Plan{Summary: plan.Summary, Groups: plan.Groups[from:], Skipped: plan.Skipped, Confidence: plan.Confidence}
 	var wg sync.WaitGroup
 	turns := make(chan struct{}, maxParallel)
-	var earlier []Claim
 	for _, st := range seats {
 		wg.Go(func() {
 			select {
@@ -142,21 +129,17 @@ func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan,
 				return
 			}
 			defer func() { <-turns }()
-			task := w.panelTask(st.pick, plan, st.groups, level, files, tools)
-			task.TestOne, task.Earlier = req.Project.TestOne, slices.Clone(earlier)
+			task := w.panelTask(st.pick, plan, st.groups, files, known)
+			task.TestOne, task.Commits, task.Description = req.Project.TestOne, req.Change.Commits, req.Change.Description
 			if !task.Expert.Blind {
 				task.Plan = scoped
 			}
-			if slices.Contains(task.Expert.Evidence, EvidenceReproTest) {
+			if slices.Contains(task.Expert.Evidence, EvidenceTest) {
 				task.Regression = broken
 			}
 			key := fmt.Sprintf("expert/%d/%s", st.groups[0], st.pick.Name)
 			st.state, st.err = checkpoint(ctx, s.Archive, l, key, func() (expertState, error) { return w.review(ctx, s, l, task) })
 		})
-		if req.Dependent {
-			wg.Wait()
-			earlier = append(earlier, st.state.Findings...)
-		}
 	}
 	wg.Wait()
 	return gather(seats, plan)
@@ -188,7 +171,7 @@ func gather(seats []*seat, plan Plan) ([]Finding, Uncertainty, error) {
 	return findings, u, nil
 }
 
-func (w *Workflow) panelTask(p Pick, plan Plan, groups []int, level Level, files map[string]File, tools []ToolResult) ReviewTask {
+func (w *Workflow) panelTask(p Pick, plan Plan, groups []int, files map[string]File, earlier []Claim) ReviewTask {
 	e, _ := w.expert(p.Name)
 	first := plan.Groups[groups[0]]
 	g := Group{Scope: first.Scope, Category: first.Category, Summary: first.Summary, Files: []string{}, Experts: []Pick{p}}
@@ -199,13 +182,6 @@ func (w *Workflow) panelTask(p Pick, plan Plan, groups []int, level Level, files
 		g.Files = append(g.Files, plan.Groups[gi].Files...)
 		g.Core = g.Core || plan.Groups[gi].Core
 	}
-	e.Evidence = slices.DeleteFunc(slices.Clone(e.Evidence), func(k EvidenceKind) bool {
-		tool, backed := backing[k]
-		return backed && !slices.ContainsFunc(tools, func(r ToolResult) bool { return r.Tool == tool })
-	})
-	tier := e.Tier
-	if t := levels[level].tier; t != "" {
-		tier = t
-	}
-	return ReviewTask{Expert: e, Tier: tier, Group: g, Skills: SkillsFor(e.Skills, g.Files), Files: pick(files, g.Files), Tools: hitsFor(tools, g.Files), Rejected: []string{}}
+	found := slices.DeleteFunc(slices.Clone(earlier), func(c Claim) bool { return !slices.Contains(g.Files, c.Path) })
+	return ReviewTask{Expert: e, Tier: e.Tier, Group: g, Skills: SkillsFor(e.Skills, g.Files), Files: pick(files, g.Files), Rejected: []string{}, Earlier: found}
 }

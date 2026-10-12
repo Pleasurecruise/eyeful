@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-Dataset = Literal["swebench", "injected", "crb"]
+Dataset = Literal["swebench", "injected", "crb", "reviewbench"]
 Tool = Literal["eyeful", "revmux"]
 Condition = Literal["execution", "read_only", "none", "revmux"]
 Verdict = Literal["actionable", "noise"]

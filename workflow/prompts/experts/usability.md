@@ -2,7 +2,7 @@
 name: usability
 area: ux
 tier: mid
-evidence: [api_break, tool, e2e, argument]
+evidence: [inspection]
 skills:
   - name: accessibility
     files: ['**/*.html', '**/*.svelte', '**/*.vue', '**/*.tsx', '**/*.jsx', '**/*.css']

@@ -1,6 +1,7 @@
 package subject
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -63,4 +64,33 @@ func Commits(ctx context.Context, s Snapshot) ([]string, error) {
 		}
 	}
 	return commits, nil
+}
+
+func History(ctx context.Context, s Snapshot) (string, error) {
+	if s.Base == EmptyTree {
+		return "", nil
+	}
+	var b strings.Builder
+	path := ""
+	for line := range strings.Lines(s.Patch) {
+		if rest, ok := strings.CutPrefix(line, "--- a/"); ok {
+			path = strings.TrimSpace(rest)
+			log, err := git.Run(ctx, s.Root, nil, "log", fmt.Sprintf("--max-count=%d", fileCommits), "--date=short", "--format=%h %ad %an: %s", s.Base, "--", path)
+			if err != nil {
+				return "", err
+			}
+			fmt.Fprintf(&b, "## %s\n\nCommits that last touched it before this change:\n\n%s\n", path, log)
+			continue
+		}
+		m := hunk.FindStringSubmatch(line)
+		if m == nil || path == "" || m[2] == "0" || b.Len() > historyLimit {
+			continue
+		}
+		blame, err := git.Run(ctx, s.Root, nil, "blame", "-s", "-L", m[1]+",+"+cmp.Or(m[2], "1"), s.Base, "--", path)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&b, "Who last changed the lines replaced at %s:\n\n%s\n", strings.TrimSpace(m[0]), blame)
+	}
+	return b.String(), nil
 }

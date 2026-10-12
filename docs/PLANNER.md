@@ -3,15 +3,15 @@
 The first stage of a review checks whether the change is ready to review, sets aside files that need
 no review, and decides which experts review the rest. It runs in three steps, cheapest first.
 `workflow` implements the steps and every rule on this page, and a local review runs them with the
-planner's prompt ([Running locally](LOCAL.md#agents)). The L1 tools, the CI reading on GitHub and
-the `submit_plan` tool of the cloud runtime are not built yet.
+planner's prompt ([Running locally](LOCAL.md#agents)). The CI reading on GitHub and the
+`submit_plan` tool of the cloud runtime are not built yet, and neither are the tools that would run
+between triage and the planner ([Levels](LEVELS.md#planned)).
 
 ```mermaid
 flowchart LR
     ci{"CI check"} -->|failed| diagnose["CI agent<br/>cause and fix"]
     ci -->|passed| triage["Triage<br/>rules, no model"]
-    triage --> tools["L1 tools"]
-    tools --> planner["Planner agent"]
+    triage --> planner["Planner agent"]
     planner -->|submit_plan| check{"Go checks the plan"}
     check -->|valid| run["Start the experts"]
     check -->|invalid| retry["Retry once,<br/>then the default set"]
@@ -27,7 +27,7 @@ progress, the review waits. If all runs passed, or the repository has no workflo
 continues.
 
 Locally there is no CI run to read. The verifier runs the `lint` command from
-[`.eyeful/config.yml`](CONFIGURATION.md#project) and the L1 `typecheck` in the work directory. The
+[`.eyeful/config.yml`](CONFIGURATION.md#project) in the work directory. The
 `test` command is not part of this check. With `execution` it runs after it, before the experts
 start, and a test the change breaks becomes a lead for them rather than the end of the review
 ([Tests the change breaks](VERIFICATION.md#regressions)).
@@ -44,8 +44,7 @@ code, vendored code, binary files and the `skip` paths from `.eyeful/config.yml`
 sets aside any file whose diff is larger than 512 KB. These files go to
 no expert and are listed in the feedback as not reviewed. Following Google's
 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line),
-every other line must go to at least one expert. The quick level is the exception: there, only
-lines that a tool flagged are reviewed ([Levels](LEVELS.md)).
+every other line must go to at least one expert.
 
 The remaining files become a manifest with one line per file:
 
@@ -57,11 +56,6 @@ web/src/Login.svelte      code        40      18
 package-lock.json         lock       310     120
 commits: "fix session expiry at the boundary", "show the expiry on the login page"
 ```
-
-Triage also runs the L1 tools for the project's languages (`lint`, `typecheck`, `secret_scan`,
-`dependency_audit`, `openapi_diff`, `complexity`, `coverage_diff`) and attaches their output to the
-manifest. These tools use no tokens, and their output is what the planner works from
-([Levels](LEVELS.md)).
 
 ## Large changes {#large}
 
@@ -89,8 +83,7 @@ scopes in order, which the author can use to split the change into a stack
 
 ## The plan {#the-plan}
 
-The quick level has no planner; rules send each tool result to an expert. At standard, the plan has
-two steps: [`@pulls.review/core`](https://github.com/antfu/pulls.review) works out what
+The plan has two steps: [`@pulls.review/core`](https://github.com/antfu/pulls.review) works out what
 the change does and groups it, and Go picks the experts for each group by rule.
 
 ### Grouping the change
@@ -109,7 +102,7 @@ binaries need neither Node nor cgo. The planner is one call to the connected age
    a summary, its files, and `critical` where it needs extra care;
 3. core checks the answer against its schema and that every file is in exactly one group
    (`findCoverageIssues`). A rejected answer goes back to the agent once with core's reason; after a
-   second rejection, or two failed calls, the review uses the default experts for its level, one
+   second rejection, or two failed calls, the review uses the first four experts of the roster, one
    group with every kept file, and the feedback says so.
 
 ```json
@@ -142,16 +135,21 @@ A group is core when core marks it `critical` or when it holds a `risk` path fro
 Go turns each group into experts with a fixed table, so the same grouping always gets the same
 experts:
 
-| Category                             | Experts                                |
-| ------------------------------------ | -------------------------------------- |
-| `security`                           | correctness, skeptic, security         |
-| `core`, `api`, `data`, `cli`         | correctness, skeptic                   |
-| `ui`, `i18n`                         | usability                              |
-| `tests`                              | tests                                  |
-| `docs`, `examples`                   | readability                            |
-| `config`, `build`, `scripts`, `deps` | security                               |
-| `assets`, `other`                    | none                                   |
-| a core group, in addition            | correctness, skeptic, security, design |
+| Category                     | Experts                                |
+| ---------------------------- | -------------------------------------- |
+| `security`                   | correctness, skeptic, security         |
+| `core`, `api`, `data`, `cli` | correctness, skeptic                   |
+| `ui`                         | usability, correctness                 |
+| `i18n`                       | usability                              |
+| `tests`                      | tests                                  |
+| `docs`, `examples`           | readability                            |
+| `scripts`                    | security, correctness                  |
+| `config`, `build`, `deps`    | security                               |
+| `assets`, `other`            | none                                   |
+| a core group, in addition    | correctness, skeptic, security, design |
 
-Each expert then runs once over all of its groups ([Experts](EXPERTS.md)). Go also adds the experts
-that signals call for ([Levels](LEVELS.md)) and sets their budgets.
+A `ui` or `scripts` group holds code whose mistakes are functional, a component that leaks or a
+script that fails on another system, so the correctness expert reads it too: on the benchmark's
+pull requests two of five missed findings were of that kind in groups no correctness reader had.
+Each expert then runs once over all of its groups ([Experts](EXPERTS.md)), and Go sets their
+budgets.

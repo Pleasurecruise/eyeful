@@ -7,6 +7,7 @@ from analyze import bootstrap, difference, mcnemar
 from label import distinct, kappa
 from match import tally
 from model import Finding, Region, Review, Subject
+from reviewbench import candidate, held, key
 from run import stopped
 from subjects import added, labels, removed
 
@@ -34,7 +35,7 @@ PATCH = """diff --git a/app/session.py b/app/session.py
 
 
 def finding(path: str, line: int, status: str = "") -> Finding:
-    return Finding(path, line, "high", "t", "b", "correctness", "repro_test", "", status, "", "", False)
+    return Finding(path, line, "error", "t", "b", "correctness", "test", "", status, "", "", False)
 
 
 def review(subject: str, findings: tuple[Finding, ...]) -> Review:
@@ -124,6 +125,31 @@ class Golden(unittest.TestCase):
         self.assertEqual(tally(found, comments, kept), (1, 4, 3, 0))
         kept = {key: {"match": False} for key in kept}
         self.assertEqual(tally(found, comments, kept), (0, 4, 3, 3))
+
+
+class ReviewBench(unittest.TestCase):
+    def test_a_review_becomes_the_benchmarks_candidate_file(self) -> None:
+        row = {"repo": "https://github.com/owner/repo", "pr_number": 12, "base": "b" * 40, "head": "a1b2c3d4" + "0" * 32}
+        result = {
+            "comments": [
+                {"path": "src/pool.ts", "line": 42, "label": "question", "subject": "conns is read without the mutex.", "discussion": "Two requests can lose a write.", "scenario": ""},
+                {"path": "src/pool.ts", "line": 7, "label": "nitpick", "subject": "Name the constant."},
+            ],
+            "runs": [{"usage": {"tokens": 900}}, {"usage": {"tokens": 100}}],
+        }
+        self.assertEqual(key(row), "owner_repo_12-a1b2c3d4")
+        shown = candidate(row, "panel", result, 1.5, False)
+        self.assertEqual(shown["pr"], {"repo": row["repo"], "pr_number": 12, "base": row["base"], "head": row["head"]})
+        self.assertEqual(shown["findings"], [{"producer": "eyeful-panel", "file": "src/pool.ts", "start_line": 42, "end_line": 42, "message": "conns is read without the mutex.\n\nTwo requests can lose a write."}])
+        self.assertEqual(shown["usage"], {"time_in_ms": 1500, "total_tokens": 1000})
+        self.assertEqual(len(candidate(row, "panel", result, 1.5, True)["findings"]), 2)
+
+    def test_the_held_out_part_is_the_same_every_time_and_leaves_the_test_set_out(self) -> None:
+        rows = {name: {} for name in ("a_b_1-00000000", "c_d_2-11111111", "e_f_3-22222222", "g_h_4-33333333")}
+        part = held(rows, {"c_d_2-11111111"}, 2)
+        self.assertEqual(len(part), 2)
+        self.assertNotIn("c_d_2-11111111", part)
+        self.assertEqual(list(part), list(held(dict(reversed(list(rows.items()))), {"c_d_2-11111111"}, 2)))
 
 
 if __name__ == "__main__":

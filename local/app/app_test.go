@@ -24,10 +24,9 @@ import (
 
 var replies = map[string]string{
 	"`submit_plan`":      `{"overallSummary":"Writes two to app.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["app.txt"]}]}`,
-	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"medium","subject":"Say what changed.","discussion":"d","evidence":"argument"}]}`,
-	"`submit_judgement`": `{"valid":true,"reason":"r"}`,
+	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
+	"`submit_judgement`": `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
 	"`submit_commit`":    `{"message":"fix: write two\n\nThe value changed."}`,
-	"`submit_comments`":  `{"comments":[{"finding":"0/correctness/0","label":"suggestion","short":"Say what changed","subject":"Say what changed.","discussion":"d"}]}`,
 }
 
 func fakeClaude() error {
@@ -224,7 +223,7 @@ func TestReview(t *testing.T) {
 			t.Fatal(err)
 		}
 		out := o.Out.(*strings.Builder).String()
-		if !strings.Contains(out, "# eyeful review") || !strings.Contains(out, "| 🟡 Nit | `app.txt:1` |") {
+		if !strings.Contains(out, "# eyeful review") || !strings.Contains(out, "| 🟠 warning | `app.txt:1` |") {
 			t.Fatalf("output:\n%s", out)
 		}
 		if _, err := os.Stat(filepath.Join(outside, "setup-ran")); err == nil {
@@ -342,7 +341,7 @@ func TestReview(t *testing.T) {
 		if len(asked) != 1 || asked[0].Name != "setup" {
 			t.Fatalf("asked to confirm %v", asked)
 		}
-		if len(reviewed.Findings) != 1 || reviewed.Counts.Nit != 1 {
+		if len(reviewed.Findings) != 1 || reviewed.Counts.Review != 1 {
 			t.Fatalf("reviewed %+v", reviewed)
 		}
 		if _, err := os.Stat(filepath.Join(outside, "setup-ran")); err != nil {
@@ -366,8 +365,52 @@ func TestReview(t *testing.T) {
 				Severity string `json:"severity"`
 			} `json:"findings"`
 		}
-		if err != nil || json.Unmarshal(data, &printed) != nil || len(printed.Findings) != 1 || printed.Findings[0].Severity != "nit" {
+		if err != nil || json.Unmarshal(data, &printed) != nil || len(printed.Findings) != 1 || printed.Findings[0].Severity != "warning" {
 			t.Fatalf("findings.json %v: %s", err, data)
+		}
+	})
+
+	t.Run("the next review of a branch reruns what the last one reproduced", func(t *testing.T) {
+		for name, tc := range map[string]struct {
+			base     string
+			resolved bool
+		}{
+			"the same branch with a fix on top":         {"HEAD~2", true},
+			"another change that starts where it ended": {"HEAD~1", false},
+		} {
+			root, _, o := execution(t)
+			o.Confirm = yes
+			old, err := exec.CommandContext(t.Context(), "git", "-C", root, "rev-parse", "HEAD~1", "HEAD").Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			commits := strings.Fields(string(old))
+			last := filepath.Join(root, ".eyeful", "runs", "20000101-000000")
+			snapshot, err := json.Marshal(subject.Snapshot{Root: root, Base: commits[0], Head: commits[1]})
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := workflow.Finding{ID: "0/correctness/0", Expert: "correctness"}
+			found.Path, found.Line, found.Severity, found.Subject, found.Evidence = "app.txt", 1, workflow.SeverityError, "Writes two.", workflow.EvidenceTest
+			result, err := json.Marshal(workflow.Result{
+				Findings:      []workflow.Finding{found},
+				Verifications: []workflow.Verification{{Finding: "0/correctness/0", Status: workflow.StatusReproduced, Repro: &workflow.Repro{Run: "app.txt", Fails: "still two", Oracle: workflow.OracleDerived}}},
+			})
+			if err := errors.Join(err, os.MkdirAll(last, 0o700), os.WriteFile(filepath.Join(last, "..", ".gitignore"), []byte("*\n"), 0o600), os.WriteFile(filepath.Join(last, "snapshot.json"), snapshot, 0o600), os.WriteFile(filepath.Join(last, "result.json"), result, 0o600)); err != nil {
+				t.Fatal(err)
+			}
+			config := "test_one: \"grep -q three {test} || { echo still two; exit 1; }\"\n"
+			if err := errors.Join(os.WriteFile(filepath.Join(root, "app.txt"), []byte("three\n"), 0o644), os.WriteFile(filepath.Join(root, ".eyeful", "config.yml"), []byte(config), 0o644)); err != nil {
+				t.Fatal(err)
+			}
+			git(t, root, "commit", "-qam", "fix")
+			o.Range.Base = tc.base
+			if _, err := app.Review(t.Context(), o); err != nil {
+				t.Fatal(err)
+			}
+			if out := o.Out.(*strings.Builder).String(); strings.Contains(out, "## Resolved since the last review") != tc.resolved || strings.Contains(out, "`app.txt:1` Writes two.") != tc.resolved {
+				t.Fatalf("%s: the last review's finding listed as resolved is not %t:\n%s", name, tc.resolved, out)
+			}
 		}
 	})
 

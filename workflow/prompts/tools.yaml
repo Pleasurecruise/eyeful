@@ -23,6 +23,4 @@
 - name: submit_repro
   description: Hand in the reproduction.
 - name: submit_judgement
-  description: Hand in whether the finding is real.
-- name: submit_comments
-  description: Hand in one comment per merged finding.
+  description: Hand in whether each finding is real.

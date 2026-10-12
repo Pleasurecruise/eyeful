@@ -16,7 +16,6 @@ from model import ALL_GATES, Review, Subject, Verdict, load_reviews, load_subjec
 SEED = 20616304
 RESAMPLES = 10_000
 CONFIRMED = ("reproduced", ALL_GATES)
-STRONG = ("implicit", "existing", "spec")
 
 
 @dataclass(frozen=True)
@@ -142,15 +141,15 @@ def noise(groups: dict[str, list[Review]], subjects: dict[str, Subject], labels:
 
 
 def verifiability(reviews: list[Review], subjects: dict[str, Subject], labels: dict[tuple[str, str, int], Verdict]) -> str:
-    repro = [(r, f) for r in reviews for f in r.findings if f.evidence == "repro_test"]
+    repro = [(r, f) for r in reviews for f in r.findings if f.evidence == "test"]
     everything = [(r, f) for r in reviews for f in r.findings]
     gates = Counter(f.gate or f.status for _, f in repro)
     oracles = Counter(f.oracle for _, f in repro if f.status in CONFIRMED)
     rate = bootstrap(by_subject(reviews, lambda r: (
-        float(sum(f.status == ALL_GATES for f in r.findings if f.evidence == "repro_test")),
-        float(sum(f.evidence == "repro_test" for f in r.findings)),
+        float(sum(f.status == ALL_GATES for f in r.findings if f.evidence == "test")),
+        float(sum(f.evidence == "test" for f in r.findings)),
     )))
-    proposed = bootstrap(by_subject(reviews, lambda r: (float(sum(f.evidence == "repro_test" for f in r.findings)), float(len(r.findings)))))
+    proposed = bootstrap(by_subject(reviews, lambda r: (float(sum(f.evidence == "test" for f in r.findings)), float(len(r.findings)))))
     known_loss = bootstrap(by_subject(reviews, lambda r: (
         float(sum(f.status not in CONFIRMED for f in r.findings if subjects[r.subject].hit(f.path, f.line))),
         float(sum(subjects[r.subject].hit(f.path, f.line) for f in r.findings)),
@@ -161,7 +160,6 @@ def verifiability(reviews: list[Review], subjects: dict[str, Subject], labels: d
     )))
     ruled = sum(f.blocking for _, f in everything)
     unruled = sum(f.status in CONFIRMED for _, f in everything)
-    strong = sum(f.status in CONFIRMED and f.oracle in STRONG for _, f in everything)
     rows = [
         ["Findings", str(len(everything))],
         ["With a reproduction test", f"{len(repro)} ({proposed})"],
@@ -170,7 +168,7 @@ def verifiability(reviews: list[Review], subjects: dict[str, Subject], labels: d
         ["Oracles of the confirmed findings", ", ".join(f"{o} {n}" for o, n in oracles.most_common()) or "none"],
         ["Verification loss on the known defect", str(known_loss)],
         ["Verification loss on findings labelled actionable", str(loss)],
-        ["Blocking with the oracle rule", f"{ruled} ({strong} confirmed with an outside oracle)"],
+        ["Blocking with the oracle rule", str(ruled)],
         ["Blocking if any confirmed reproduction blocked", str(unruled)],
     ]
     return table(["Measure", "Value"], rows)

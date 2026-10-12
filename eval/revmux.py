@@ -50,7 +50,7 @@ def read(subject: Subject, profile: str, rep: int, home: Path, seconds: float) -
     findings = tuple(
         Finding(
             path=f["file"], line=f["line"], severity=f["severity"], title=f["title"], body=f["body"],
-            source=",".join(f.get("sources", [])), evidence="argument", cwe="", status=f.get("verdict", ""),
+            source=",".join(f.get("sources", [])), evidence="inspection", cwe="", status=f.get("verdict", ""),
             gate="", oracle="", blocking=f["severity"] in ("critical", "major"),
         )
         for f in raw.get("findings", [])

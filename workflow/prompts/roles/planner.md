@@ -1,5 +1,5 @@
 ---
 role: planner
-tools: []
+tools: [git_diff, git_log]
 submit: submit_plan
 ---

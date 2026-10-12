@@ -2,7 +2,7 @@
 name: readability
 area: readability
 tier: cheap
-evidence: [tool, argument]
+evidence: [inspection]
 skills:
   - name: golang-code-style
     files: ['**/*.go']

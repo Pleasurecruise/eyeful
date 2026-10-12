@@ -11,9 +11,9 @@
 1. 用户在控制台确认审查，见[开始之前](REVIEW.md#before-it-starts)。webhook 和定时触发以后再做（见[版本路线图](ROADMAP.md)）。
 2. eyeful 读取 head 提交对应的 GitHub Actions 运行记录，还有运行没结束就等待。如果有失败的运行，CI agent 读取失败任务的日志，审查以失败诊断结束（见[规划与分诊](PLANNER.md#ci-check)）。
 3. 工作进程克隆仓库，把 pull request 的基础和 head 解析成具体提交，在运行任何东西之前先记下快照（两个提交，以及 head 相对两者合并基点的 diff）。新的推送是新的快照，也是一次新的审查。大型 pull request 和其他改动一样拆成[范围](PLANNER.md#large)，报告里的范围列表就是给它的 stacked PR 建议。
-4. 分诊在沙箱里运行规则和 L1 工具，standard 及以上档位再由规划器制定计划。
+4. 分诊在沙箱里运行规则（L1 工具实现之后也在这里运行），再由规划器制定计划。
 5. 每个选中的专家在工作进程上作为一个 pi 进程运行。
-6. 验证器在沙箱里的新副本上运行复现测试，汇总阶段写出反馈。
+6. 验证器在沙箱里的新副本上运行复现测试，Go 根据运行结果生成反馈。
 7. eyeful 的 GitHub App 把行内评论作为一个 `COMMENT` review 发布，排序报告作为一条评论发布，并按配置附上可选的 Check Run。SARIF 结果也可以上传到 code scanning（见[审查反馈](REPORT.md)）。
 
 ## 在 pi 中运行 agent {#agents-in-pi}

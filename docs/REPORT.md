@@ -1,8 +1,9 @@
 # Review feedback
 
-The summarizer is the last agent in a review. It receives every finding and every verification
-result and writes comments a person can act on. `workflow` merges, checks and ranks the comments
-and falls back to rules, and `workflow/report` renders them as Markdown and SARIF.
+The last stage of a review writes comments a person can act on from every finding and every
+verification result. No agent is involved: `workflow` merges the findings, forms one comment for
+each from what its expert wrote, and ranks them, and `workflow/report` renders them as Markdown and
+SARIF.
 
 ## Comment format {#comment-format}
 
@@ -19,30 +20,49 @@ concerns. The subject is one sentence, and the discussion explains why and what 
 fixed format, the same comment can be posted to GitHub, printed in a terminal, or parsed by another
 agent.
 
-eyeful uses all nine labels the specification recommends:
+eyeful uses four of the specification's labels, and Go picks the label by rule:
 
-| Label        | Meaning in the specification                        | eyeful uses it for                                                        |
-| ------------ | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| `praise`     | Something positive, sincerely meant                 | A clear improvement an expert noticed                                     |
-| `nitpick`    | A trivial, preference-based request; non-blocking   | A `low` finding: one that changes no behaviour, such as a name or wording |
-| `suggestion` | A proposed improvement, explicit about what and why | An improvement, with a patch when the fix is clear                        |
-| `issue`      | A specific problem, best paired with a suggestion   | A problem with strong evidence, or a rule the style guide states          |
-| `todo`       | A small, trivial but necessary change               | A version string, a changelog line, a missing export                      |
-| `question`   | A potential concern the reviewer is not sure about  | A concern an expert could not prove                                       |
-| `thought`    | An idea from reviewing; non-blocking                | A design direction worth considering later                                |
-| `chore`      | A process task needed before acceptance             | A step the project's process requires, such as updating docs, with a link |
-| `note`       | Something the reader should notice; non-blocking    | Context such as a dependency whose licence changed                        |
+| Label        | Meaning in the specification                        | eyeful gives it to                                                         |
+| ------------ | --------------------------------------------------- | -------------------------------------------------------------------------- |
+| `issue`      | A specific problem, best paired with a suggestion   | A finding whose kind is `fail`                                             |
+| `question`   | A potential concern the reviewer is not sure about  | A finding whose evidence is `test` or `analysis`, not yet a `fail`         |
+| `suggestion` | A proposed improvement, explicit about what and why | A finding that rests on `inspection` alone                                 |
+| `nitpick`    | A trivial, preference-based request; non-blocking   | A `note` finding: one that changes no behaviour, such as a name or wording |
+
+The other five labels of the specification, `praise`, `todo`, `thought`, `chore` and `note`, are
+not used: nothing an expert hands in tells them apart.
+
+### Why no agent writes the comments {#no-summarizer}
+
+A summarizer agent used to write every comment: it read the merged findings, chose one of the nine
+labels and rewrote the subject and the discussion. It was removed, for four reasons:
+
+- Its label had stopped deciding anything. Go already overrode it in both directions, allowing
+  `issue` only on a `fail` result and forcing `nitpick` on `note` findings, and the ranking moved
+  to evidence and agreement, which left the label fourth.
+- It could not check what it wrote. It had no file tools and saw only the findings, so its text
+  could only restate the expert's, or drift from it.
+- There were two ways to form a comment. When the agent failed or its answer was rejected, rules
+  formed the comments instead, so the rules had to exist anyway and a review could come out either
+  way.
+- It cost a model call on every review: about 2% of the tokens, the time of one more agent, and one
+  more thing that could fail.
+
+What this gave up is real and has not been measured. A comment that several experts stand behind
+now carries the words of one of them, where the agent could combine them; the wording is the
+expert's own, unedited; and five labels are gone. No review has been scored since the change, so
+whether the comments read worse, or match a benchmark's findings less often, is not known.
 
 Decorations also follow the specification. `blocking` and `non-blocking` say whether the comment
-has to be resolved before merging, and `if-minor` asks for a change only if it turns out to be
-small. Only an `issue` with strong evidence of a bug, a vulnerability or a regression is `blocking`
+has to be resolved before merging; the specification's third, `if-minor`, is not used, because
+nothing an expert hands in says how large a fix would be. Only an `issue`, a `fail` result that shows a bug, a vulnerability or a regression, is `blocking`
 ([A review](REVIEW.md#review-standard)). Everything else is `non-blocking`.
 
 Other decorations name the area: `security`, `correctness`, `design`, `tests`, `ux`, `readability`.
 As Google's [comment guidance](https://google.github.io/eng-practices/review/reviewer/comments.html)
 recommends, comments are about the code and not the author, and each discussion gives the reason.
-The summarizer writes each comment from the finding's SARIF result
-([Evidence and verification](VERIFICATION.md#sarif)).
+The subject and the discussion of a comment are the expert's own, taken from the most severe
+finding behind it.
 
 ```text
 issue (blocking, correctness): A session is still valid at exactly expires_at.
@@ -71,19 +91,30 @@ commit, so a new push and its re-review replace it, and a branch protection rule
 ## The ranked report {#ranked-report}
 
 All other comments go into one report, posted as a single pull request comment and also kept as
-Markdown and SARIF. Findings are merged first: findings in the same file within two lines of each
-other become one, and corroboration counts how many distinct experts reported it. Experts on the same
+Markdown and SARIF. Findings are merged first: findings of different experts in the same file within
+two lines of each other become one, and corroboration counts how many distinct experts reported it.
+Two findings of one expert are two problems however close they are, so each keeps its own comment.
+Experts on the same
 model family tend to make the same mistakes, so agreement between different model families counts
 for more than agreement within one family. The merged findings are then sorted by:
 
-1. label: `issue`, `todo`, `chore`, `suggestion`, `question`, `thought`, `note`, `nitpick`, `praise`;
-2. evidence strength ([Evidence and verification](VERIFICATION.md#evidence-kinds));
+1. what the checks left standing: comments the judge did not dispute, then the ones it disputed,
+   then the nitpicks;
+2. kind: `fail`, then `review`, then `open` ([Evidence and verification](VERIFICATION.md#kind-and-severity));
 3. the number of experts that reported it;
-4. the plan's change groups, then file and line.
+4. label: `issue`, `question`, `suggestion`, `nitpick`;
+5. the plan's change groups, then file and line.
 
-All `nitpick` comments are folded into one collapsed section at the end, one line each. A comment
-is a `nitpick` when every finding behind it has severity `low`, whatever label the summarizer gave
-it. The report closes with:
+Evidence and agreement come before the label because they are measured and the label is derived
+from them: on ReviewBench's test pull requests a comment two experts reported
+matched a known finding three times as often as one from a single expert, and none of the comments
+the judge disputed matched one ([Evaluation](EVALUATION.md#reviewbench-pilot)). An `issue` still
+comes first, since only a `fail` result can be one.
+
+Two kinds of comment are folded into collapsed sections at the end, one line each: the comments the
+judge disputes, each with its objection, and the `nitpick` comments. A comment is a `nitpick` when
+every finding behind it has severity `note`. Nothing is left
+out of the report; folding decides what the reader meets first. The report closes with:
 
 - for a change split into [scopes](PLANNER.md#large), the scopes in order with their files, lines
   and findings, and each finding names its scope;
@@ -112,47 +143,56 @@ and, as pulls.review does before any comment, what the change does: the planner'
 table of its groups, core groups first, each with its category, why its files changed and the files.
 The project's tests that pass on the base commit and fail on the change are listed next
 ([Tests the change breaks](VERIFICATION.md#regressions)). Then comes "No blocking issues" or a table
-of findings sorted by severity, without the nitpicks:
+of findings in the order of the ranked report, without the nitpicks:
 
 ```text
 | Severity     | File:Line            | Issue                                     |
 | ------------ | -------------------- | ----------------------------------------- |
-| 🔴 Important | `app/session.py:11`  | Session still valid at exactly expires_at |
-| 🟡 Nit       | `web/src/Login.svelte:40` | Name the expiry variable             |
+| 🔴 error     | `app/session.py:11`  | Session still valid at exactly expires_at |
+| 🟠 warning   | `web/src/Login.svelte:40` | The expiry is shown in UTC            |
 ```
 
-A blocking `issue` is 🔴 Important and every other label is 🟡 Nit. Each finding then gets a
-heading with its severity, its area and a verdict: CONFIRMED when its evidence is strong, such as a
-reproduction eyeful saw fail with an outside oracle, DISPUTED when the judge rejected it
-([the judge](VERIFICATION.md#the-judge)), and PLAUSIBLE otherwise. Below the heading come
+The severity is the expert's, in SARIF's levels: 🔴 error, 🟠 warning or 🟡 note. Each finding then
+gets a heading with its severity, its area and its kind: `fail` when eyeful saw its reproduction
+fail by an oracle that is not the agent's, and `review` otherwise
+([Kind and severity](VERIFICATION.md#kind-and-severity)). The first line counts the findings by
+kind. A finding the judge
+rejected ([the judge](VERIFICATION.md#the-judge)) gets no heading: it is folded under "Disputed". Below the heading come
 the one-sentence summary, the failure scenario (the input that triggers the problem and what goes
 wrong), a collapsed "Why this was flagged" with the reasoning, how eyeful verified it and the
 reproduction test, and the verified fix as a diff. The folded nitpicks, the files triage set aside
 and the uncertainty checklist close the output.
 
 Each run also saves the same findings as `findings.json`, with the field names of Claude Code's
-findings list (`file`, `line`, `related`, `summary`, `short_summary`, `failure_scenario`, `category`,
-`verdict`) plus `severity`, along with `review.md`,
+findings list (`file`, `line`, `related`, `summary`, `short_summary`, `failure_scenario`, `category`)
+plus SARIF's `severity` and `kind`, along with `review.md`,
 `findings.json`, `results.sarif` and the full `result.json` ([Running locally](LOCAL.md)).
 
 Outputs are sinks plugged in at the end of the workflow ([Architecture](ARCHITECTURE.md#data-flow)),
 so adding an output means adding a sink.
 
-## Rounds
+## Rounds {#rounds}
 
-A change usually goes through several rounds of review and fixes. A re-review is a new review of the
-same subject. It receives the previous round's findings but not its reasoning. Each expert is asked
-to judge those findings again rather than confirm them, and a blocking issue that has been fixed is
-marked resolved in the new review.
+A change usually goes through several rounds of review and fixes. One review is an event: it gives a
+verdict on one diff and is over. What a person needs between rounds is a state, namely which
+problems are still there, and eyeful keeps that state as the reproductions it saw fail, not as a
+memory of what its agents said.
 
-## When summarizing fails
+A re-review is a new review of the same subject. Locally that is the latest earlier run in
+`.eyeful/runs` that compared against the same base commit and whose head is the head reviewed now
+or an ancestor of it; for uncommitted changes the same base is enough. A review of another change
+that merely starts where an earlier one ended has a different base and carries nothing over. With `execution`, before any expert starts, the verifier runs
+again every reproduction the last review saw fail, five times each, and no model is called:
 
-The summarizer writes the label, subject and discussion of each merged finding; Go adds the
-decorations, `blocking` only on an `issue` with strong evidence, and the area of each expert behind
-it, turns the label of a `low` finding into `nitpick`, and attaches the judge's objection to a
-disputed one. Go rejects the summary when a merged finding does not get exactly one comment, a label is not
-one of the nine, or an `issue` lacks strong evidence.
+| The reproduction now                                    | The finding                                                                                                                             |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| passes every time                                       | Resolved. The report lists it under "Resolved since the last review" with its test, and it gets no comment                              |
+| fails with its `fails` text, and not on the base commit | Still open. It is carried into this review with the same test and oracle as evidence, and the experts are told it is already found      |
+| fails the same way on the base commit                   | Pre-existing: the problem was merged, so this change no longer introduces it. Reported, never blocking                                  |
+| is flaky, fails another way or cannot run               | Shown again as an unverified comment and listed in the uncertainty checklist; a file now at the test's path is one reason it cannot run |
 
-If the summarizer fails or its summary is rejected, the feedback is formatted by rules instead.
-Findings are labelled by evidence strength alone, `issue` for strong evidence and `question` for the
-rest, and grouped by file. No finding is dropped.
+A finding counts as fixed only when its test went from red to green in front of the verifier. A
+finding the last review graded on a scale this version does not have, an oracle or a severity it
+does not know, is not carried, and neither is one it did not reproduce: the experts read the change afresh and
+report it again if it is still there. With `read_only` or `none` nothing runs, so nothing is carried
+either. Handing the last review's unproven findings to the judge again is planned.

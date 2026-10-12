@@ -33,6 +33,13 @@ func (s Set) offer(dir string, names []string) (string, error) {
 	return b.String(), nil
 }
 
+func past(history string) string {
+	if history == "" {
+		return ""
+	}
+	return fmt.Sprintf("\n\n## History\n\nIn place of `git_log` and `git_blame`, `%s` holds, for every changed file, the commits that last touched it before this change and who last changed the lines it replaces. Read it with your read-only tools.\n", history)
+}
+
 func (s Set) Diagnose(t workflow.DiagnoseTask) (string, error) {
 	return input(s.Roles[workflow.RoleCI].Body, t)
 }
@@ -49,7 +56,7 @@ func (s Set) Plan(t workflow.PlanTask, patchPath string) (string, json.RawMessag
 	return prompt, schema, err
 }
 
-func (s Set) Review(t workflow.ReviewTask, skills string) (string, error) {
+func (s Set) Review(t workflow.ReviewTask, skills, history string) (string, error) {
 	e, ok := s.Expert(t.Expert.Name)
 	if !ok {
 		return "", fmt.Errorf("%w: no prompt for expert %q", ErrInvalidPrompt, t.Expert.Name)
@@ -58,7 +65,7 @@ func (s Set) Review(t workflow.ReviewTask, skills string) (string, error) {
 	b.WriteString(e.Body + "\n\n")
 	fmt.Fprintf(&b, "Evidence kinds allowed for you: %v.\n\n", t.Expert.Evidence)
 	if t.TestOne == "" {
-		b.WriteString("No reproduction command is configured, so do not use evidence `repro_test`.\n\n")
+		b.WriteString("No reproduction command is configured, so do not use evidence `test`.\n\n")
 	}
 	if len(t.Rejected) > 0 {
 		fmt.Fprintf(&b, "Your previous report was rejected: %s.\n\n", strings.Join(t.Rejected, "; "))
@@ -67,11 +74,11 @@ func (s Set) Review(t workflow.ReviewTask, skills string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return input(b.String()+s.Roles[workflow.RoleExpert].Body+offered, t)
+	return input(b.String()+s.Roles[workflow.RoleExpert].Body+offered+past(history), t)
 }
 
-func (s Set) Fix(t workflow.FixTask) (string, error) {
-	return input(s.Roles[workflow.RoleFix].Body, t)
+func (s Set) Fix(t workflow.FixTask, history string) (string, error) {
+	return input(s.Roles[workflow.RoleFix].Body+past(history), t)
 }
 
 func (s Set) Retest(t workflow.RetestTask, skills string) (string, error) {
@@ -83,10 +90,6 @@ func (s Set) Retest(t workflow.RetestTask, skills string) (string, error) {
 	return input(role.Body+offered, t)
 }
 
-func (s Set) Judge(t workflow.JudgeTask) (string, error) {
-	return input(s.Roles[workflow.RoleJudge].Body, t)
-}
-
-func (s Set) Summarize(t workflow.SummaryTask) (string, error) {
-	return input(s.Roles[workflow.RoleSummarizer].Body, t)
+func (s Set) Judge(t workflow.JudgeTask, history string) (string, error) {
+	return input(s.Roles[workflow.RoleJudge].Body+past(history), t)
 }

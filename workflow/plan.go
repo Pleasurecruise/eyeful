@@ -7,38 +7,22 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
-var levels = map[Level]limits{
-	LevelQuick:    {experts: 2, tier: TierCheap},
-	LevelStandard: {experts: 4, planner: true, verify: true},
-}
-
 var crew = map[pulls.DiffCategory][]string{
 	"security": {"correctness", "skeptic", "security"},
 	"core":     {"correctness", "skeptic"},
 	"api":      {"correctness", "skeptic"},
 	"data":     {"correctness", "skeptic"},
 	"cli":      {"correctness", "skeptic"},
-	"ui":       {"usability"},
+	"ui":       {"usability", "correctness"},
 	"i18n":     {"usability"},
 	"tests":    {"tests"},
 	"docs":     {"readability"},
 	"examples": {"readability"},
 	"config":   {"security"},
 	"build":    {"security"},
-	"scripts":  {"security"},
+	"scripts":  {"security", "correctness"},
 	"deps":     {"security"},
 }
-
-var Levels = []Level{LevelQuick, LevelStandard}
-
-var signals = map[Tool]string{
-	ToolSecretScan:      "security",
-	ToolDependencyAudit: "security",
-	ToolTypecheck:       "correctness",
-	ToolOpenAPIDiff:     "usability",
-}
-
-var everyLevelSignals = []Tool{ToolSecretScan, ToolDependencyAudit, ToolOpenAPIDiff}
 
 func (w *Workflow) expert(name string) (Expert, bool) {
 	i := slices.IndexFunc(w.roster, func(e Expert) bool { return e.Name == name })
@@ -74,78 +58,9 @@ func (w *Workflow) staff(a pulls.Analysis, t Triage) Plan {
 }
 
 func whole(t Triage, category string, picks []Pick) Plan {
-	p := Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
-	if len(t.Reviewed) == 0 {
-		return p
-	}
 	g := Group{Category: category, Summary: "every reviewed file", Core: len(t.Risk) > 0, Experts: picks}
 	for _, e := range t.Reviewed {
 		g.Files = append(g.Files, e.Path)
 	}
-	p.Groups = []Group{g}
-	return p
-}
-
-func (w *Workflow) defaultPlan(t Triage, level Level) Plan {
-	picks := []Pick{}
-	for _, e := range w.roster {
-		if len(picks) == levels[level].experts {
-			break
-		}
-		if e.Solo {
-			continue
-		}
-		picks = append(picks, Pick{Name: e.Name, Why: "default expert for the level"})
-	}
-	return whole(t, "other", picks)
-}
-
-func (w *Workflow) routePlan(tools []ToolResult) Plan {
-	p := Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
-	for _, r := range tools {
-		name, ok := signals[r.Tool]
-		if !ok || len(r.Hits) == 0 {
-			continue
-		}
-		if _, ok := w.expert(name); !ok {
-			p.Skipped = append(p.Skipped, Pick{Name: name, Why: fmt.Sprintf("%s found something, but %s is not in the roster", r.Tool, name)})
-			continue
-		}
-		i := slices.IndexFunc(p.Groups, func(g Group) bool { return g.Experts[0].Name == name })
-		if i < 0 {
-			if len(p.Groups) == levels[LevelQuick].experts {
-				p.Skipped = append(p.Skipped, Pick{Name: name, Why: "the quick level allows two experts"})
-				continue
-			}
-			p.Groups = append(p.Groups, Group{Category: "signal", Summary: string(r.Tool), Experts: []Pick{{Name: name, Why: string(r.Tool) + " found something"}}})
-			i = len(p.Groups) - 1
-		}
-		for _, h := range r.Hits {
-			if !slices.Contains(p.Groups[i].Files, h.Path) {
-				p.Groups[i].Files = append(p.Groups[i].Files, h.Path)
-			}
-		}
-	}
-	return p
-}
-
-func (w *Workflow) addSignals(p Plan, tools []ToolResult) Plan {
-	for _, r := range tools {
-		name := signals[r.Tool]
-		if _, ok := w.expert(name); !ok || !slices.Contains(everyLevelSignals, r.Tool) {
-			continue
-		}
-		for _, h := range r.Hits {
-			why := fmt.Sprintf("%s: %s", r.Tool, h.Rule)
-			i := slices.IndexFunc(p.Groups, func(g Group) bool { return slices.Contains(g.Files, h.Path) })
-			if i < 0 {
-				p.Groups = append(p.Groups, Group{Category: "signal", Summary: string(r.Tool), Files: []string{h.Path}, Experts: []Pick{}})
-				i = len(p.Groups) - 1
-			}
-			if !slices.ContainsFunc(p.Groups[i].Experts, func(e Pick) bool { return e.Name == name }) {
-				p.Groups[i].Experts = append(p.Groups[i].Experts, Pick{Name: name, Why: why})
-			}
-		}
-	}
-	return p
+	return Plan{Groups: []Group{g}, Skipped: []Pick{}, Confidence: 1}
 }

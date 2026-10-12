@@ -25,7 +25,7 @@ func TestLoad(t *testing.T) {
 			t.Errorf("%s: %+v", name, e)
 		}
 	}
-	if len(s.Roles) != 7 || len(s.Skills) != 22 || len(s.Tools) != 14 {
+	if len(s.Roles) != 6 || len(s.Skills) != 22 || len(s.Tools) != 13 {
 		t.Fatalf("roles %d, skills %d, tools %d", len(s.Roles), len(s.Skills), len(s.Tools))
 	}
 	for name, r := range s.Roles {

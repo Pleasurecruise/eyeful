@@ -23,9 +23,19 @@ This page lists the standards eyeful reviews against and the two projects it bui
   ([Review feedback](REPORT.md)).
 - [Conventional Comments](https://conventionalcomments.org). The format, labels and decorations of
   every comment ([comment format](REPORT.md#comment-format)).
+- Tenny, [Trust Doesn't Live in the Code Review](https://raft.build/zh-cn/resources/blog/trust-doesnt-live-in-the-code-review/),
+  Raft, 2026. A review is an event and trust is a state: a verdict on one diff does not say the
+  system still holds together, and a check counts only once it has been seen to fail. This is why
+  eyeful never approves and a review without findings proves nothing ([limits](README.md#limits)),
+  why a reproduction has to fail before it is evidence ([the verifier](VERIFICATION.md#the-verifier)),
+  why a re-review reruns the last review's failing tests and calls a finding fixed only when its
+  test went from red to green ([rounds](REPORT.md#rounds)), and why the tests expert asks of every
+  new test what would turn it red ([tests](EXPERTS.md#tests)).
 - OASIS, [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the Static
   Analysis Results Interchange Format. Findings and their evidence are stored in it
-  ([Findings as SARIF](VERIFICATION.md#sarif)).
+  ([Findings as SARIF](VERIFICATION.md#sarif)), and its two scales are the only ones eyeful grades a
+  finding on: `level` (§3.27.10) for the severity an expert gives and `kind` (§3.27.9) for how
+  settled the finding is after verification ([Kind and severity](VERIFICATION.md#kind-and-severity)).
 
 ## Design and maintainability
 
@@ -52,6 +62,13 @@ This page lists the standards eyeful reviews against and the two projects it bui
 ## Testing
 
 - ISO/IEC/IEEE 29119, _Software testing_. Test design techniques and terminology.
+- E. T. Barr, M. Harman, P. McMinn, M. Shahbaz and S. Yoo, "The Oracle Problem in Software Testing:
+  A Survey", _IEEE Transactions on Software Engineering_, 41(5), 2015. Specified, derived, implicit
+  and human test oracles, the four kinds a reproduction declares and the verifier grades
+  ([the oracle problem](VERIFICATION.md#oracle)).
+- ISO/IEC/IEEE 29148:2018, _Requirements engineering_. Inspection, analysis, demonstration and
+  test, the verification methods an expert names as the `evidence` of a finding
+  ([evidence kinds](VERIFICATION.md#evidence-kinds)).
 - A. van Deursen, L. Moonen, A. van den Bergh and G. Kok, "Refactoring Test Code", XP 2001. Test
   smells.
 - Y. Jia and M. Harman, "An Analysis and Survey of the Development of Mutation Testing", _IEEE
@@ -116,7 +133,7 @@ From [umputun/revmux](https://github.com/umputun/revmux), in the stages and the 
 | A fixed sequence of stages                                      | [Stages](REVIEW.md#stages)                                        |
 | Merge findings on the same file within two lines, count sources | Merging and corroboration in the [ranked report](REPORT.md)       |
 | Carry on with less when a step fails, instead of aborting       | Failure handling in [stages](REVIEW.md#stages)                    |
-| Pass the previous round's findings to the next round            | [Rounds](REPORT.md)                                               |
+| Pass the previous round's findings to the next round            | [Rounds](REPORT.md#rounds), as the tests that showed them         |
 | Keep a round's input beside its output                          | `snapshot.json` and `change.diff` in the [run](LOCAL.md#snapshot) |
 | One process per reviewer, however much of the change it covers  | Each [expert](EXPERTS.md) runs once over all of its groups        |
 | A cap on reviewers running at once, and time limits per process | Four at once; 2 minutes idle and 20 minutes in all per call       |
@@ -130,6 +147,6 @@ an external reference.
 | ------------------------- | ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Who picks reviewers       | Not published                 | The caller picks a profile with a fixed roster   | A planner for each change, checked by Go against the change's files           |
 | What is reviewed          | Bugs                          | What the profile's lenses cover                  | Design, functionality, security, tests, usability, readability                |
-| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code and gives a verdict | The verifier runs a reproduction test; weaker findings are labelled as such   |
+| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code and gives a verdict | The verifier runs a reproduction test; every other finding is marked `review` |
 | Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text per finding   | Conventional Comments: blocking ones on the line, the rest in a ranked report |
 | Where it runs             | Anthropic's cloud             | Inside the reviewed repository, which it trusts  | The user's machine, or a cloud sandbox without credentials                    |

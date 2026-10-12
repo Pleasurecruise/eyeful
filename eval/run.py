@@ -18,17 +18,16 @@ CONFIGS: dict[str, list[str]] = {
     "panel": [],
     "single": ["generalist"],
     "fixed": ["correctness", "security"],
-    "dependent": ["--dependent"],
 }
 CONDITIONS: tuple[Condition, ...] = ("execution", "read_only", "none")
 MERGE = 2
 ATTEMPTS = 3
 
 
-def review(binary: Path, subject: Subject, config: str, condition: Condition, run: Path, flags: list[str]) -> float:
+def review(binary: Path, subject: Subject, config: str, condition: Condition, run: Path, flags: list[str], description: Path) -> float:
     command = [
         str(binary), "review", *CONFIGS[config], "--base", subject.base, "--head", subject.head,
-        "--verification", condition, "--yes", "--run", str(run),
+        "--verification", condition, "--yes", *(["--description", str(description)] if description.exists() else []), "--run", str(run),
     ]
     run.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp())
@@ -123,7 +122,7 @@ def main() -> None:
                     for attempt in range(1, ATTEMPTS + 1):
                         if clock.exists():
                             break
-                        took = review(args.eyeful, subject, config, condition, run, flags)
+                        took = review(args.eyeful, subject, config, condition, run, flags, args.subjects / subject.id / "description.md")
                         if read(subject, config, rep, condition, run, took).outcome != "error":
                             clock.write_text(str(took))
                             break

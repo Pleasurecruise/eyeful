@@ -18,7 +18,7 @@ type Provider struct {
 	Tool  string
 	Login string
 	strip []string
-	args  func(schema []byte, tier workflow.Tier, read bool) []string
+	args  func(schema []byte, tier workflow.Tier) []string
 	parse func(stdout []byte) (answer, error)
 }
 
@@ -32,6 +32,7 @@ type Config struct {
 	Dir      string
 	Skills   string
 	Patch    string
+	History  string
 	Trace    string
 	Set      prompts.Set
 }
@@ -62,12 +63,12 @@ type commitReply struct {
 	Message string `json:"message"`
 }
 
-type summaryReply struct {
-	Comments []workflow.Draft `json:"comments"`
+type judgeReply struct {
+	Judgements []workflow.Judgement `json:"judgements"`
 }
 
 type reply interface {
-	workflow.Diagnosis | pulls.Analysis | workflow.Report | fixReply | workflow.Repro | workflow.Judgement | summaryReply | commitReply
+	workflow.Diagnosis | pulls.Analysis | workflow.Report | fixReply | workflow.Repro | judgeReply | commitReply
 }
 
 type claudeEvent struct {

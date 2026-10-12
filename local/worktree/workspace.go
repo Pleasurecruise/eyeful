@@ -91,11 +91,6 @@ func (s *Workspace) CI(ctx context.Context) (workflow.Check, error) {
 	return workflow.Check{Passed: passed, Log: out}, s.tree.restore(ctx, s.tree.change)
 }
 
-func (s *Workspace) Tools(context.Context, []string) ([]workflow.ToolResult, error) {
-	// TODO(worktree): run the L1 tools for the project's languages.
-	return []workflow.ToolResult{}, nil
-}
-
 func (s *Workspace) Read(_ context.Context, path string) (_ string, err error) {
 	root, err := os.OpenRoot(s.tree.dir)
 	if err != nil {
@@ -195,9 +190,6 @@ type ReadOnly struct{}
 
 func (ReadOnly) CI(context.Context) (workflow.Check, error) { return workflow.Check{Passed: true}, nil }
 func (ReadOnly) Setup(context.Context) error                { return nil }
-func (ReadOnly) Tools(context.Context, []string) ([]workflow.ToolResult, error) {
-	return []workflow.ToolResult{}, nil
-}
 func (ReadOnly) Read(context.Context, string) (string, error) {
 	return "", fmt.Errorf("%w: verification is not execution", ErrNoCommand)
 }

@@ -31,7 +31,7 @@ scope.
 
 v1.0 contains only what the experiment needs, driven from the command line against a dataset:
 
-- The `workflow` module: planning and triage, experts, verifier and summarizer
+- The `workflow` module: planning and triage, experts, verifier and summary
   ([stages](REVIEW.md#stages)). The CI check is reduced to running the dataset's own tests.
 - The two experts whose findings can be reproduced, correctness and security, with their skills,
   tools and checklists, and the generalist that reviews alone as the single-agent baseline
@@ -44,7 +44,7 @@ v1.0 contains only what the experiment needs, driven from the command line again
 - Subjects running in SWE-bench's Docker environments, and in containers for the injected-defect
   set.
 - The run archive, which holds every number the thesis reports, and stage checkpoints.
-- The quick and standard levels, with feedback as SARIF and Markdown.
+- Feedback as SARIF and Markdown.
 - `eval/`: the datasets, the configurations and conditions, the labelling workflow and the
   ablations ([Evaluation](EVALUATION.md)).
 
@@ -58,11 +58,12 @@ Exit criteria:
 
 - The main experiment has run on both datasets, in both configurations and all three conditions,
   three times each, and the findings are labelled as the evaluation describes.
-- Every `issue (blocking)` in those runs was seen failing by the verifier and has an `implicit`,
-  `existing` or `spec` oracle.
+- Every `issue (blocking)` in those runs was seen failing by the verifier and has a `specified` or
+  `implicit` oracle, or a `derived` one that is a test of the project's own.
 - A review that runs out of budget returns what it verified, marked partial. A worker killed in the
   middle of a review resumes from its last finished stage.
-- The thesis can report what standard adds over quick, which is how v1.0 measures proportion.
+- The thesis can report what the panel adds over the single agent and what it costs, which is how
+  v1.0 measures proportion.
 
 Until v1.0 is released, the console, the desktop app, Gitee sign-in, CORS, rate limits and MCP get
 no new features. They keep working and keep their tests.

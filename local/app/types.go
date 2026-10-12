@@ -17,9 +17,8 @@ type Options struct {
 	Dir          string
 	Range        subject.Range
 	Experts      []string
+	Description  string
 	Verification workflow.Mode
-	Level        workflow.Level
-	Dependent    bool
 	Run          string
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)
 	Out          io.Writer
@@ -35,6 +34,7 @@ type Provider struct {
 
 const (
 	budget         = 3_000_000
+	historyFile    = "history.md"
 	commandTimeout = 10 * time.Minute
 	idleTimeout    = 2 * time.Minute
 	hardTimeout    = 20 * time.Minute

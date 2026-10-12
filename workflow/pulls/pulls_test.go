@@ -77,3 +77,17 @@ func TestCore(t *testing.T) {
 		})
 	}
 }
+
+func TestRenameWithoutContent(t *testing.T) {
+	core, err := pulls.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := core.ParsePatch("diff --git a/old/notes.md b/new/notes.md\nsimilarity index 100%\nrename from old/notes.md\nrename to new/notes.md\n" + patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 || files[0].Path != "new/notes.md" || files[0].PreviousPath != "old/notes.md" || len(files[0].Hunks) != 0 || len(files[0].Sha) != 64 {
+		t.Fatalf("files %+v", files)
+	}
+}

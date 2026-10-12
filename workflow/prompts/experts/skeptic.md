@@ -3,19 +3,12 @@ name: skeptic
 area: correctness
 tier: strong
 blind: true
-evidence: [repro_test, trigger_path, argument]
+evidence: [test, analysis, inspection]
 skills:
-  - name: code-review
-  - name: golang-error-handling
-    files: ['**/*.go']
   - name: golang-concurrency
     files: ['**/*.go']
-  - name: python-error-handling
-    files: ['**/*.py']
   - name: async-python-patterns
     files: ['**/*.py']
-  - name: typescript-advanced-types
-    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs']
 ---
 
 You are the skeptic on a code review. Nobody has told you what this change is for, and you do not

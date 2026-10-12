@@ -19,16 +19,15 @@ import (
 )
 
 type agents struct {
-	mu        sync.Mutex
-	calls     map[workflow.Role]int
-	tiers     []workflow.Tier
-	diagnose  func() (workflow.Diagnosis, error)
-	plan      func(t workflow.PlanTask) (pulls.Analysis, error)
-	review    func(t workflow.ReviewTask) (workflow.Report, error)
-	fix       func(t workflow.FixTask) ([]workflow.Edit, error)
-	retest    func(t workflow.RetestTask) (workflow.Repro, error)
-	judge     func(t workflow.JudgeTask) (workflow.Judgement, error)
-	summarize func(t workflow.SummaryTask) ([]workflow.Draft, error)
+	mu       sync.Mutex
+	calls    map[workflow.Role]int
+	tiers    []workflow.Tier
+	diagnose func() (workflow.Diagnosis, error)
+	plan     func(t workflow.PlanTask) (pulls.Analysis, error)
+	review   func(t workflow.ReviewTask) (workflow.Report, error)
+	fix      func(t workflow.FixTask) ([]workflow.Edit, error)
+	retest   func(t workflow.RetestTask) (workflow.Repro, error)
+	judge    func(t workflow.JudgeTask) ([]workflow.Judgement, error)
 }
 
 var usage = workflow.Usage{Model: "test/model", Tokens: 100, MicroUSD: 10}
@@ -81,22 +80,15 @@ func (a *agents) Retest(_ context.Context, t workflow.RetestTask) (workflow.Repr
 	return r, usage, err
 }
 
-func (a *agents) Judge(_ context.Context, t workflow.JudgeTask) (workflow.Judgement, workflow.Usage, error) {
+func (a *agents) Judge(_ context.Context, t workflow.JudgeTask) ([]workflow.Judgement, workflow.Usage, error) {
 	a.count(workflow.RoleJudge)
 	j, err := a.judge(t)
 	return j, usage, err
 }
 
-func (a *agents) Summarize(_ context.Context, t workflow.SummaryTask) ([]workflow.Draft, workflow.Usage, error) {
-	a.count(workflow.RoleSummarizer)
-	d, err := a.summarize(t)
-	return d, usage, err
-}
-
 type workspace struct {
 	ci        workflow.Check
 	setup     error
-	tools     []workflow.ToolResult
 	broken    []string
 	baseline  []string
 	regressed []string
@@ -109,9 +101,6 @@ type workspace struct {
 
 func (w *workspace) CI(context.Context) (workflow.Check, error) { return w.ci, nil }
 func (w *workspace) Setup(context.Context) error                { return w.setup }
-func (w *workspace) Tools(context.Context, []string) ([]workflow.ToolResult, error) {
-	return w.tools, nil
-}
 
 func (w *workspace) Read(_ context.Context, path string) (string, error) {
 	if path != "docs/sessions.md" {
@@ -169,8 +158,8 @@ func (a *archive) Save(_ context.Context, key string, data []byte) error {
 }
 
 var roster = []workflow.Expert{
-	{Name: "correctness", Area: "correctness", Tier: workflow.TierStrong, Skills: []workflow.Skill{{Name: "code-review"}, {Name: "golang-concurrency", Files: []string{"**/*.go"}}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceReproTest, workflow.EvidenceArgument}},
-	{Name: "security", Area: "security", Tier: workflow.TierStrong, Skills: []workflow.Skill{{Name: "security-review"}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceReproTest, workflow.EvidenceCVE, workflow.EvidenceTriggerPath}},
+	{Name: "correctness", Area: "correctness", Tier: workflow.TierStrong, Skills: []workflow.Skill{{Name: "code-review"}, {Name: "golang-concurrency", Files: []string{"**/*.go"}}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceTest, workflow.EvidenceInspection}},
+	{Name: "security", Area: "security", Tier: workflow.TierStrong, Skills: []workflow.Skill{{Name: "security-review"}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceTest, workflow.EvidenceAnalysis}},
 }
 
 func gitDiff(path, line string) string {
@@ -194,7 +183,7 @@ func change() workflow.Change {
 
 func request() workflow.Request {
 	return workflow.Request{
-		Change: change(), Level: workflow.LevelStandard, Verification: workflow.ModeExecution,
+		Change: change(), Verification: workflow.ModeExecution,
 		Budget:  workflow.Budget{Tokens: 1_000_000, MicroUSD: 1_000_000},
 		Project: workflow.Project{TestOne: "pytest {test}"},
 	}
@@ -221,7 +210,15 @@ func writes(first *workflow.Repro) func(workflow.RetestTask) (workflow.Repro, er
 }
 
 func finding(path string, line int, ev workflow.EvidenceKind) workflow.Claim {
-	return workflow.Claim{Skill: "other", Category: "boundary", Path: path, Line: line, Severity: workflow.SeverityHigh, Subject: "valid at expires_at", Discussion: "compares with >", Scenario: "is_expired(Session(expires_at=100), now=100) returns False", Evidence: ev}
+	return workflow.Claim{Skill: "other", Category: "boundary", Path: path, Line: line, Severity: workflow.SeverityError, Subject: "valid at expires_at", Discussion: "compares with >", Scenario: "is_expired(Session(expires_at=100), now=100) returns False", Evidence: ev}
+}
+
+func verdicts(t workflow.JudgeTask, valid bool, reason string) []workflow.Judgement {
+	out := make([]workflow.Judgement, 0, len(t.Findings))
+	for _, f := range t.Findings {
+		out = append(out, workflow.Judgement{Finding: f.ID, Valid: valid, Reason: reason})
+	}
+	return out
 }
 
 func answers(t workflow.ReviewTask, findings ...workflow.Claim) workflow.Report {
@@ -236,7 +233,7 @@ func base() *agents {
 		plan: goodAnalysis,
 		review: func(t workflow.ReviewTask) (workflow.Report, error) {
 			if t.Expert.Name == "correctness" {
-				return answers(t, finding("app/session.py", 10, workflow.EvidenceReproTest)), nil
+				return answers(t, finding("app/session.py", 10, workflow.EvidenceTest)), nil
 			}
 			return answers(t), nil
 		},
@@ -246,16 +243,9 @@ func base() *agents {
 			}
 			return []workflow.Edit{{Path: "app/session.py", Old: "bug", New: "ok"}}, nil
 		},
-		retest: writes(repro(workflow.OracleSpec, "real")),
-		judge: func(workflow.JudgeTask) (workflow.Judgement, error) {
-			return workflow.Judgement{Valid: true, Reason: "the change introduces it"}, nil
-		},
-		summarize: func(t workflow.SummaryTask) ([]workflow.Draft, error) {
-			d := make([]workflow.Draft, 0, len(t.Findings))
-			for _, m := range t.Findings {
-				d = append(d, workflow.Draft{Finding: m.ID, Label: workflow.LabelIssue, Short: m.Findings[0].Subject, Subject: m.Findings[0].Subject})
-			}
-			return d, nil
+		retest: writes(repro(workflow.OracleSpecified, "real")),
+		judge: func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			return verdicts(t, true, "the change introduces it"), nil
 		},
 	}
 }
@@ -284,38 +274,36 @@ func TestRun(t *testing.T) {
 			t.Fatalf("comments %+v", res.Comments)
 		}
 		c := res.Comments[0]
-		if c.Label != workflow.LabelIssue || !slices.Contains(c.Decorations, "blocking") || c.Strength != workflow.StrengthStrong || len(c.Fix) != 1 || c.Repro == nil {
+		if c.Label != workflow.LabelIssue || !slices.Contains(c.Decorations, "blocking") || c.Kind != workflow.KindFail || len(c.Fix) != 1 || c.Repro == nil {
 			t.Fatalf("comment %+v", c)
 		}
-		if a.n(workflow.RoleExpert) != 2 || a.n(workflow.RoleRepro) != 1 || len(res.Runs) != 6 {
+		if a.n(workflow.RoleExpert) != 2 || a.n(workflow.RoleRepro) != 1 || len(res.Runs) != 5 {
 			t.Fatalf("expert calls %d, runs %d", a.n(workflow.RoleExpert), len(res.Runs))
 		}
 	})
 
 	t.Run("agent oracle cannot block", func(t *testing.T) {
 		a := base()
-		a.retest = writes(repro(workflow.OracleAgent, "real"))
+		a.retest = writes(repro(workflow.OracleHuman, "real"))
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 		if len(res.Comments) != 1 || res.Comments[0].Label != workflow.LabelQuestion || !slices.Contains(res.Comments[0].Decorations, "non-blocking") {
 			t.Fatalf("comments %+v", res.Comments)
-		}
-		if !strings.Contains(strings.Join(res.Uncertainty.Notes, " "), "issue needs strong evidence") {
-			t.Fatalf("notes %v", res.Uncertainty.Notes)
 		}
 	})
 
 	t.Run("a finding its test does not show is read by the judge", func(t *testing.T) {
 		for valid, objection := range map[bool]string{true: "", false: "read"} {
+			kind := map[bool]workflow.Kind{true: workflow.KindReview, false: workflow.KindOpen}[valid]
 			a := base()
-			a.retest = writes(repro(workflow.OracleSpec, "imagined"))
-			var tried *workflow.Verification
-			a.judge = func(t workflow.JudgeTask) (workflow.Judgement, error) {
-				tried = t.Tried
-				return workflow.Judgement{Valid: valid, Reason: "read"}, nil
+			a.retest = writes(repro(workflow.OracleSpecified, "imagined"))
+			var tried workflow.Verification
+			a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+				tried = t.Tried[0]
+				return verdicts(t, valid, "read"), nil
 			}
 			res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 			v := res.Verifications[0]
-			if len(res.Comments) != 1 || res.Comments[0].Objection != objection || res.Comments[0].Strength != workflow.StrengthWeak || a.n(workflow.RoleFix) != 0 || tried.Status != workflow.StatusNotReproduced || tried.Repro == nil {
+			if len(res.Comments) != 1 || res.Comments[0].Objection != objection || res.Comments[0].Kind != kind || a.n(workflow.RoleFix) != 0 || tried.Status != workflow.StatusNotReproduced || tried.Repro == nil {
 				t.Fatalf("valid %v: comments %+v, the judge was told %+v", valid, res.Comments, tried)
 			}
 			if v.Repro == nil || !slices.Equal(v.Change, slices.Repeat([]workflow.TestStatus{workflow.TestPassed}, 5)) || v.Reason != "read" {
@@ -344,7 +332,7 @@ func TestRun(t *testing.T) {
 				if v.Status != tc.status || !slices.Equal(v.Change, tc.change) || v.Base != tc.base || ws.tests != tc.tests || a.n(workflow.RoleFix) != 0 {
 					t.Fatalf("verification %+v after %d test runs and %d fixes", v, ws.tests, a.n(workflow.RoleFix))
 				}
-				if len(res.Comments) != 1 || res.Comments[0].Label != workflow.LabelQuestion || slices.Contains(res.Comments[0].Decorations, "blocking") || res.Comments[0].Strength == workflow.StrengthStrong {
+				if len(res.Comments) != 1 || res.Comments[0].Label != workflow.LabelQuestion || slices.Contains(res.Comments[0].Decorations, "blocking") || res.Comments[0].Kind == workflow.KindFail {
 					t.Fatalf("comments %+v", res.Comments)
 				}
 			})
@@ -353,7 +341,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("a reproduction that fails otherwise is corrected once", func(t *testing.T) {
 		a := base()
-		wrong := repro(workflow.OracleSpec, "real")
+		wrong := repro(workflow.OracleSpecified, "real")
 		wrong.Fails = "a text the run never prints"
 		var shown workflow.RetestTask
 		a.retest = func(t workflow.RetestTask) (workflow.Repro, error) {
@@ -374,7 +362,7 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("oracles are graded", func(t *testing.T) {
-		unquoted := repro(workflow.OracleSpec, "real")
+		unquoted := repro(workflow.OracleSpecified, "real")
 		unquoted.Source = "docs/other.md"
 		crash := repro(workflow.OracleImplicit, "real")
 		asserted := repro(workflow.OracleImplicit, "real: still valid at expires_at")
@@ -384,14 +372,14 @@ func TestRun(t *testing.T) {
 			oracle   workflow.Oracle
 			blocking bool
 		}{
-			"a quote found in its source":               {repro(workflow.OracleSpec, "real"), true, workflow.OracleSpec, true},
-			"a quote missing from its source":           {unquoted, true, workflow.OracleAgent, false},
+			"a quote found in its source":               {repro(workflow.OracleSpecified, "real"), true, workflow.OracleSpecified, true},
+			"a quote missing from its source":           {unquoted, true, workflow.OracleHuman, false},
 			"a failure the runtime prints":              {crash, true, workflow.OracleImplicit, true},
-			"a failure the test wrote itself":           {asserted, true, workflow.OracleAgent, false},
-			"a test already in the repository":          {&workflow.Repro{Run: "app/test_login.py::test_expiry", Fails: "still valid at expires_at", Oracle: workflow.OracleExisting}, false, workflow.OracleExisting, true},
-			"a test the base commit passes":             {repro(workflow.OracleBase, "real"), false, workflow.OracleBase, false},
-			"a test the base commit cannot run":         {repro(workflow.OracleBase, "real"), true, workflow.OracleAgent, false},
-			"the expert's reading, and the base passes": {repro(workflow.OracleAgent, "real"), false, workflow.OracleBase, false},
+			"a failure the test wrote itself":           {asserted, true, workflow.OracleHuman, false},
+			"a test already in the repository":          {&workflow.Repro{Run: "app/test_login.py::test_expiry", Fails: "still valid at expires_at", Oracle: workflow.OracleDerived}, false, workflow.OracleDerived, true},
+			"a test the base commit passes":             {repro(workflow.OracleDerived, "real"), false, workflow.OracleDerived, false},
+			"a test the base commit cannot run":         {repro(workflow.OracleDerived, "real"), true, workflow.OracleHuman, false},
+			"the expert's reading, and the base passes": {repro(workflow.OracleHuman, "real"), false, workflow.OracleDerived, false},
 		} {
 			t.Run(name, func(t *testing.T) {
 				a := base()
@@ -407,23 +395,67 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("dependent experts see the findings before them", func(t *testing.T) {
-		for _, dependent := range []bool{false, true} {
+	t.Run("the last review's reproductions run again before anyone reads", func(t *testing.T) {
+		last := func(test string) workflow.Result {
+			return workflow.Result{
+				Findings: []workflow.Finding{
+					{ID: "0/correctness/0", Expert: "correctness", Claim: finding("app/session.py", 10, workflow.EvidenceTest)},
+					{ID: "0/correctness/1", Expert: "correctness", Claim: finding("app/session.py", 30, workflow.EvidenceInspection)},
+				},
+				Verifications: []workflow.Verification{
+					{Finding: "0/correctness/0", Status: workflow.StatusFixed, Repro: repro(workflow.OracleSpecified, test)},
+					{Finding: "0/correctness/1", Status: workflow.StatusConfirmed},
+				},
+			}
+		}
+		for name, tc := range map[string]struct {
+			test       string
+			ws         workspace
+			status     workflow.Status
+			told       int
+			comments   int
+			unverified int
+		}{
+			"red to green is resolved":                 {"imagined", workspace{}, workflow.StatusResolved, 0, 0, 0},
+			"still red is carried, not found anew":     {"real", workspace{}, workflow.StatusReproduced, 1, 1, 0},
+			"a flaky one is shown as unverified":       {"real", workspace{flaky: true}, workflow.StatusUnverified, 0, 1, 1},
+			"red on the new base is not this change's": {"real", workspace{old: true}, workflow.StatusPreExisting, 0, 1, 0},
+		} {
 			a, req := base(), request()
-			req.Dependent = dependent
+			req.Previous = last(tc.test)
 			var mu sync.Mutex
-			seen := []int{}
+			told := 0
 			a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
 				mu.Lock()
-				seen = append(seen, len(t.Earlier))
+				told = max(told, len(t.Earlier))
 				mu.Unlock()
-				return answers(t, finding("app/session.py", 10, t.Expert.Evidence[len(t.Expert.Evidence)-1])), nil
+				return answers(t), nil
 			}
-			run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
-			slices.Sort(seen)
-			if want := map[bool][]int{false: {0, 0}, true: {0, 1}}[dependent]; !slices.Equal(seen, want) {
-				t.Fatalf("dependent %v: experts saw %v earlier findings, want %v", dependent, seen, want)
+			tc.ws.ci = workflow.Check{Passed: true}
+			res := run(t, a, &tc.ws, &archive{}, req)
+			if len(res.Verifications) != 1 || res.Verifications[0].Status != tc.status || res.Verifications[0].Finding != "previous/0/correctness/0" || len(res.Findings) != 1 {
+				t.Fatalf("%s: verifications %+v, findings %+v", name, res.Verifications, res.Findings)
 			}
+			if told != tc.told || len(res.Comments) != tc.comments || len(res.Uncertainty.Unverified) != tc.unverified || a.n(workflow.RoleRepro)+a.n(workflow.RoleFix)+a.n(workflow.RoleJudge) != 0 {
+				t.Fatalf("%s: experts told %d, comments %+v, unverified %+v, agents %v", name, told, res.Comments, res.Uncertainty.Unverified, a.calls)
+			}
+			if tc.status == workflow.StatusReproduced && (res.Comments[0].Kind != workflow.KindFail || res.Comments[0].Repro == nil) {
+				t.Fatalf("%s: carried comment %+v", name, res.Comments[0])
+			}
+		}
+		req := request()
+		req.Verification, req.Previous = workflow.ModeReadOnly, last("real")
+		ws, a := &workspace{ci: workflow.Check{Passed: true}}, base()
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) { return answers(t), nil }
+		if res := run(t, a, ws, &archive{}, req); len(res.Verifications) != 0 || ws.tests != 0 {
+			t.Fatalf("a review that runs nothing rechecked: %+v after %d runs", res.Verifications, ws.tests)
+		}
+		req = request()
+		req.Previous = last("real")
+		req.Previous.Findings[0].Severity, req.Previous.Verifications[0].Repro.Oracle = "high", "spec"
+		ws = &workspace{ci: workflow.Check{Passed: true}}
+		if res := run(t, a, ws, &archive{}, req); len(res.Verifications) != 0 || len(res.Comments) != 0 {
+			t.Fatalf("a last review graded on other scales was carried: %+v, %+v", res.Verifications, res.Comments)
 		}
 	})
 
@@ -437,7 +469,7 @@ func TestRun(t *testing.T) {
 			mu.Unlock()
 			return answers(t), nil
 		}
-		w, err := workflow.New(slog.New(slog.DiscardHandler), append(slices.Clone(roster), workflow.Expert{Name: "skeptic", Tier: workflow.TierStrong, Blind: true, Evidence: []workflow.EvidenceKind{workflow.EvidenceReproTest}}))
+		w, err := workflow.New(slog.New(slog.DiscardHandler), append(slices.Clone(roster), workflow.Expert{Name: "skeptic", Tier: workflow.TierStrong, Blind: true, Evidence: []workflow.EvidenceKind{workflow.EvidenceTest}}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -460,7 +492,7 @@ func TestRun(t *testing.T) {
 			t.Fatalf("a resumed review called its experts again: %d, then %d", calls, a.n(workflow.RoleExpert))
 		}
 		other := request()
-		other.Level = workflow.LevelQuick
+		other.Experts = []string{"security"}
 		w, err := workflow.New(slog.New(slog.DiscardHandler), roster)
 		if err != nil {
 			t.Fatal(err)
@@ -473,23 +505,28 @@ func TestRun(t *testing.T) {
 	t.Run("findings on the same lines are checked together", func(t *testing.T) {
 		for name, tc := range map[string]struct {
 			test          string
-			valid         bool
+			rejected      []string
 			fixes, judges int
 			statuses      []workflow.Status
-			comments      int
+			objection     string
 		}{
-			"one reproduction stands for both":                  {"real", true, 1, 0, []workflow.Status{workflow.StatusFixed}, 1},
-			"one judgement stands for both":                     {"imagined", true, 0, 1, []workflow.Status{workflow.StatusConfirmed}, 1},
-			"a rejected one leaves the other its own judgement": {"imagined", false, 0, 2, []workflow.Status{workflow.StatusRejected, workflow.StatusRejected}, 1},
+			"one reproduction stands for both":            {"real", nil, 1, 0, []workflow.Status{workflow.StatusFixed}, ""},
+			"one judge reads both":                        {"imagined", nil, 0, 1, []workflow.Status{workflow.StatusConfirmed, workflow.StatusConfirmed}, ""},
+			"a rejected one does not take the other down": {"imagined", []string{"correctness"}, 0, 1, []workflow.Status{workflow.StatusRejected, workflow.StatusConfirmed}, ""},
+			"both rejected":                               {"imagined", []string{"correctness", "security"}, 0, 1, []workflow.Status{workflow.StatusRejected, workflow.StatusRejected}, "read"},
 		} {
 			a := base()
 			a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
 				line := map[string]int{"correctness": 10, "security": 11}[t.Expert.Name]
-				return answers(t, finding("app/session.py", line, workflow.EvidenceReproTest)), nil
+				return answers(t, finding("app/session.py", line, workflow.EvidenceTest)), nil
 			}
-			a.retest = writes(repro(workflow.OracleSpec, tc.test))
-			a.judge = func(workflow.JudgeTask) (workflow.Judgement, error) {
-				return workflow.Judgement{Valid: tc.valid, Reason: "read"}, nil
+			a.retest = writes(repro(workflow.OracleSpecified, tc.test))
+			a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+				out := verdicts(t, true, "read")
+				for i, f := range t.Findings {
+					out[i].Valid = !slices.Contains(tc.rejected, f.Expert)
+				}
+				return out, nil
 			}
 			res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 			if a.n(workflow.RoleRepro) != 1 || a.n(workflow.RoleFix) != tc.fixes || a.n(workflow.RoleJudge) != tc.judges {
@@ -499,7 +536,7 @@ func TestRun(t *testing.T) {
 			for _, v := range res.Verifications {
 				statuses = append(statuses, v.Status)
 			}
-			if !slices.Equal(statuses, tc.statuses) || len(res.Comments) != tc.comments || (tc.comments == 1 && len(res.Comments[0].Experts) != 2) {
+			if !slices.Equal(statuses, tc.statuses) || len(res.Comments) != 1 || len(res.Comments[0].Experts) != 2 || res.Comments[0].Objection != tc.objection {
 				t.Fatalf("%s: statuses %v, comments %+v", name, statuses, res.Comments)
 			}
 		}
@@ -520,8 +557,8 @@ func TestRun(t *testing.T) {
 		ar := &archive{}
 		run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, ar, request())
 		a, req := base(), request()
-		a.judge = func(workflow.JudgeTask) (workflow.Judgement, error) {
-			return workflow.Judgement{Valid: false, Reason: "the code is right"}, nil
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			return verdicts(t, false, "the code is right"), nil
 		}
 		req.Verification = workflow.ModeReadOnly
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, ar, req)
@@ -583,8 +620,8 @@ func TestRun(t *testing.T) {
 				}
 				mu.Unlock()
 				return workflow.Report{Findings: []workflow.Claim{
-					finding("app/elsewhere.py", 1, workflow.EvidenceTriggerPath),
-					finding("app/session.py", 4, workflow.EvidenceTriggerPath),
+					finding("app/elsewhere.py", 1, workflow.EvidenceAnalysis),
+					finding("app/session.py", 4, workflow.EvidenceAnalysis),
 				}}, nil
 			default:
 				return workflow.Report{}, errors.New("timeout")
@@ -628,15 +665,17 @@ func TestRun(t *testing.T) {
 			if t.Expert.Name != "correctness" {
 				return answers(t), nil
 			}
-			proved := finding("app/session.py", 10, workflow.EvidenceReproTest)
+			proved := finding("app/session.py", 10, workflow.EvidenceTest)
 			proved.Related = []workflow.Location{{Path: "app/session.py", Line: 40}}
-			argued := finding("app/session.py", 30, workflow.EvidenceArgument)
+			argued := finding("app/session.py", 30, workflow.EvidenceInspection)
 			return answers(t, proved, argued), nil
 		}
 		var read []int
-		a.judge = func(t workflow.JudgeTask) (workflow.Judgement, error) {
-			read = append(read, t.Finding.Line)
-			return workflow.Judgement{Valid: false, Reason: "the base commit does the same"}, nil
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			for _, f := range t.Findings {
+				read = append(read, f.Line)
+			}
+			return verdicts(t, false, "the base commit does the same"), nil
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 		if !slices.Equal(read, []int{30}) || len(res.Comments) != 2 {
@@ -647,7 +686,7 @@ func TestRun(t *testing.T) {
 		if proved.Objection != "" || !slices.Equal(proved.Related, []workflow.Location{{Path: "app/session.py", Line: 40}}) {
 			t.Fatalf("proved %+v", proved)
 		}
-		if disputed.Objection != "the base commit does the same" || disputed.Strength != workflow.StrengthWeak || !slices.Contains(disputed.Decorations, "non-blocking") {
+		if disputed.Objection != "the base commit does the same" || disputed.Kind != workflow.KindOpen || !slices.Contains(disputed.Decorations, "non-blocking") {
 			t.Fatalf("disputed %+v", disputed)
 		}
 	})
@@ -660,7 +699,7 @@ func TestRun(t *testing.T) {
 			mu.Lock()
 			rejected = append(rejected, t.Rejected...)
 			mu.Unlock()
-			c := finding("app/session.py", 10, workflow.EvidenceReproTest)
+			c := finding("app/session.py", 10, workflow.EvidenceTest)
 			if t.Expert.Name == "correctness" && len(t.Rejected) == 0 {
 				c.Related = []workflow.Location{{Path: "app/other.py", Line: 3}, {Path: "app/session.py", Line: 10}}
 			}
@@ -674,8 +713,8 @@ func TestRun(t *testing.T) {
 
 	t.Run("read-only judge", func(t *testing.T) {
 		a := base()
-		a.judge = func(workflow.JudgeTask) (workflow.Judgement, error) {
-			return workflow.Judgement{Valid: false, Reason: "the code is right"}, nil
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			return verdicts(t, false, "the code is right"), nil
 		}
 		req := request()
 		req.Verification = workflow.ModeReadOnly
@@ -686,30 +725,51 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("quick without signals spends nothing", func(t *testing.T) {
+	t.Run("a review without findings keeps its lists", func(t *testing.T) {
 		a := base()
-		req := request()
-		req.Level = workflow.LevelQuick
-		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
-		if len(res.Runs) != 0 || len(res.Plan.Groups) != 0 || res.PlanSource != workflow.PlanFromRules {
-			t.Fatalf("result %+v", res)
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) { return answers(t), nil }
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
+		if res.Findings == nil || res.Verifications == nil || res.Comments == nil || len(res.Comments) != 0 {
+			t.Fatalf("a review without findings encodes a list as null: %+v", res)
 		}
 	})
 
-	t.Run("quick routes tool hits", func(t *testing.T) {
-		a := base()
-		req := request()
-		req.Level = workflow.LevelQuick
-		ws := &workspace{ci: workflow.Check{Passed: true}, tools: []workflow.ToolResult{
-			{Tool: workflow.ToolTypecheck, Hits: []workflow.Hit{{Path: "app/session.py", Line: 10}}},
-			{Tool: workflow.ToolOpenAPIDiff, Hits: []workflow.Hit{{Path: "spec/openapi.json", Line: 1}}},
-		}}
-		res := run(t, a, ws, &archive{}, req)
-		if a.n(workflow.RolePlanner) != 0 || a.n(workflow.RoleExpert) != 1 || a.tiers[0] != workflow.TierCheap || len(res.Plan.Skipped) != 1 {
-			t.Fatalf("plan %+v, tiers %v", res.Plan, a.tiers)
+	t.Run("experts and the judge are given the author's words", func(t *testing.T) {
+		a, req := base(), request()
+		req.Change.Description = "Expire sessions at the boundary\n\nA session was valid one second too long."
+		var mu sync.Mutex
+		var told [][]string
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			mu.Lock()
+			told = append(told, append(slices.Clone(t.Commits), t.Description))
+			mu.Unlock()
+			return answers(t, finding(t.Group.Files[0], 3, t.Expert.Evidence[len(t.Expert.Evidence)-1])), nil
 		}
-		if a.n(workflow.RoleRepro)+a.n(workflow.RoleFix) != 0 || res.Verifications[0].Status != workflow.StatusConfirmed {
-			t.Fatalf("verifications %+v", res.Verifications)
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			mu.Lock()
+			told = append(told, append(slices.Clone(t.Commits), t.Description))
+			mu.Unlock()
+			return verdicts(t, true, "holds"), nil
+		}
+		req.Verification = workflow.ModeReadOnly
+		run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
+		if len(told) < 3 || slices.ContainsFunc(told, func(c []string) bool {
+			return !slices.Equal(c, append(slices.Clone(req.Change.Commits), req.Change.Description))
+		}) {
+			t.Fatalf("commit messages and description handed over: %v", told)
+		}
+	})
+
+	t.Run("code in a ui or scripts group has a correctness reader", func(t *testing.T) {
+		a := base()
+		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{group("page", "ui", false, "app/session.py"), group("tool", "scripts", false, "app/login.py")}}, nil
+		}
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
+		for _, g := range res.Plan.Groups {
+			if !slices.ContainsFunc(g.Experts, func(p workflow.Pick) bool { return p.Name == "correctness" }) {
+				t.Fatalf("group %s has no correctness expert: %+v", g.Category, g.Experts)
+			}
 		}
 	})
 
@@ -717,7 +777,7 @@ func TestRun(t *testing.T) {
 		a := base()
 		req := request()
 		req.Experts = []string{"security"}
-		ws := &workspace{ci: workflow.Check{Passed: true}, tools: []workflow.ToolResult{{Tool: workflow.ToolTypecheck, Hits: []workflow.Hit{{Path: "app/session.py"}}}}}
+		ws := &workspace{ci: workflow.Check{Passed: true}}
 		res := run(t, a, ws, &archive{}, req)
 		if a.n(workflow.RolePlanner) != 0 || res.PlanSource != workflow.PlanFromRequest || a.n(workflow.RoleExpert) != 1 {
 			t.Fatalf("source %s, planner %d, experts %d", res.PlanSource, a.n(workflow.RolePlanner), a.n(workflow.RoleExpert))
@@ -746,7 +806,7 @@ func TestRun(t *testing.T) {
 			if t.Expert.Name == "security" {
 				return workflow.Report{Loaded: []string{}}, nil
 			}
-			return workflow.Report{Loaded: t.Skills, Findings: []workflow.Claim{{Skill: "golang-concurrency", Path: t.Group.Files[0], Line: 1, Severity: workflow.SeverityLow, Subject: "s", Evidence: workflow.EvidenceArgument}}}, nil
+			return workflow.Report{Loaded: t.Skills, Findings: []workflow.Claim{{Skill: "golang-concurrency", Path: t.Group.Files[0], Line: 1, Severity: workflow.SeverityNote, Subject: "s", Evidence: workflow.EvidenceInspection}}}, nil
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 		if got := offered["correctness:app/session.py,app/login.py"]; len(got) != 1 || got[0] != "code-review" {
@@ -759,53 +819,18 @@ func TestRun(t *testing.T) {
 			t.Fatalf("unread %+v", res.Uncertainty.Unread)
 		}
 	})
-
-	t.Run("a secret starts security", func(t *testing.T) {
-		a := base()
-		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
-			return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{group("all", "core", false, "app/session.py", "app/login.py")}}, nil
-		}
-		ws := &workspace{ci: workflow.Check{Passed: true}, tools: []workflow.ToolResult{{Tool: workflow.ToolSecretScan, Hits: []workflow.Hit{{Path: "app/login.py", Line: 3, Rule: "aws-key"}}}}}
-		res := run(t, a, ws, &archive{}, request())
-		if g := res.Plan.Groups[0]; len(g.Experts) != 2 || g.Experts[1].Name != "security" {
-			t.Fatalf("plan %+v", res.Plan)
-		}
-	})
-}
-
-func TestBackedEvidence(t *testing.T) {
-	for name, tools := range map[string][]workflow.ToolResult{
-		"claimed":    nil,
-		"other file": {{Tool: workflow.ToolDependencyAudit, Hits: []workflow.Hit{{Path: "uv.lock"}}}},
-		"audited":    {{Tool: workflow.ToolDependencyAudit, Hits: []workflow.Hit{{Path: "app/login.py", Rule: "CVE-2026-1"}}}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			a := base()
-			a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
-				if t.Expert.Name == "security" && slices.Contains(t.Group.Files, "app/login.py") {
-					return answers(t, finding("app/login.py", 1, workflow.EvidenceCVE)), nil
-				}
-				return answers(t), nil
-			}
-			res := run(t, a, &workspace{ci: workflow.Check{Passed: true}, tools: tools}, &archive{}, request())
-			blocking := slices.ContainsFunc(res.Comments, func(c workflow.Comment) bool { return slices.Contains(c.Decorations, "blocking") })
-			if blocking != (name == "audited") {
-				t.Fatalf("blocking %v, absent %+v", blocking, res.Uncertainty.Absent)
-			}
-		})
-	}
 }
 
 func TestScenarioAndShort(t *testing.T) {
 	task := workflow.ReviewTask{
-		Expert: workflow.Expert{Name: "correctness", Evidence: []workflow.EvidenceKind{workflow.EvidenceReproTest, workflow.EvidenceArgument}},
+		Expert: workflow.Expert{Name: "correctness", Evidence: []workflow.EvidenceKind{workflow.EvidenceTest, workflow.EvidenceInspection}},
 		Group:  workflow.Group{Files: []string{"a.go"}},
 	}
-	bug := workflow.Claim{Skill: "other", Category: "c", Path: "a.go", Line: 1, Severity: workflow.SeverityHigh, Subject: "s", Evidence: workflow.EvidenceReproTest}
+	bug := workflow.Claim{Skill: "other", Category: "c", Path: "a.go", Line: 1, Severity: workflow.SeverityError, Subject: "s", Evidence: workflow.EvidenceTest}
 	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons) != 1 || !strings.Contains(reasons[0], "scenario") {
 		t.Fatalf("a bug without a scenario: %v", reasons)
 	}
-	bug.Evidence = workflow.EvidenceArgument
+	bug.Evidence = workflow.EvidenceInspection
 	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons) != 0 {
 		t.Fatalf("an argument needs no scenario: %v", reasons)
 	}
@@ -814,16 +839,15 @@ func TestScenarioAndShort(t *testing.T) {
 	long := strings.Repeat("word ", 30)
 	a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
 		if t.Expert.Name == "correctness" {
-			f := finding("app/session.py", 10, workflow.EvidenceArgument)
+			f := finding("app/session.py", 10, workflow.EvidenceInspection)
 			f.Subject = long
 			return answers(t, f), nil
 		}
 		return answers(t), nil
 	}
-	a.summarize = func(workflow.SummaryTask) ([]workflow.Draft, error) { return nil, errors.New("down") }
 	res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 	if c := res.Comments[0]; len([]rune(c.Short)) > 60 || !strings.HasSuffix(c.Short, "…") || c.Scenario == "" {
-		t.Fatalf("fallback short %q, scenario %q", c.Short, c.Scenario)
+		t.Fatalf("short %q, scenario %q", c.Short, c.Scenario)
 	}
 }
 
@@ -834,7 +858,7 @@ func TestResume(t *testing.T) {
 
 	again := base()
 	got := run(t, again, &workspace{ci: workflow.Check{Passed: true}}, ar, request())
-	if n := again.n(workflow.RolePlanner) + again.n(workflow.RoleExpert) + again.n(workflow.RoleFix) + again.n(workflow.RoleSummarizer); n != 0 {
+	if n := again.n(workflow.RolePlanner) + again.n(workflow.RoleExpert) + again.n(workflow.RoleFix); n != 0 {
 		t.Fatalf("resumed review repeated %d agent calls", n)
 	}
 	if len(got.Runs) != len(want.Runs) || len(got.Comments) != len(want.Comments) {
@@ -864,10 +888,10 @@ func TestResume(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	for name, e := range map[string]workflow.Expert{
-		"no name":      {Tier: workflow.TierCheap, Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}},
-		"bad tier":     {Name: "x", Tier: "huge", Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}},
-		"other listed": {Name: "x", Tier: workflow.TierCheap, Skills: []workflow.Skill{{Name: "other"}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}},
-		"bad glob":     {Name: "x", Tier: workflow.TierCheap, Skills: []workflow.Skill{{Name: "s", Files: []string{"[x"}}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}},
+		"no name":      {Tier: workflow.TierCheap, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}},
+		"bad tier":     {Name: "x", Tier: "huge", Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}},
+		"other listed": {Name: "x", Tier: workflow.TierCheap, Skills: []workflow.Skill{{Name: "other"}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}},
+		"bad glob":     {Name: "x", Tier: workflow.TierCheap, Skills: []workflow.Skill{{Name: "s", Files: []string{"[x"}}}, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}},
 		"no evidence":  {Name: "x", Tier: workflow.TierCheap},
 	} {
 		if _, err := workflow.New(slog.Default(), []workflow.Expert{e}); !errors.Is(err, workflow.ErrInvalidRoster) {
@@ -988,7 +1012,7 @@ func TestParallel(t *testing.T) {
 	for i := range files {
 		files[i] = workflow.File{Path: fmt.Sprintf("app/m%d.py", i), Added: 1, Diff: gitDiff(fmt.Sprintf("app/m%d.py", i), "x")}
 		groups[i] = group(fmt.Sprintf("m%d", i), "security", false, files[i].Path)
-		panel[i] = workflow.Expert{Name: fmt.Sprintf("e%d", i), Tier: workflow.TierMid, Evidence: []workflow.EvidenceKind{workflow.EvidenceArgument}}
+		panel[i] = workflow.Expert{Name: fmt.Sprintf("e%d", i), Tier: workflow.TierMid, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}}
 	}
 	setup := func(experts []string, budget int64) (*agents, *atomic.Int32, *workflow.Workflow, workflow.Request) {
 		a := base()
@@ -1045,28 +1069,55 @@ func TestParallel(t *testing.T) {
 		}
 	})
 
-	t.Run("judges run at once", func(t *testing.T) {
+	t.Run("one judge reads the findings of a group, and the groups' judges run at once", func(t *testing.T) {
+		for name, tc := range map[string]struct {
+			experts       []string
+			lines         int
+			judges, peak  int32
+			verifications int
+		}{
+			"a judge for each group":           {nil, 1, 6, 4, 6},
+			"a large group is read in batches": {[]string{"correctness"}, 3, 3, 3, 18},
+		} {
+			a, _, w, req := setup(tc.experts, 1_000_000)
+			a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+				claims := make([]workflow.Claim, 0, len(t.Group.Files))
+				for _, f := range t.Group.Files {
+					for line := range tc.lines {
+						claims = append(claims, finding(f, 1+10*line, workflow.EvidenceInspection))
+					}
+				}
+				return answers(t, claims...), nil
+			}
+			var running, peak atomic.Int32
+			a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+				n := running.Add(1)
+				for p := peak.Load(); n > p && !peak.CompareAndSwap(p, n); p = peak.Load() {
+				}
+				time.Sleep(50 * time.Millisecond)
+				running.Add(-1)
+				return verdicts(t, true, "r"), nil
+			}
+			req.Verification = workflow.ModeReadOnly
+			res := review(w, a, req)
+			if int32(a.n(workflow.RoleJudge)) != tc.judges || peak.Load() != tc.peak || len(res.Verifications) != tc.verifications {
+				t.Fatalf("%s: judges %d, peak %d, verifications %d", name, a.n(workflow.RoleJudge), peak.Load(), len(res.Verifications))
+			}
+		}
+	})
+
+	t.Run("a finding the judge leaves out stays unverified", func(t *testing.T) {
 		a, _, w, req := setup([]string{"correctness"}, 1_000_000)
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
-			claims := make([]workflow.Claim, 0, len(t.Group.Files))
-			for _, f := range t.Group.Files {
-				claims = append(claims, finding(f, 1, workflow.EvidenceArgument))
-			}
-			return answers(t, claims...), nil
+			return answers(t, finding(t.Group.Files[0], 1, workflow.EvidenceInspection), finding(t.Group.Files[1], 1, workflow.EvidenceInspection)), nil
 		}
-		var running, peak atomic.Int32
-		a.judge = func(workflow.JudgeTask) (workflow.Judgement, error) {
-			n := running.Add(1)
-			for p := peak.Load(); n > p && !peak.CompareAndSwap(p, n); p = peak.Load() {
-			}
-			time.Sleep(50 * time.Millisecond)
-			running.Add(-1)
-			return workflow.Judgement{Valid: true, Reason: "r"}, nil
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			return verdicts(t, false, "the code is right")[:1], nil
 		}
 		req.Verification = workflow.ModeReadOnly
 		res := review(w, a, req)
-		if a.n(workflow.RoleJudge) != 6 || peak.Load() != 4 || len(res.Verifications) != 6 {
-			t.Fatalf("judges %d, peak %d, verifications %d", a.n(workflow.RoleJudge), peak.Load(), len(res.Verifications))
+		if len(res.Verifications) != 2 || res.Verifications[0].Status != workflow.StatusRejected || res.Verifications[1].Status != workflow.StatusUnverified || len(res.Uncertainty.Unverified) != 1 || len(res.Comments) != 2 || res.Comments[0].Objection != "" || res.Comments[1].Objection == "" {
+			t.Fatalf("verifications %+v, comments %+v", res.Verifications, res.Comments)
 		}
 	})
 
@@ -1079,6 +1130,63 @@ func TestParallel(t *testing.T) {
 	})
 }
 
+func TestOrder(t *testing.T) {
+	a := base()
+	a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+		low := finding("app/session.py", 2, workflow.EvidenceInspection)
+		low.Severity = workflow.SeverityNote
+		switch t.Expert.Name {
+		case "correctness":
+			return answers(t, low, finding("app/session.py", 20, workflow.EvidenceInspection), finding("app/session.py", 40, workflow.EvidenceInspection), finding("app/session.py", 60, workflow.EvidenceInspection)), nil
+		case "security":
+			return answers(t, finding("app/session.py", 61, workflow.EvidenceAnalysis)), nil
+		}
+		return answers(t), nil
+	}
+	a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+		out := verdicts(t, true, "holds")
+		for i, f := range t.Findings {
+			if f.Line == 20 {
+				out[i] = workflow.Judgement{Finding: f.ID, Valid: false, Reason: "the caller checks"}
+			}
+		}
+		return out, nil
+	}
+	req := request()
+	req.Verification = workflow.ModeReadOnly
+	res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
+	lines := make([]int, 0, len(res.Comments))
+	for _, c := range res.Comments {
+		lines = append(lines, c.Line)
+	}
+	if want := []int{60, 40, 20, 2}; !slices.Equal(lines, want) {
+		t.Fatalf("comments at lines %v, want %v: two experts and stronger evidence first, then one expert, then what the judge disputes, then the nitpick", lines, want)
+	}
+}
+
+func TestNeighbours(t *testing.T) {
+	a := base()
+	a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+		switch t.Expert.Name {
+		case "correctness":
+			return answers(t, finding("app/session.py", 20, workflow.EvidenceInspection), finding("app/session.py", 21, workflow.EvidenceInspection)), nil
+		case "security":
+			return answers(t, finding("app/session.py", 21, workflow.EvidenceAnalysis)), nil
+		}
+		return answers(t), nil
+	}
+	req := request()
+	req.Verification = workflow.ModeNone
+	res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
+	experts := 0
+	for _, c := range res.Comments {
+		experts += len(c.Experts)
+	}
+	if len(res.Comments) != 2 || experts != 3 {
+		t.Fatalf("%d comments from %d experts' findings, want 2 from 3: one expert's two findings are two problems, and another expert's beside them is one of the two", len(res.Comments), experts)
+	}
+}
+
 func TestThoroughness(t *testing.T) {
 	t.Run("a low finding is a nitpick nobody verifies", func(t *testing.T) {
 		a := base()
@@ -1086,13 +1194,10 @@ func TestThoroughness(t *testing.T) {
 			if t.Expert.Name != "correctness" {
 				return answers(t), nil
 			}
-			return answers(t, workflow.Claim{Skill: "other", Category: "naming", Path: "app/session.py", Line: 2, Severity: workflow.SeverityLow, Subject: "rename x", Evidence: workflow.EvidenceArgument}), nil
-		}
-		a.summarize = func(t workflow.SummaryTask) ([]workflow.Draft, error) {
-			return []workflow.Draft{{Finding: t.Findings[0].ID, Label: workflow.LabelSuggestion, Short: "rename x", Subject: "rename x"}}, nil
+			return answers(t, workflow.Claim{Skill: "other", Category: "naming", Path: "app/session.py", Line: 2, Severity: workflow.SeverityNote, Subject: "rename x", Evidence: workflow.EvidenceInspection}), nil
 		}
 		req := request()
-		req.Level, req.Verification = "", workflow.ModeReadOnly
+		req.Verification = workflow.ModeReadOnly
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
 		if len(res.Comments) != 1 || res.Comments[0].Label != workflow.LabelNitpick || a.n(workflow.RoleJudge) != 0 || len(res.Verifications) != 0 {
 			t.Fatalf("comments %+v, verifications %+v", res.Comments, res.Verifications)
@@ -1136,7 +1241,7 @@ func TestThoroughness(t *testing.T) {
 			return p, err
 		}
 		req := request()
-		req.Level, req.Project.Risk = workflow.LevelStandard, []string{"app/session.py"}
+		req.Project.Risk = []string{"app/session.py"}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
 		if !res.Plan.Groups[0].Core || res.Plan.Groups[1].Core {
 			t.Fatalf("groups %+v", res.Plan.Groups)

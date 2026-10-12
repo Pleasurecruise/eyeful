@@ -2,27 +2,12 @@ package report
 
 import "github.com/Pleasurecruise/eyeful/workflow"
 
-type Severity string
-
-const (
-	SeverityImportant Severity = "important"
-	SeverityNit       Severity = "nit"
-)
-
-type Verdict string
-
-const (
-	VerdictConfirmed Verdict = "CONFIRMED"
-	VerdictPlausible Verdict = "PLAUSIBLE"
-	VerdictDisputed  Verdict = "DISPUTED"
-)
-
 type Finding struct {
 	File            string              `json:"file"`
 	Line            int                 `json:"line"`
 	Related         []workflow.Location `json:"related,omitempty"`
-	Severity        Severity            `json:"severity"`
-	Verdict         Verdict             `json:"verdict"`
+	Severity        workflow.Severity   `json:"severity"`
+	Kind            workflow.Kind       `json:"kind"`
 	Category        string              `json:"category"`
 	ShortSummary    string              `json:"short_summary"`
 	Summary         string              `json:"summary"`
@@ -36,8 +21,9 @@ type Finding struct {
 }
 
 type Counts struct {
-	Important int `json:"important"`
-	Nit       int `json:"nit"`
+	Fail   int `json:"fail"`
+	Review int `json:"review"`
+	Open   int `json:"open"`
 }
 
 type Output struct {
@@ -50,6 +36,6 @@ type Output struct {
 	Uncertainty workflow.Uncertainty `json:"uncertainty"`
 }
 
-var mergeDecorations = []string{"blocking", "non-blocking", "if-minor"}
+var mergeDecorations = []string{"blocking", "non-blocking"}
 
-var markers = map[Severity]string{SeverityImportant: "🔴 Important", SeverityNit: "🟡 Nit"}
+var markers = map[workflow.Severity]string{workflow.SeverityError: "🔴 error", workflow.SeverityWarning: "🟠 warning", workflow.SeverityNote: "🟡 note"}

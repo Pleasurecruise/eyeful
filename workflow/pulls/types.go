@@ -49,10 +49,11 @@ type Commit struct {
 }
 
 type DiffsPayload struct {
-	Ref     SourceRef    `json:"ref"`
-	Title   string       `json:"title"`
-	Commits []Commit     `json:"commits,omitempty"`
-	Files   []FileChange `json:"files"`
+	Ref         SourceRef    `json:"ref"`
+	Title       string       `json:"title"`
+	Description string       `json:"description,omitempty"`
+	Commits     []Commit     `json:"commits,omitempty"`
+	Files       []FileChange `json:"files"`
 }
 
 type FileNote struct {

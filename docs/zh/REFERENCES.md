@@ -12,7 +12,8 @@
 - Google Engineering Practices，[What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html)。各专家要问的问题，以及每一行都要有人看（见[规划与分诊](PLANNER.md)）。
 - Google Engineering Practices，[How to write code review comments](https://google.github.io/eng-practices/review/reviewer/comments.html)。评论针对代码、不针对人，说明理由，标明严重程度（见[审查反馈](REPORT.md)）。
 - [Conventional Comments](https://conventionalcomments.org)。评论的格式、标签和修饰词（见[评论格式](REPORT.md#comment-format)）。
-- OASIS，[SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)，静态分析结果交换格式。发现及其证据以这种格式保存（见[用 SARIF 保存发现](VERIFICATION.md#sarif)）。
+- Tenny，[信任不在 Code Review 里](https://raft.build/zh-cn/resources/blog/trust-doesnt-live-in-the-code-review/)，Raft，2026。评审是一次事件，信任是一种状态：对一个 diff 的结论说明不了系统整体是否还立得住，一项检查只有被看到失败过才算数。所以 eyeful 从不批准改动，没有发现的审查也证明不了什么（见[局限](README.md#limits)）；复现测试要先失败才算证据（见[验证器](VERIFICATION.md#the-verifier)）；复审会重跑上一轮失败的测试，一条发现只有测试从红变绿才算修好（见[多轮审查](REPORT.md#rounds)）；tests 专家对每个新测试都要问什么会让它变红（见[tests](EXPERTS.md#tests)）。
+- OASIS，[SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)，静态分析结果交换格式。发现及其证据以这种格式保存（见[用 SARIF 保存发现](VERIFICATION.md#sarif)）；eyeful 给发现打分只用它的两套刻度：`level`（§3.27.10）是专家给的严重度，`kind`（§3.27.9）是验证之后这条发现有多确定（见[类别与严重度](VERIFICATION.md#kind-and-severity)）。
 
 ## 设计与可维护性
 
@@ -32,6 +33,8 @@
 ## 测试
 
 - ISO/IEC/IEEE 29119，_Software testing_（软件测试）。测试设计技术和术语。
+- E. T. Barr、M. Harman、P. McMinn、M. Shahbaz、S. Yoo，"The Oracle Problem in Software Testing: A Survey"，_IEEE Transactions on Software Engineering_，41(5)，2015。specified、derived、implicit 和 human 四类测试预言，即复现声明、验证器评定的四种判定依据（见[测试预言问题](VERIFICATION.md#oracle)）。
+- ISO/IEC/IEEE 29148:2018，_Requirements engineering_（需求工程）。检查、分析、演示和测试这四种验证方法，专家用它们来写一条发现的 `evidence`（见[证据类型](VERIFICATION.md#evidence-kinds)）。
 - A. van Deursen、L. Moonen、A. van den Bergh、G. Kok，"Refactoring Test Code"，XP 2001。测试坏味道。
 - Y. Jia、M. Harman，"An Analysis and Survey of the Development of Mutation Testing"，_IEEE Transactions on Software Engineering_，2011。变异测试，用来检查代码出错时测试会不会失败。
 - C. E. Jimenez 等，"SWE-bench: Can Language Models Resolve Real-World GitHub Issues?"，ICLR 2024。fail-to-pass 和 pass-to-pass，即验证器的最后两道[关卡](VERIFICATION.md#the-verifier)；验证器为每次运行记录的测试状态 `PASSED`、`FAILED` 和 `ERROR` 也来自它。
@@ -79,7 +82,7 @@ eyeful 建立在两个项目之上：直接运行其中的 `@pulls.review/core`�
 | 固定的几个阶段                             | [各个阶段](REVIEW.md#stages)                                       |
 | 同一文件相距两行以内的发现合并，按来源计数 | [排序报告](REPORT.md)中的合并和佐证                                |
 | 某一步出错时降级继续，不中止整个审查       | [各个阶段](REVIEW.md#stages)的出错处理                             |
-| 下一轮带上上一轮的发现                     | [多轮审查](REPORT.md)                                              |
+| 下一轮带上上一轮的发现                     | [多轮审查](REPORT.md#rounds)，带的是说明它们的测试                 |
 | 把一轮的输入和输出放在一起                 | [运行目录](LOCAL.md#snapshot)里的 `snapshot.json` 和 `change.diff` |
 | 每个审查者一个进程，不管它负责多少内容     | 每个[专家](EXPERTS.md)只运行一次，覆盖它的所有分组                 |
 | 限制同时运行的审查者，每个进程有时间上限   | 同时最多四个；每次调用 2 分钟无输出或总共 20 分钟即停止            |
@@ -92,6 +95,6 @@ revmux 的验证阶段只读代码、不运行，[效果评测](EVALUATION.md)�
 | ---------- | ----------------------- | -------------------------------------- | ----------------------------------------------------- |
 | 谁挑审查者 | 未公开                  | 调用方选 profile，阵容固定             | 规划器按改动挑选，Go 按改动的文件检查                 |
 | 审查什么   | bug                     | profile 里各个 lens 覆盖的内容         | 设计、功能、安全、测试、可用性、可读性                |
-| 怎么验证   | 在云端沙箱中复现        | 另一个 agent 读代码后给出结论          | 验证器运行复现测试，较弱的发现标明证据强度            |
+| 怎么验证   | 在云端沙箱中复现        | 另一个 agent 读代码后给出结论          | 验证器运行复现测试，其余发现都标为 `review`           |
 | 反馈形式   | 发现列表，不附修复      | JSON 或 Markdown，每条发现附一段 `fix` | Conventional Comments，阻塞的放在行内，其余进排序报告 |
 | 在哪里运行 | Anthropic 的云端        | 被审查的仓库里，默认信任这个仓库       | 用户的电脑，或不含凭据的云端沙箱                      |

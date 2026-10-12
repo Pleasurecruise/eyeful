@@ -2,8 +2,6 @@ package workflow
 
 import (
 	"cmp"
-	"context"
-	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -14,33 +12,18 @@ const (
 	shortLimit    = 60
 )
 
-var oracleStrength = map[Oracle]Strength{
-	OracleImplicit: StrengthStrong,
-	OracleExisting: StrengthStrong,
-	OracleSpec:     StrengthStrong,
-	OracleBase:     StrengthMedium,
-	OracleAgent:    StrengthWeak,
-}
+var kindRank = map[Kind]int{KindFail: 2, KindReview: 1, KindOpen: 0}
 
-var kindStrength = map[EvidenceKind]Strength{
-	EvidenceCVE:         StrengthStrong,
-	EvidenceAPIBreak:    StrengthStrong,
-	EvidenceCoverage:    StrengthStrong,
-	EvidenceTool:        StrengthMedium,
-	EvidenceE2E:         StrengthMedium,
-	EvidenceTriggerPath: StrengthMedium,
-	EvidenceArgument:    StrengthWeak,
-	EvidenceReproTest:   StrengthWeak,
-}
-
-func strength(f Finding, v Verification) Strength {
-	if v.Status == StatusReproduced || v.Status == StatusFixed {
-		return oracleStrength[v.Repro.Oracle]
+func kind(v Verification) Kind {
+	switch {
+	case v.Status == StatusRejected:
+		return KindOpen
+	case v.Status != StatusReproduced && v.Status != StatusFixed:
+		return KindReview
+	case v.Repro.Oracle == OracleSpecified, v.Repro.Oracle == OracleImplicit, v.Repro.Oracle == OracleDerived && v.Repro.Test == Edit{}:
+		return KindFail
 	}
-	if v.Status == StatusRejected {
-		return StrengthWeak
-	}
-	return kindStrength[f.Evidence]
+	return KindReview
 }
 
 func near(a, b Finding) bool {
@@ -48,7 +31,7 @@ func near(a, b Finding) bool {
 }
 
 var labelOrder = []Label{
-	LabelIssue, LabelTodo, LabelChore, LabelSuggestion, LabelQuestion, LabelThought, LabelNote, LabelNitpick, LabelPraise,
+	LabelIssue, LabelQuestion, LabelSuggestion, LabelNitpick,
 }
 
 func merge(findings []Finding, verdicts map[string]Verification) []Merged {
@@ -57,20 +40,22 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 	var out []Merged
 	for _, f := range kept {
 		v := verdicts[f.ID]
-		if n := len(out); n > 0 && near(out[n-1].Findings[len(out[n-1].Findings)-1], f) {
+		if v.Status == StatusResolved {
+			continue
+		}
+		if n := len(out); n > 0 && near(out[n-1].Findings[len(out[n-1].Findings)-1], f) && !slices.Contains(out[n-1].Experts, f.Expert) {
 			m := &out[n-1]
-			m.Findings = append(m.Findings, f)
-			m.Strength = max(m.Strength, strength(f, v))
+			m.Findings, m.Experts = append(m.Findings, f), append(m.Experts, f.Expert)
+			if k := kind(v); kindRank[k] > kindRank[m.Kind] {
+				m.Kind = k
+			}
 			m.Group = min(m.Group, f.Group)
 			if v.Status != StatusRejected {
 				m.Objection = ""
 			}
-			if !slices.Contains(m.Experts, f.Expert) {
-				m.Experts = append(m.Experts, f.Expert)
-			}
 			continue
 		}
-		m := Merged{ID: f.ID, Path: f.Path, Line: f.Line, Findings: []Finding{f}, Experts: []string{f.Expert}, Strength: strength(f, v), Group: f.Group}
+		m := Merged{ID: f.ID, Path: f.Path, Line: f.Line, Findings: []Finding{f}, Experts: []string{f.Expert}, Kind: kind(v), Group: f.Group}
 		if v.Status == StatusRejected {
 			m.Objection = v.Reason
 		}
@@ -82,17 +67,20 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 	return out
 }
 
-func (w *Workflow) comment(m Merged, d Draft, verdicts map[string]Verification) Comment {
-	if !slices.ContainsFunc(m.Findings, func(f Finding) bool { return f.Severity != SeverityLow }) {
-		d.Label = LabelNitpick
-	}
-	blocking := "non-blocking"
-	if d.Label == LabelIssue && m.Strength == StrengthStrong {
-		blocking = "blocking"
+func (w *Workflow) comment(m Merged, verdicts map[string]Verification) Comment {
+	lead := slices.MaxFunc(m.Findings, func(a, b Finding) int { return cmp.Compare(severityRank[a.Severity], severityRank[b.Severity]) })
+	label, decoration := LabelSuggestion, "non-blocking"
+	switch {
+	case !slices.ContainsFunc(m.Findings, func(f Finding) bool { return f.Severity != SeverityNote }):
+		label = LabelNitpick
+	case m.Kind == KindFail:
+		label, decoration = LabelIssue, "blocking"
+	case slices.ContainsFunc(m.Findings, func(f Finding) bool { return f.Evidence != EvidenceInspection }):
+		label = LabelQuestion
 	}
 	c := Comment{
-		Finding: m.ID, Label: d.Label, Decorations: []string{blocking}, Short: d.Short, Subject: d.Subject, Discussion: d.Discussion,
-		Path: m.Path, Line: m.Line, Experts: m.Experts, Strength: m.Strength, Objection: m.Objection,
+		Finding: m.ID, Label: label, Decorations: []string{decoration}, Short: shorten(lead.Subject), Subject: lead.Subject, Discussion: lead.Discussion,
+		Path: m.Path, Line: m.Line, Experts: m.Experts, Severity: lead.Severity, Kind: m.Kind, Objection: m.Objection,
 	}
 	for _, name := range m.Experts {
 		if e, ok := w.expert(name); ok && e.Area != "" && !slices.Contains(c.Decorations, e.Area) {
@@ -107,8 +95,8 @@ func (w *Workflow) comment(m Merged, d Draft, verdicts map[string]Verification) 
 				c.Related = append(c.Related, r)
 			}
 		}
-		if c.Repro == nil && slices.Contains([]Status{StatusReproduced, StatusFixed, StatusPreExisting}, v.Status) {
-			c.Repro = v.Repro
+		if slices.Contains([]Status{StatusReproduced, StatusFixed, StatusPreExisting}, v.Status) {
+			c.Repro = cmp.Or(c.Repro, v.Repro)
 		}
 		if c.Fix == nil && v.Status == StatusFixed {
 			c.Fix = v.Fix
@@ -117,17 +105,35 @@ func (w *Workflow) comment(m Merged, d Draft, verdicts map[string]Verification) 
 	return c
 }
 
-func (w *Workflow) fallback(merged []Merged, verdicts map[string]Verification) []Comment {
+func (w *Workflow) comments(merged []Merged, verdicts map[string]Verification) []Comment {
 	out := make([]Comment, 0, len(merged))
 	for _, m := range merged {
-		label := LabelQuestion
-		if m.Strength == StrengthStrong {
-			label = LabelIssue
-		}
-		f := m.Findings[0]
-		out = append(out, w.comment(m, Draft{Finding: m.ID, Label: label, Short: shorten(f.Subject), Subject: f.Subject, Discussion: f.Discussion}, verdicts))
+		out = append(out, w.comment(m, verdicts))
 	}
-	slices.SortStableFunc(out, func(a, b Comment) int { return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line)) })
+	folded := func(c Comment) int {
+		switch {
+		case c.Label == LabelNitpick:
+			return 2
+		case c.Objection != "":
+			return 1
+		}
+		return 0
+	}
+	group := map[string]int{}
+	for _, m := range merged {
+		group[m.ID] = m.Group
+	}
+	slices.SortStableFunc(out, func(a, b Comment) int {
+		return cmp.Or(
+			cmp.Compare(folded(a), folded(b)),
+			-cmp.Compare(kindRank[a.Kind], kindRank[b.Kind]),
+			-cmp.Compare(len(a.Experts), len(b.Experts)),
+			cmp.Compare(slices.Index(labelOrder, a.Label), slices.Index(labelOrder, b.Label)),
+			cmp.Compare(group[a.Finding], group[b.Finding]),
+			cmp.Compare(a.Path, b.Path),
+			cmp.Compare(a.Line, b.Line),
+		)
+	})
 	return out
 }
 
@@ -141,74 +147,4 @@ func shorten(subject string) string {
 		return string(runes)[:i] + "…"
 	}
 	return string(runes) + "…"
-}
-
-func checkDrafts(merged []Merged, drafts []Draft) []string {
-	var reasons []string
-	count := map[string]int{}
-	for _, d := range drafts {
-		count[d.Finding]++
-		i := slices.IndexFunc(merged, func(m Merged) bool { return m.ID == d.Finding })
-		switch {
-		case i < 0:
-			reasons = append(reasons, fmt.Sprintf("%q is not a finding", d.Finding))
-		case !slices.Contains(labelOrder, d.Label):
-			reasons = append(reasons, fmt.Sprintf("%s: %q is not a Conventional Comments label", d.Finding, d.Label))
-		case d.Label == LabelIssue && merged[i].Strength != StrengthStrong:
-			reasons = append(reasons, d.Finding+": issue needs strong evidence")
-		case d.Subject == "":
-			reasons = append(reasons, d.Finding+": no subject")
-		case d.Short == "" || utf8.RuneCountInString(d.Short) > shortLimit:
-			reasons = append(reasons, fmt.Sprintf("%s: short must be 1 to %d characters", d.Finding, shortLimit))
-		}
-	}
-	for _, m := range merged {
-		if count[m.ID] != 1 {
-			reasons = append(reasons, fmt.Sprintf("%s needs exactly one comment, got %d", m.ID, count[m.ID]))
-		}
-	}
-	return reasons
-}
-
-func (w *Workflow) summarize(ctx context.Context, s Session, l *ledger, merged []Merged, verdicts map[string]Verification) (summaryState, error) {
-	st := summaryState{Comments: []Comment{}, Runs: []Run{}}
-	if len(merged) == 0 {
-		return st, nil
-	}
-	if !l.allow() {
-		st.Comments, st.Fallback = w.fallback(merged, verdicts), "budget exhausted before the summarizer ran"
-		return st, nil
-	}
-	drafts, r, err := invoke(ctx, l, Run{Role: RoleSummarizer}, s.Agents.Summarize, SummaryTask{Findings: merged})
-	if err != nil {
-		return st, err
-	}
-	st.Runs = append(st.Runs, r)
-	if r.Error != "" {
-		st.Comments, st.Fallback = w.fallback(merged, verdicts), "the summarizer failed: "+r.Error
-		return st, nil
-	}
-	if reasons := checkDrafts(merged, drafts); len(reasons) > 0 {
-		st.Comments, st.Fallback = w.fallback(merged, verdicts), fmt.Sprintf("the summary was rejected: %v", reasons)
-		return st, nil
-	}
-	byID := map[string]Merged{}
-	for _, m := range merged {
-		byID[m.ID] = m
-	}
-	for _, d := range drafts {
-		st.Comments = append(st.Comments, w.comment(byID[d.Finding], d, verdicts))
-	}
-	slices.SortStableFunc(st.Comments, func(a, b Comment) int {
-		ma, mb := byID[a.Finding], byID[b.Finding]
-		return cmp.Or(
-			cmp.Compare(slices.Index(labelOrder, a.Label), slices.Index(labelOrder, b.Label)),
-			-cmp.Compare(a.Strength, b.Strength),
-			-cmp.Compare(len(a.Experts), len(b.Experts)),
-			cmp.Compare(ma.Group, mb.Group),
-			cmp.Compare(a.Path, b.Path),
-			cmp.Compare(a.Line, b.Line),
-		)
-	})
-	return st, nil
 }

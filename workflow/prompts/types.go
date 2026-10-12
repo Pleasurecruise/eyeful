@@ -50,7 +50,7 @@ type Role struct {
 }
 
 type task interface {
-	workflow.DiagnoseTask | workflow.PlanTask | workflow.ReviewTask | workflow.FixTask | workflow.RetestTask | workflow.JudgeTask | workflow.SummaryTask
+	workflow.DiagnoseTask | workflow.PlanTask | workflow.ReviewTask | workflow.FixTask | workflow.RetestTask | workflow.JudgeTask
 }
 
 type Set struct {
@@ -73,7 +73,7 @@ type front struct {
 }
 
 var roles = []workflow.Role{
-	workflow.RoleCI, workflow.RolePlanner, workflow.RoleExpert, workflow.RoleFix, workflow.RoleRepro, workflow.RoleJudge, workflow.RoleSummarizer,
+	workflow.RoleCI, workflow.RolePlanner, workflow.RoleExpert, workflow.RoleFix, workflow.RoleRepro, workflow.RoleJudge,
 }
 
 var (

@@ -14,7 +14,7 @@ func verification(c workflow.Comment, f workflow.Finding, old bool) string {
 	switch {
 	case c.Objection != "":
 		return fmt.Sprintf("A judge agent read the code and disputes this finding: %s It is kept for you to decide.", c.Objection)
-	case c.Repro == nil && f.Evidence == workflow.EvidenceReproTest:
+	case c.Repro == nil && f.Evidence == workflow.EvidenceTest:
 		return "eyeful did not see a reproduction test fail for it."
 	case c.Repro == nil:
 		return fmt.Sprintf("Not executed; the evidence is %s.", strings.ReplaceAll(string(f.Evidence), "_", " "))
@@ -26,7 +26,7 @@ func verification(c workflow.Comment, f workflow.Finding, old bool) string {
 		text = fmt.Sprintf("eyeful ran the reproduction test %s and it failed on the change in every run, not on the base commit; no fix was verified.", c.Repro.Run)
 	}
 	text += fmt.Sprintf(" Expected behaviour from: %s", c.Repro.Oracle)
-	if c.Repro.Oracle == workflow.OracleSpec {
+	if c.Repro.Oracle == workflow.OracleSpecified {
 		text += fmt.Sprintf(" (%q)", c.Repro.Quote)
 	}
 	return text + "."
@@ -38,16 +38,13 @@ func Findings(r workflow.Result) (Output, error) {
 		Diagnosis: r.Diagnosis, NotReviewed: r.Triage.Excluded, Uncertainty: r.Uncertainty,
 	}
 	for _, c := range r.Comments {
-		if c.Label == workflow.LabelPraise {
-			continue
-		}
 		i := slices.IndexFunc(r.Findings, func(f workflow.Finding) bool { return f.ID == c.Finding })
 		if i < 0 {
 			return Output{}, fmt.Errorf("comment on unknown finding %q", c.Finding)
 		}
 		f := r.Findings[i]
 		item := Finding{
-			File: c.Path, Line: c.Line, Related: c.Related, Severity: SeverityNit, Verdict: VerdictPlausible,
+			File: c.Path, Line: c.Line, Related: c.Related, Severity: c.Severity, Kind: c.Kind,
 			Category: strings.Join(slices.DeleteFunc(slices.Clone(c.Decorations), func(d string) bool { return slices.Contains(mergeDecorations, d) }), ", "), ShortSummary: c.Short, Summary: c.Subject,
 			FailureScenario: c.Scenario, Why: c.Discussion,
 			Verification: verification(c, f, baselineState(r, f.ID) == "unchanged"),
@@ -56,32 +53,15 @@ func Findings(r workflow.Result) (Output, error) {
 		if c.Repro != nil && c.Repro.Test != (workflow.Edit{}) {
 			item.Test = &c.Repro.Test
 		}
-		if slices.Contains(c.Decorations, "blocking") {
-			item.Severity = SeverityImportant
-		}
-		switch {
-		case c.Strength == workflow.StrengthStrong:
-			item.Verdict = VerdictConfirmed
-		case c.Objection != "":
-			item.Verdict = VerdictDisputed
+		switch c.Kind {
+		case workflow.KindFail:
+			out.Counts.Fail++
+		case workflow.KindReview:
+			out.Counts.Review++
+		case workflow.KindOpen:
+			out.Counts.Open++
 		}
 		out.Findings = append(out.Findings, item)
-	}
-	slices.SortStableFunc(out.Findings, func(a, b Finding) int {
-		if a.Severity == b.Severity {
-			return 0
-		}
-		if a.Severity == SeverityImportant {
-			return -1
-		}
-		return 1
-	})
-	for _, f := range out.Findings {
-		if f.Severity == SeverityImportant {
-			out.Counts.Important++
-		} else {
-			out.Counts.Nit++
-		}
 	}
 	return out, nil
 }

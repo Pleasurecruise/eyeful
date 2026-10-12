@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/Pleasurecruise/eyeful/local/agents"
 	"github.com/Pleasurecruise/eyeful/local/archive"
+	"github.com/Pleasurecruise/eyeful/local/git"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/local/store"
 	"github.com/Pleasurecruise/eyeful/local/subject"
@@ -74,7 +76,10 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	}
 	req := workflow.Request{
 		Change: change, Project: cfg.Project(o.Verification == workflow.ModeExecution),
-		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts, Level: o.Level, Dependent: o.Dependent,
+		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts,
+	}
+	if req.Previous, err = previous(ctx, o, snap); err != nil {
+		return report.Output{}, err
 	}
 	if err := wf.Admit(req); err != nil {
 		return report.Output{}, err
@@ -87,12 +92,12 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 		return report.Output{}, err
 	}
 	defer closeTree()
-	run, skills, patch, removeSkills, err := prepare(o, snap)
+	run, skills, patch, removeSkills, err := prepare(ctx, o, snap)
 	if err != nil {
 		return report.Output{}, err
 	}
 	defer removeSkills()
-	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, Trace: filepath.Join(run, "agents"), Set: set}, idleTimeout, hardTimeout)
+	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, History: filepath.Join(filepath.Dir(patch), historyFile), Trace: filepath.Join(run, "agents"), Set: set}, idleTimeout, hardTimeout)
 	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Workspace: ws, Archive: archive.New(filepath.Join(run, "stages"))}, req)
 	if err != nil {
 		return report.Output{}, err
@@ -100,7 +105,50 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	return save(ctx, o, run, snap, objects, res)
 }
 
-func prepare(o Options, snap subject.Snapshot) (string, string, string, func(), error) {
+func previous(ctx context.Context, o Options, snap subject.Snapshot) (_ workflow.Result, err error) {
+	var last workflow.Result
+	if o.Run != "" || o.Verification != workflow.ModeExecution {
+		return last, nil
+	}
+	dir, err := store.Dir(snap.Root)
+	if err != nil {
+		return last, err
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return last, fmt.Errorf("open earlier reviews: %w", err)
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	runs, err := os.ReadDir(dir)
+	if err != nil {
+		return last, fmt.Errorf("list earlier reviews: %w", err)
+	}
+	for _, run := range slices.Backward(runs) {
+		var old subject.Snapshot
+		kept, err := root.ReadFile(filepath.Join(run.Name(), "snapshot.json"))
+		if err != nil || json.Unmarshal(kept, &old) != nil || old.Base != snap.Base || (old.Head == "") != (snap.Head == "") {
+			continue
+		}
+		if snap.Head != "" {
+			if _, err := git.Run(ctx, snap.Root, nil, "merge-base", "--is-ancestor", old.Head, snap.Head); err != nil {
+				continue
+			}
+		}
+		result, err := root.ReadFile(filepath.Join(run.Name(), "result.json"))
+		if err != nil {
+			continue
+		}
+		var res workflow.Result
+		if err := json.Unmarshal(result, &res); err != nil {
+			return last, fmt.Errorf("read the last review in %s: %w", run.Name(), err)
+		}
+		last.Findings, last.Verifications = res.Findings, res.Verifications
+		return last, nil
+	}
+	return last, nil
+}
+
+func prepare(ctx context.Context, o Options, snap subject.Snapshot) (string, string, string, func(), error) {
 	run, err := filepath.Abs(o.Run)
 	if err != nil {
 		return "", "", "", nil, fmt.Errorf("run directory: %w", err)
@@ -131,6 +179,13 @@ func prepare(o Options, snap subject.Snapshot) (string, string, string, func(), 
 	if err := errors.Join(os.WriteFile(patch, []byte(snap.Patch), 0o600), os.WriteFile(filepath.Join(run, "change.diff"), []byte(snap.Patch), 0o600)); err != nil {
 		return "", "", "", nil, errors.Join(fmt.Errorf("save change.diff: %w", err), os.RemoveAll(shared))
 	}
+	history, err := subject.History(ctx, snap)
+	if err == nil {
+		err = os.WriteFile(filepath.Join(shared, historyFile), []byte(history), 0o600)
+	}
+	if err != nil {
+		return "", "", "", nil, errors.Join(fmt.Errorf("save %s: %w", historyFile, err), os.RemoveAll(shared))
+	}
 	return run, dir, patch, func() {
 		if err := os.RemoveAll(shared); err != nil {
 			o.Log.Warn("remove the agent files", "dir", shared, "error", err)
@@ -153,7 +208,7 @@ func read(ctx context.Context, o Options, objects string) (subject.Snapshot, wor
 		return snap, workflow.Change{}, err
 	}
 	commits, err := subject.Commits(ctx, snap)
-	return snap, workflow.Change{Files: files, Commits: commits}, err
+	return snap, workflow.Change{Files: files, Commits: commits, Description: o.Description}, err
 }
 
 func describe(o Options, agent agents.Agent, snap subject.Snapshot, files int) string {

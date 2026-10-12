@@ -23,11 +23,11 @@ machine; those are reviewed locally ([Running locally](LOCAL.md)).
    A new push is a new snapshot and a new review. A large pull request is split into
    [scopes](PLANNER.md#large) like any change, and the report's list of scopes is the suggested
    stack for it.
-4. Triage runs the rules and the L1 tools in the sandbox, and from standard up the planner makes a
+4. Triage runs the rules in the sandbox, the L1 tools too once they exist, and the planner makes a
    plan.
 5. Each selected expert runs as a pi process on the worker.
-6. The verifier runs reproductions on fresh copies in the sandbox, and the summarizer writes the
-   feedback.
+6. The verifier runs reproductions on fresh copies in the sandbox, and Go forms the
+   feedback from what they showed.
 7. eyeful's GitHub App posts the line comments as one `COMMENT` review and the ranked report as one
    comment, plus the optional Check Run. The SARIF results can also go to code scanning
    ([Review feedback](REPORT.md)).

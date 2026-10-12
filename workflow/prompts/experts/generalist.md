@@ -3,7 +3,7 @@ name: generalist
 area: review
 tier: strong
 solo: true
-evidence: [repro_test, trigger_path, tool, argument]
+evidence: [test, analysis, inspection]
 skills:
   - name: code-review
   - name: tdd

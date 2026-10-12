@@ -109,10 +109,9 @@ func TestTriage(t *testing.T) {
 		t.Errorf("a plan missing test_session.py and README.md was accepted")
 	}
 
-	req.Level = ""
 	req.Change.Files = append(req.Change.Files, workflow.File{Path: "app/auth/token.py"})
-	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); res.Level != workflow.LevelStandard || len(res.Triage.Risk) != 1 {
-		t.Errorf("risk path: level %s, risk %v", res.Level, res.Triage.Risk)
+	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Triage.Risk) != 1 {
+		t.Errorf("risk path: risk %v", res.Triage.Risk)
 	}
 
 	req.Project.Risk = []string{"app/[x"}

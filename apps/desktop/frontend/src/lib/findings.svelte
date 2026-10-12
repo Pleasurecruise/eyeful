@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Badge, Empty, ScrollArea, Separator, Tabs } from '@eyeful/ui';
 	import { ListChecks } from '@lucide/svelte';
-	import { Outcome } from '#bindings/workflow';
-	import { Severity, Verdict, type Output } from '#bindings/workflow/report';
+	import { Kind, Outcome, Severity } from '#bindings/workflow';
+	import { type Output } from '#bindings/workflow/report';
 	import { m } from '#i18n';
 
 	let {
@@ -94,16 +94,20 @@
 						>
 							<div class="flex flex-wrap items-center gap-1.5">
 								<Badge
-									variant={f.severity === Severity.SeverityImportant ? 'destructive' : 'secondary'}
+									variant={f.severity === Severity.SeverityError ? 'destructive' : 'secondary'}
 								>
-									{f.severity === Severity.SeverityImportant ? m.important() : m.nit()}
+									{f.severity === Severity.SeverityError
+										? m.severity_error()
+										: f.severity === Severity.SeverityWarning
+											? m.severity_warning()
+											: m.severity_note()}
 								</Badge>
 								<Badge variant="outline">
-									{f.verdict === Verdict.VerdictConfirmed
-										? m.confirmed()
-										: f.verdict === Verdict.VerdictDisputed
-											? m.disputed()
-											: m.plausible()}
+									{f.kind === Kind.KindFail
+										? m.kind_fail()
+										: f.kind === Kind.KindOpen
+											? m.kind_open()
+											: m.kind_review()}
 								</Badge>
 								{#if f.category}<Badge variant="outline">{f.category}</Badge>{/if}
 							</div>

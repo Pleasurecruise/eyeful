@@ -29,20 +29,18 @@ func SARIF(r workflow.Result) ([]byte, error) {
 			return nil, fmt.Errorf("comment on unknown finding %q", c.Finding)
 		}
 		f := r.Findings[i]
-		level := "note"
-		switch {
-		case slices.Contains(c.Decorations, "blocking"):
-			level = "error"
-		case c.Label == workflow.LabelIssue:
-			level = "warning"
+		level := "none"
+		if c.Kind == workflow.KindFail {
+			level = string(c.Severity)
 		}
 		rule := f.Skill
 		if rule == workflow.SkillOther && f.Category != "" {
 			rule = f.Category
 		}
-		result := sarif.NewRuleResult(fmt.Sprintf("eyeful/%s/%s", f.Expert, rule)).WithLevel(level).WithKind("review")
+		result := sarif.NewRuleResult(fmt.Sprintf("eyeful/%s/%s", f.Expert, rule)).WithLevel(level).WithKind(string(c.Kind))
 		props := sarif.NewPropertyBag().
 			Add("expert", f.Expert).
+			Add("severity", c.Severity).
 			Add("evidence", f.Evidence).
 			Add("label", c.Label).
 			Add("decorations", c.Decorations).
@@ -50,7 +48,7 @@ func SARIF(r workflow.Result) ([]byte, error) {
 		if c.Repro != nil {
 			props.Add("oracle", c.Repro.Oracle)
 			props.Add("repro", c.Repro)
-			result.WithKind("fail").WithBaselineState(baselineState(r, f.ID))
+			result.WithBaselineState(baselineState(r, f.ID))
 		}
 		for _, l := range c.Related {
 			result.AddRelatedLocation(sarif.NewLocationWithPhysicalLocation(sarif.NewPhysicalLocation().

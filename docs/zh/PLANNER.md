@@ -1,13 +1,12 @@
 # 规划与分诊
 
-审查的第一个阶段要做三件事：看改动是否到了可以审查的程度，把不需要审查的文件放到一边，再决定剩下的文件由哪些专家来审。这三步按成本从低到高依次进行。本页的步骤和规则都已在 `workflow` 中实现，本地审查会带着规划器的提示词运行它们（见[本地运行](LOCAL.md#agents)）；L1 工具、读取 GitHub 上的 CI 结果，以及云端运行时的 `submit_plan` 工具还没有实现。
+审查的第一个阶段要做三件事：看改动是否到了可以审查的程度，把不需要审查的文件放到一边，再决定剩下的文件由哪些专家来审。这三步按成本从低到高依次进行。本页的步骤和规则都已在 `workflow` 中实现，本地审查会带着规划器的提示词运行它们（见[本地运行](LOCAL.md#agents)）；读取 GitHub 上的 CI 结果和云端运行时的 `submit_plan` 工具还没有实现，原本要在分诊和规划器之间运行的工具也没有（见[档位](LEVELS.md#planned)）。
 
 ```mermaid
 flowchart LR
     ci{"CI 校验"} -->|未通过| diagnose["CI agent<br/>原因和修复方法"]
     ci -->|通过| triage["分诊<br/>只用规则"]
-    triage --> tools["L1 工具"]
-    tools --> planner["规划器 agent"]
+    triage --> planner["规划器 agent"]
     planner -->|submit_plan| check{"Go 检查计划"}
     check -->|合格| run["启动专家"]
     check -->|不合格| retry["重试一次，<br/>仍不合格就用默认专家"]
@@ -19,13 +18,13 @@ flowchart LR
 
 在云端，eyeful 读取 head 提交对应的 GitHub Actions 运行记录。还有运行没结束时，审查先等待；全部通过，或者仓库没有配置 workflow，就继续往下走。
 
-在本地没有 CI 记录可读，由验证器在工作目录里运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 中的 `lint` 命令和 L1 的 `typecheck`。`test` 命令不属于这一步。用 `execution` 时，它在这一步之后、专家开始之前运行；被改动弄坏的测试不会让审查结束，而是成为交给专家的线索（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
+在本地没有 CI 记录可读，由验证器在工作目录里运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 中的 `lint` 命令。`test` 命令不属于这一步。用 `execution` 时，它在这一步之后、专家开始之前运行；被改动弄坏的测试不会让审查结束，而是成为交给专家的线索（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
 
 校验没通过时，不会启动任何专家，只启动 CI agent。它读取失败任务的日志（本地则读命令输出），对每处失败说明是哪个 workflow、job 和 step，原因是什么，怎么修。审查以 `ci_failed` 结束。CI 通过时这一步没有额外开销，不通过时只多跑一次 agent。
 
 ## 分诊 {#triage}
 
-分诊只用规则给改动的文件分类，不调用模型。通过 glob 匹配找出锁文件、生成代码、第三方代码、二进制文件，以及 `.eyeful/config.yml` 里 `skip` 列出的路径；另有一条大小规则，把 diff 超过 512 KB 的文件放到一边。这些文件不交给专家，在反馈里列为“未审查”。参照 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)，其余每一行都至少要交给一个专家。quick 档例外，只审查被工具标出的行（见[档位](LEVELS.md)）。
+分诊只用规则给改动的文件分类，不调用模型。通过 glob 匹配找出锁文件、生成代码、第三方代码、二进制文件，以及 `.eyeful/config.yml` 里 `skip` 列出的路径；另有一条大小规则，把 diff 超过 512 KB 的文件放到一边。这些文件不交给专家，在反馈里列为“未审查”。参照 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)，其余每一行都至少要交给一个专家。
 
 剩下的文件整理成一份清单，每个文件一行：
 
@@ -37,8 +36,6 @@ web/src/Login.svelte      code        40      18
 package-lock.json         lock       310     120
 commits: "fix session expiry at the boundary", "show the expiry on the login page"
 ```
-
-分诊还会按项目用到的语言运行 L1 工具（`lint`、`typecheck`、`secret_scan`、`dependency_audit`、`openapi_diff`、`complexity`、`coverage_diff`），把结果附在清单后面。这些工具不消耗 token，规划器就根据它们的结果做判断（见[档位](LEVELS.md)）。
 
 ## 大改动 {#large}
 
@@ -53,7 +50,7 @@ commits: "fix session expiry at the boundary", "show the expiry on the login pag
 
 ## 审查计划 {#the-plan}
 
-quick 档没有规划器，由规则把每条工具结果分给对应的专家。standard 档的计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
+计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
 
 ### 给改动分组
 
@@ -61,7 +58,7 @@ eyeful 直接使用 pulls.review 自己的分析，不是照着写一份。`pack
 
 1. core 解析分诊保留下来的文件的 diff（`parsePatch`），生成 pulls.review 给本地 agent 的提示词（`buildCliAgentSystemPrompt` 和 `buildAnalysisPrompt`）：文件清单和每个文件的 hunk 标题、放得下时的 diff，以及运行目录里 `change.diff` 的路径，清单不够时 agent 去读它；
 2. agent 按 core 的 `Analysis`（`analysisJsonSchema`）作答：一段说明这次为什么改的概述，以及按意图分的组，每组有触及系统的哪一部分（`category`）、名称、说明、文件，需要格外小心的标 `critical`；
-3. core 按自己的 schema 校验答案，并检查每个文件是否恰好在一个组里（`findCoverageIssues`）。不合格的答案连同 core 给出的原因退回给 agent 重做一次；第二次还不合格，或者连续两次调用失败，就使用该档位的默认专家，所有保留下来的文件放在一个组里，并在反馈里说明。
+3. core 按自己的 schema 校验答案，并检查每个文件是否恰好在一个组里（`findCoverageIssues`）。不合格的答案连同 core 给出的原因退回给 agent 重做一次；第二次还不合格，或者连续两次调用失败，就使用专家名单里的前四个专家，所有保留下来的文件放在一个组里，并在反馈里说明。
 
 ```json
 {
@@ -91,15 +88,17 @@ core 标了 `critical` 的组，或者包含 `.eyeful/config.yml` 中 `risk` 路
 
 Go 用一张固定的表把每个组对应到专家，所以同样的分组总是得到同样的专家：
 
-| 类别                                 | 专家                                   |
-| ------------------------------------ | -------------------------------------- |
-| `security`                           | correctness、skeptic、security         |
-| `core`、`api`、`data`、`cli`         | correctness、skeptic                   |
-| `ui`、`i18n`                         | usability                              |
-| `tests`                              | tests                                  |
-| `docs`、`examples`                   | readability                            |
-| `config`、`build`、`scripts`、`deps` | security                               |
-| `assets`、`other`                    | 无                                     |
-| 核心组另外加上                       | correctness、skeptic、security、design |
+| 类别                         | 专家                                   |
+| ---------------------------- | -------------------------------------- |
+| `security`                   | correctness、skeptic、security         |
+| `core`、`api`、`data`、`cli` | correctness、skeptic                   |
+| `ui`                         | usability、correctness                 |
+| `i18n`                       | usability                              |
+| `tests`                      | tests                                  |
+| `docs`、`examples`           | readability                            |
+| `scripts`                    | security、correctness                  |
+| `config`、`build`、`deps`    | security                               |
+| `assets`、`other`            | 无                                     |
+| 核心组另外加上               | correctness、skeptic、security、design |
 
-之后每个专家只运行一次，审查分给它的所有组（见[专家](EXPERTS.md)）。Go 还会补上信号要求的专家（见[档位](LEVELS.md)），并分配预算。
+`ui` 和 `scripts` 分组里的代码出的是功能性的错，比如组件泄漏资源，或者脚本在另一个系统上跑不起来，所以 correctness 专家也要读：在基准的 pull request 上，漏掉的五条发现里有两条就属于这种情况，而它们所在的分组当时没有 correctness 读者。之后每个专家只运行一次，审查分给它的所有组（见[专家](EXPERTS.md)），预算由 Go 分配。

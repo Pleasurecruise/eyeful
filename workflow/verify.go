@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-var severityRank = map[Severity]int{SeverityCritical: 4, SeverityHigh: 3, SeverityMedium: 2, SeverityLow: 1}
+var severityRank = map[Severity]int{SeverityError: 3, SeverityWarning: 2, SeverityNote: 1}
 
 func corroboration(f Finding, all []Finding) int {
 	// TODO(workflow): weigh corroboration across model families above agreement within one.
@@ -42,12 +42,12 @@ func checkRepro(r Repro) string {
 		return "it names no test to run"
 	case strings.TrimSpace(r.Fails) == "":
 		return "it needs fails: the text the test prints when it fails as the finding claims"
-	case !slices.Contains([]Oracle{OracleImplicit, OracleExisting, OracleSpec, OracleBase, OracleAgent}, r.Oracle):
-		return fmt.Sprintf("oracle %q is not implicit, existing, spec, base or agent", r.Oracle)
-	case r.Oracle == OracleSpec && r.Quote == "":
-		return fmt.Sprintf("oracle %q needs the quoted text", OracleSpec)
-	case (r.Oracle == OracleExisting) != (r.Test == Edit{}):
-		return fmt.Sprintf("oracle %q names a test already in the repository in run and leaves test out; every other oracle hands in a new test file", OracleExisting)
+	case !slices.Contains([]Oracle{OracleSpecified, OracleDerived, OracleImplicit, OracleHuman}, r.Oracle):
+		return fmt.Sprintf("oracle %q is not specified, derived, implicit or human", r.Oracle)
+	case r.Oracle == OracleSpecified && r.Quote == "":
+		return fmt.Sprintf("oracle %q needs the quoted text", OracleSpecified)
+	case r.Oracle != OracleDerived && r.Test == Edit{}:
+		return fmt.Sprintf("only oracle %q can name a test already in the repository in run and leave test out; oracle %q hands in a new test file", OracleDerived, r.Oracle)
 	case r.Test.Old != "" || (r.Test.Path == "") != (r.Test.New == ""):
 		return "the reproduction test is a new file: give its path, leave old empty and put the whole file in new"
 	}
@@ -75,10 +75,10 @@ func grade(ctx context.Context, s Session, r *Repro, commits []string, base Test
 	oracle := r.Oracle
 	switch {
 	case oracle == OracleImplicit && strings.Contains(r.Test.New, r.Fails):
-		oracle = OracleAgent
-	case oracle == OracleBase && base != TestPassed:
-		oracle = OracleAgent
-	case oracle == OracleSpec:
+		oracle = OracleHuman
+	case oracle == OracleDerived && r.Test != Edit{} && base != TestPassed:
+		oracle = OracleHuman
+	case oracle == OracleSpecified:
 		text := strings.Join(commits, "\n")
 		if r.Source != "" {
 			var err error
@@ -87,11 +87,11 @@ func grade(ctx context.Context, s Session, r *Repro, commits []string, base Test
 			}
 		}
 		if !strings.Contains(strings.Join(strings.Fields(text), " "), strings.Join(strings.Fields(r.Quote), " ")) {
-			oracle = OracleAgent
+			oracle = OracleHuman
 		}
 	}
-	if oracle == OracleAgent && base == TestPassed {
-		return OracleBase
+	if oracle == OracleHuman && base == TestPassed {
+		return OracleDerived
 	}
 	return oracle
 }
@@ -231,47 +231,68 @@ func (w *Workflow) repair(ctx context.Context, s Session, l *ledger, f Finding, 
 	return st, nil
 }
 
-func (w *Workflow) judge(ctx context.Context, s Session, l *ledger, f Finding, tried *Verification, files map[string]File) (verifyState, error) {
-	st := verifyState{Verification: Verification{Finding: f.ID, Status: StatusUnverified}, Runs: []Run{}}
-	if tried != nil {
-		st.Verification.Repro, st.Verification.Change = tried.Repro, tried.Change
+func (w *Workflow) judge(ctx context.Context, s Session, l *ledger, batch []Finding, tried map[string]*Verification, files map[string]File, change Change) (judgeState, error) {
+	st := judgeState{Verifications: make([]Verification, len(batch)), Runs: []Run{}}
+	task := JudgeTask{Findings: batch, Commits: change.Commits, Description: change.Description}
+	var paths []string
+	for i, f := range batch {
+		st.Verifications[i] = Verification{Finding: f.ID, Status: StatusUnverified}
+		if t := tried[f.ID]; t != nil {
+			st.Verifications[i].Repro, st.Verifications[i].Change = t.Repro, t.Change
+			task.Tried = append(task.Tried, *t)
+		}
+		if !slices.Contains(paths, f.Path) {
+			paths = append(paths, f.Path)
+		}
 	}
-	if !l.allow() {
-		st.Verification.Reason = "budget exhausted before the judge ran"
+	task.Files = pick(files, paths)
+	stop := func(reason string) (judgeState, error) {
+		for i := range st.Verifications {
+			st.Verifications[i].Reason = reason
+		}
 		return st, nil
 	}
-	j, r, err := invoke(ctx, l, Run{Role: RoleJudge, Expert: f.Expert}, s.Agents.Judge, JudgeTask{Finding: f, Tried: tried, Files: pick(files, []string{f.Path})})
+	if !l.allow() {
+		return stop("budget exhausted before the judge ran")
+	}
+	answers, r, err := invoke(ctx, l, Run{Role: RoleJudge}, s.Agents.Judge, task)
 	if err != nil {
 		return st, err
 	}
 	st.Runs = append(st.Runs, r)
 	if r.Error != "" {
-		st.Verification.Reason = "the judge failed: " + r.Error
-		return st, nil
+		return stop("the judge failed: " + r.Error)
 	}
-	st.Verification.Status = StatusRejected
-	if j.Valid {
-		st.Verification.Status = StatusConfirmed
+	for i := range st.Verifications {
+		v := &st.Verifications[i]
+		j := slices.IndexFunc(answers, func(j Judgement) bool { return j.Finding == v.Finding })
+		if j < 0 {
+			v.Reason = "the judge gave no verdict on this finding"
+			continue
+		}
+		v.Status, v.Reason = StatusRejected, answers[j].Reason
+		if answers[j].Valid {
+			v.Status = StatusConfirmed
+		}
 	}
-	st.Verification.Reason = j.Reason
 	return st, nil
 }
 
-func each(ctx context.Context, queue []Finding, fn func(Finding) (verifyState, error)) ([]verifyState, error) {
-	states := make([]verifyState, len(queue))
+func each[T Finding | []Finding, S verifyState | judgeState](ctx context.Context, queue []T, fn func(T) (S, error)) ([]S, error) {
+	states := make([]S, len(queue))
 	errs := make([]error, len(queue))
 	var wg sync.WaitGroup
 	turns := make(chan struct{}, maxParallel)
-	for i, f := range queue {
+	for i, item := range queue {
 		wg.Go(func() {
 			select {
 			case turns <- struct{}{}:
 			case <-ctx.Done():
-				errs[i] = fmt.Errorf("wait to check %s: %w", f.ID, ctx.Err())
+				errs[i] = fmt.Errorf("wait to check %d of %d: %w", i+1, len(queue), ctx.Err())
 				return
 			}
 			defer func() { <-turns }()
-			states[i], errs[i] = fn(f)
+			states[i], errs[i] = fn(item)
 		})
 	}
 	wg.Wait()
@@ -282,7 +303,7 @@ func cluster(findings []Finding) ([]Finding, map[string][]Finding) {
 	var leads []Finding
 	beside := map[string][]Finding{}
 	for _, f := range verificationOrder(findings) {
-		if i := slices.IndexFunc(leads, func(lead Finding) bool { return near(lead, f) }); i >= 0 {
+		if i := slices.IndexFunc(leads, func(lead Finding) bool { return near(lead, f) && lead.Expert != f.Expert }); i >= 0 {
 			beside[leads[i].ID] = append(beside[leads[i].ID], f)
 			continue
 		}
@@ -330,8 +351,8 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 	var run, read []Finding
 	for _, f := range findings {
 		switch {
-		case f.Severity == SeverityLow:
-		case execution && f.Evidence == EvidenceReproTest && req.Project.TestOne != "":
+		case f.Severity == SeverityNote:
+		case execution && f.Evidence == EvidenceTest && req.Project.TestOne != "":
 			run = append(run, f)
 		default:
 			read = append(read, f)
@@ -341,24 +362,22 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 	if err != nil {
 		return nil, err
 	}
-	judge := func(f Finding) (verifyState, error) {
-		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("verify/%s/judge/%s", req.Verification, f.ID), func() (verifyState, error) { return w.judge(ctx, s, l, f, tried[f.ID], files) })
-	}
-	leads, beside := cluster(append(read, unshown...))
-	first, err := each(ctx, leads, judge)
-	if err != nil {
-		return nil, err
-	}
-	var rest []Finding
-	for i, st := range first {
-		out = append(out, st.Verification)
-		if st.Verification.Status != StatusConfirmed {
-			rest = append(rest, beside[leads[i].ID]...)
+	judged := slices.Concat(read, unshown)
+	slices.SortStableFunc(judged, func(a, b Finding) int {
+		return cmp.Or(cmp.Compare(a.Group, b.Group), cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line))
+	})
+	var batches [][]Finding
+	for _, f := range judged {
+		if n := len(batches); n == 0 || len(batches[n-1]) == judgeBatch || batches[n-1][0].Group != f.Group {
+			batches = append(batches, nil)
 		}
+		batches[len(batches)-1] = append(batches[len(batches)-1], f)
 	}
-	second, err := each(ctx, rest, judge)
-	for _, st := range second {
-		out = append(out, st.Verification)
+	states, err := each(ctx, batches, func(b []Finding) (judgeState, error) {
+		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("judge/%s/%s", req.Verification, b[0].ID), func() (judgeState, error) { return w.judge(ctx, s, l, b, tried, files, req.Change) })
+	})
+	for _, st := range states {
+		out = append(out, st.Verifications...)
 	}
 	return out, err
 }

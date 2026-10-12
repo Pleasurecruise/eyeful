@@ -21,8 +21,8 @@ func (s prepareState) spent() []Run { return s.Runs }
 func (s planState) spent() []Run    { return s.Runs }
 func (s expertState) spent() []Run  { return s.Runs }
 func (s verifyState) spent() []Run  { return s.Runs }
+func (s judgeState) spent() []Run   { return s.Runs }
 func (suiteState) spent() []Run     { return nil }
-func (s summaryState) spent() []Run { return s.Runs }
 
 func checkpoint[T stored](ctx context.Context, a Archive, l *ledger, key string, fn func() (T, error)) (T, error) {
 	var st T
@@ -58,7 +58,7 @@ func (w *Workflow) admit(ctx context.Context, a Archive, req Request) error {
 	if err := w.Admit(req); err != nil {
 		return err
 	}
-	req.Budget, req.Verification, req.Project.TestOne = Budget{}, "", ""
+	req.Budget, req.Verification, req.Project.TestOne, req.Previous = Budget{}, "", "", Result{}
 	want, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
@@ -145,9 +145,6 @@ func New(log *slog.Logger, roster []Expert) (*Workflow, error) {
 }
 
 func (w *Workflow) Admit(req Request) error {
-	if req.Level != "" && !slices.Contains(Levels, req.Level) {
-		return fmt.Errorf("%w: level %q", ErrInvalidRequest, req.Level)
-	}
 	if !slices.Contains([]Mode{ModeExecution, ModeReadOnly, ModeNone}, req.Verification) {
 		return fmt.Errorf("%w: verification %q", ErrInvalidRequest, req.Verification)
 	}
@@ -198,20 +195,10 @@ func (w *Workflow) ci(ctx context.Context, s Session, l *ledger) (ciState, error
 }
 
 func (w *Workflow) prepare(ctx context.Context, s Session, req Request) (prepareState, error) {
-	st := prepareState{Triage: triage(req.Change, req.Project), Tools: []ToolResult{}, Skipped: []string{}, Runs: []Run{}}
+	st := prepareState{Triage: triage(req.Change, req.Project), Skipped: []string{}, Runs: []Run{}}
 	if err := s.Workspace.Setup(ctx); err != nil {
 		st.SetupError = err.Error()
 		st.Skipped = append(st.Skipped, "setup failed, so nothing was verified: "+st.SetupError)
-	}
-	paths := make([]string, 0, len(req.Change.Files))
-	for _, f := range req.Change.Files {
-		paths = append(paths, f.Path)
-	}
-	tools, err := s.Workspace.Tools(ctx, paths)
-	if err != nil {
-		st.Skipped = append(st.Skipped, "the L1 tools failed: "+err.Error())
-	} else {
-		st.Tools = tools
 	}
 	return st, nil
 }
@@ -221,9 +208,10 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 	for _, m := range req.Change.Commits {
 		diff.Commits = append(diff.Commits, pulls.Commit{Message: m})
 	}
-	if len(req.Change.Commits) > 0 {
-		diff.Title, _, _ = strings.Cut(req.Change.Commits[0], "\n")
+	if first := cmp.Or(strings.TrimSpace(req.Change.Description), strings.Join(req.Change.Commits, "\n")); first != "" {
+		diff.Title, _, _ = strings.Cut(first, "\n")
 	}
+	diff.Description = req.Change.Description
 	var patch strings.Builder
 	for _, e := range t.Reviewed {
 		patch.WriteString(files[e.Path].Diff)
@@ -259,9 +247,11 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 	return nil
 }
 
-func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, level Level, t Triage, files map[string]File, tools []ToolResult) (planState, error) {
-	st := planState{Notes: []string{}, Runs: []Run{}}
+func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, t Triage, files map[string]File) (planState, error) {
+	st := planState{Plan: Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}, Notes: []string{}, Runs: []Run{}}
 	switch {
+	case len(t.Reviewed) == 0:
+		return st, nil
 	case len(req.Experts) > 0:
 		picks := make([]Pick, 0, len(req.Experts))
 		for _, name := range req.Experts {
@@ -269,26 +259,25 @@ func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, 
 		}
 		st.Plan, st.Source = whole(t, "request", picks), PlanFromRequest
 		return st, nil
-	case !levels[level].planner:
-		st.Plan, st.Source = w.addSignals(w.routePlan(tools), tools), PlanFromRules
-		return st, nil
-	case len(t.Reviewed) == 0:
-		st.Plan, st.Source = w.addSignals(w.defaultPlan(t, level), tools), PlanFromRules
-		return st, nil
 	}
 	if err := w.askPlanner(ctx, s, l, req, t, files, &st); err != nil {
 		return st, err
 	}
 	if st.Source == "" {
-		st.Plan, st.Source = w.defaultPlan(t, level), PlanFromDefault
-		st.Notes = append(st.Notes, fmt.Sprintf("the default experts for %s reviewed the change", level))
+		picks := []Pick{}
+		for _, e := range w.roster {
+			if !e.Solo && len(picks) < fallbackPanel {
+				picks = append(picks, Pick{Name: e.Name, Why: "default expert"})
+			}
+		}
+		st.Plan, st.Source = whole(t, "other", picks), PlanFromDefault
+		st.Notes = append(st.Notes, "the default experts reviewed the change")
 	}
-	st.Plan = w.addSignals(st.Plan, tools)
 	return st, nil
 }
 
 func (r Request) executes(setupErr string) bool {
-	return r.Verification == ModeExecution && levels[cmp.Or(r.Level, LevelStandard)].verify && setupErr == ""
+	return r.Verification == ModeExecution && setupErr == ""
 }
 
 func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string, files map[string]File, res *Result) (suiteState, error) {
@@ -321,32 +310,66 @@ func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request,
 	return st, nil
 }
 
-func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request, prep prepareState, files map[string]File, res *Result) (bool, error) {
-	res.Scopes = scopes(slices.SortedFunc(slices.Values(prep.Triage.Reviewed), func(a, b Entry) int { return cmp.Compare(a.Path, b.Path) }), 0)
-	res.Plan = Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
-	var unscoped []string
-	for _, r := range prep.Tools {
-		for _, h := range r.Hits {
-			if !slices.ContainsFunc(res.Scopes, func(sc Scope) bool { return slices.Contains(sc.Files, h.Path) }) {
-				unscoped = append(unscoped, h.Path)
-			}
+func (w *Workflow) rerun(ctx context.Context, s Session, id string, repro *Repro) verifyState {
+	v := Verification{Finding: id, Status: StatusUnverified, Repro: repro}
+	seen, _, err := trial(ctx, s, repro)
+	v.Change = seen
+	switch {
+	case err != nil:
+		v.Reason = "the reproduction of the last review could not run on this change: " + err.Error()
+	case len(seen) < reproRuns || seen[0] == TestError:
+		v.Reason = fmt.Sprintf("the reproduction of the last review neither passes nor fails with %q every time on this change: %v", repro.Fails, seen)
+	case seen[0] == TestPassed:
+		v.Status, v.Reason = StatusResolved, "the reproduction failed in the last review and passes on this change"
+	default:
+		v.Status, v.Reason = StatusReproduced, "the reproduction of the last review still fails on this change"
+		if before, err := s.Workspace.Test(ctx, repro.edits(), Target{Tests: []string{repro.Run}, Base: true}); err == nil && repro.status(before) == TestFailed {
+			v.Status, v.Base, v.Reason = StatusPreExisting, TestFailed, "the reproduction of the last review now fails the same way on the base commit"
 		}
 	}
-	level, short := res.Level, false
+	return verifyState{Verification: v, Runs: []Run{}}
+}
+
+func (w *Workflow) recheck(ctx context.Context, s Session, l *ledger, req Request, setupErr string) ([]Finding, []Verification, []Claim, error) {
+	var findings []Finding
+	var verdicts []Verification
+	var open []Claim
+	if !req.executes(setupErr) || req.Project.TestOne == "" {
+		return findings, verdicts, open, nil
+	}
+	for _, old := range req.Previous.Verifications {
+		i := slices.IndexFunc(req.Previous.Findings, func(f Finding) bool { return f.ID == old.Finding })
+		if i < 0 || old.Repro == nil || !slices.Contains([]Status{StatusReproduced, StatusFixed}, old.Status) || checkRepro(*old.Repro) != "" || severityRank[req.Previous.Findings[i].Severity] == 0 {
+			continue
+		}
+		f := req.Previous.Findings[i]
+		f.ID, f.Group = "previous/"+strings.TrimPrefix(f.ID, "previous/"), 0
+		st, err := checkpoint(ctx, s.Archive, l, "recheck/"+f.ID, func() (verifyState, error) { return w.rerun(ctx, s, f.ID, old.Repro), nil })
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		findings, verdicts = append(findings, f), append(verdicts, st.Verification)
+		if st.Verification.Status == StatusReproduced {
+			open = append(open, f.Claim)
+		}
+	}
+	return findings, verdicts, open, nil
+}
+
+func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request, prep prepareState, files map[string]File, known []Claim, res *Result) (bool, error) {
+	res.Scopes = scopes(slices.SortedFunc(slices.Values(prep.Triage.Reviewed), func(a, b Entry) int { return cmp.Compare(a.Path, b.Path) }), 0)
+	res.Plan = Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
+	short := false
 	panel := &ledger{budget: Budget{Tokens: l.budget.Tokens * expertPercent / 100, MicroUSD: l.budget.MicroUSD * expertPercent / 100}, parent: l}
 	for si, sc := range res.Scopes {
 		sl := panel.share(len(res.Scopes))
-		tools := hitsFor(prep.Tools, sc.Files)
-		if si == 0 {
-			tools = hitsFor(prep.Tools, slices.Concat(sc.Files, unscoped))
-		}
 		ps, err := checkpoint(ctx, s.Archive, sl, fmt.Sprintf("plan/%d", si), func() (planState, error) {
 			scoped := Triage{
 				Reviewed: slices.DeleteFunc(slices.Clone(prep.Triage.Reviewed), func(e Entry) bool { return !slices.Contains(sc.Files, e.Path) }),
 				Excluded: prep.Triage.Excluded,
 				Risk:     slices.DeleteFunc(slices.Clone(prep.Triage.Risk), func(p string) bool { return !slices.Contains(sc.Files, p) }),
 			}
-			return w.plan(ctx, s, sl, req, level, scoped, files, tools)
+			return w.plan(ctx, s, sl, req, scoped, files)
 		})
 		if err != nil {
 			return false, err
@@ -365,7 +388,7 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, ps.Notes...)
 		w.log.Info("plan", slog.String("scope", sc.Name), slog.String("source", string(ps.Source)), slog.Int("groups", len(ps.Plan.Groups)))
 
-		findings, u, err := w.experts(ctx, s, sl, res.Plan, from, level, files, tools, res.Regression, req)
+		findings, u, err := w.experts(ctx, s, sl, res.Plan, from, files, res.Regression, known, req)
 		if err != nil {
 			return false, err
 		}
@@ -383,7 +406,7 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 
 func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, error) {
 	res := Result{
-		Diagnosis: Diagnosis{Failures: []Failure{}}, Tools: []ToolResult{}, Findings: []Finding{}, Verifications: []Verification{},
+		Diagnosis: Diagnosis{Failures: []Failure{}}, Findings: []Finding{}, Verifications: []Verification{},
 		Comments: []Comment{}, Runs: []Run{},
 		Uncertainty: Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Unverified: []Unverified{}, Skipped: []string{}, Notes: []string{}},
 	}
@@ -409,7 +432,7 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	if err != nil {
 		return res, err
 	}
-	res.Triage, res.Tools, res.Level = prep.Triage, prep.Tools, cmp.Or(req.Level, LevelStandard)
+	res.Triage = prep.Triage
 	res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, prep.Skipped...)
 
 	files := map[string]File{}
@@ -420,32 +443,28 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	if err != nil {
 		return res, err
 	}
-	// TODO(workflow): re-reviews that pass the previous round's findings to each expert.
-	short, err := w.passes(ctx, s, l, req, prep, files, &res)
+	// TODO(workflow): hand the last round's findings that no test showed to the judge again.
+	carried, rechecked, known, err := w.recheck(ctx, s, l, req, prep.SetupError)
 	if err != nil {
 		return res, err
 	}
-	findings := res.Findings
+	short, err := w.passes(ctx, s, l, req, prep, files, known, &res)
+	if err != nil {
+		return res, err
+	}
 
-	verdicts, err := w.verify(ctx, s, l, req, req.executes(prep.SetupError), suite, findings, files)
+	verdicts, err := w.verify(ctx, s, l, req, req.executes(prep.SetupError), suite, res.Findings, files)
 	if err != nil {
 		return res, err
 	}
-	res.Verifications = verdicts
-	byFinding := res.Uncertainty.record(verdicts)
+	res.Findings, res.Verifications = append(res.Findings, carried...), append(append(res.Verifications, verdicts...), rechecked...)
+	byFinding := res.Uncertainty.record(res.Verifications)
 	if req.Verification == ModeNone {
 		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "verification was off for this review")
 	}
 
-	merged := merge(findings, byFinding)
-	sum, err := checkpoint(ctx, s.Archive, l, "summary/"+string(req.Verification), func() (summaryState, error) { return w.summarize(ctx, s, l, merged, byFinding) })
-	if err != nil {
-		return res, err
-	}
-	res.Comments = sum.Comments
-	if sum.Fallback != "" {
-		res.Uncertainty.Notes = append(res.Uncertainty.Notes, "comments were formatted by rules: "+sum.Fallback)
-	}
+	merged := merge(res.Findings, byFinding)
+	res.Comments = w.comments(merged, byFinding)
 
 	res.Runs = l.runs
 	res.Uncertainty.BudgetExhausted = l.exhausted || short
@@ -483,22 +502,6 @@ func pick(files map[string]File, paths []string) []File {
 	for _, p := range paths {
 		if f, ok := files[p]; ok {
 			out = append(out, f)
-		}
-	}
-	return out
-}
-
-func hitsFor(tools []ToolResult, paths []string) []ToolResult {
-	out := []ToolResult{}
-	for _, r := range tools {
-		hits := []Hit{}
-		for _, h := range r.Hits {
-			if slices.Contains(paths, h.Path) {
-				hits = append(hits, h)
-			}
-		}
-		if len(hits) > 0 {
-			out = append(out, ToolResult{Tool: r.Tool, Hits: hits})
 		}
 	}
 	return out

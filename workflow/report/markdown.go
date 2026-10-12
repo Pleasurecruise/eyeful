@@ -15,7 +15,7 @@ func Markdown(r workflow.Result) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "# eyeful review\n\n%d findings: %d important, %d nit. Outcome `%s`.\n", len(out.Findings), out.Counts.Important, out.Counts.Nit, out.Outcome)
+	fmt.Fprintf(&b, "# eyeful review\n\n%d findings: %d fail, %d review, %d open. Outcome `%s`.\n", len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open, out.Outcome)
 	if out.Reason != "" {
 		fmt.Fprintf(&b, "%s.\n", out.Reason)
 	}
@@ -29,7 +29,8 @@ func Markdown(r workflow.Result) (string, error) {
 	if r.Regression != nil {
 		fmt.Fprintf(&b, "\n## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
 	}
-	if out.Counts.Important == 0 && out.Outcome != workflow.OutcomeCIFailed {
+	resolved(&b, r)
+	if out.Counts.Fail == 0 && out.Outcome != workflow.OutcomeCIFailed {
 		b.WriteString("\nNo blocking issues.\n")
 	}
 	findings(&b, out.Findings)
@@ -49,8 +50,33 @@ func Markdown(r workflow.Result) (string, error) {
 	return b.String(), nil
 }
 
+func resolved(b *strings.Builder, r workflow.Result) {
+	first := true
+	for _, v := range r.Verifications {
+		i := slices.IndexFunc(r.Findings, func(f workflow.Finding) bool { return f.ID == v.Finding })
+		if i < 0 || v.Status != workflow.StatusResolved {
+			continue
+		}
+		if first {
+			b.WriteString("\n## Resolved since the last review\n\nEach of these failed its reproduction in the last review and passes it on this change.\n\n")
+			first = false
+		}
+		fmt.Fprintf(b, "- `%s:%d` %s (`%s`)\n", r.Findings[i].Path, r.Findings[i].Line, r.Findings[i].Subject, v.Repro.Run)
+	}
+}
+
 func findings(b *strings.Builder, all []Finding) {
-	shown := slices.DeleteFunc(slices.Clone(all), func(f Finding) bool { return f.Label == workflow.LabelNitpick })
+	var shown, disputed, nitpicks []Finding
+	for _, f := range all {
+		switch {
+		case f.Label == workflow.LabelNitpick:
+			nitpicks = append(nitpicks, f)
+		case f.Kind == workflow.KindOpen:
+			disputed = append(disputed, f)
+		default:
+			shown = append(shown, f)
+		}
+	}
 	if len(shown) > 0 {
 		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
 		for _, f := range shown {
@@ -60,20 +86,24 @@ func findings(b *strings.Builder, all []Finding) {
 	for _, f := range shown {
 		finding(b, f)
 	}
-	if len(shown) == len(all) {
-		return
+	if len(disputed) > 0 {
+		fmt.Fprintf(b, "\n<details><summary>Disputed (%d)</summary>\n\nThe judge agent read the code and does not think these hold. They are kept for you to decide.\n\n", len(disputed))
+		for _, f := range disputed {
+			fmt.Fprintf(b, "- `%s:%d` %s %s (%s)\n", f.File, f.Line, f.Summary, f.Verification, strings.Join(f.Experts, ", "))
+		}
+		b.WriteString("\n</details>\n")
 	}
-	fmt.Fprintf(b, "\n<details><summary>Nitpicks (%d)</summary>\n\n", len(all)-len(shown))
-	for _, f := range all {
-		if f.Label == workflow.LabelNitpick {
+	if len(nitpicks) > 0 {
+		fmt.Fprintf(b, "\n<details><summary>Nitpicks (%d)</summary>\n\n", len(nitpicks))
+		for _, f := range nitpicks {
 			fmt.Fprintf(b, "- `%s:%d` %s %s (%s)\n", f.File, f.Line, f.Summary, strings.Join(strings.Fields(f.Why), " "), strings.Join(f.Experts, ", "))
 		}
+		b.WriteString("\n</details>\n")
 	}
-	b.WriteString("\n</details>\n")
 }
 
 func finding(b *strings.Builder, f Finding) {
-	fmt.Fprintf(b, "\n## %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Category, f.Verdict, f.File, f.Line, f.Summary)
+	fmt.Fprintf(b, "\n## %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Category, f.Kind, f.File, f.Line, f.Summary)
 	if len(f.Related) > 0 {
 		places := make([]string, len(f.Related))
 		for i, r := range f.Related {

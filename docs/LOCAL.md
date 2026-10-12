@@ -26,9 +26,11 @@ them, and each expert decides how closely to look ([Levels](LEVELS.md#choosing-t
 Naming experts skips the planner: those experts review every file triage kept; with no name the
 planner chooses. `review` takes only `--base` and `--head` (what to review), `--verification`
 (`read_only`, the default, `execution` or `none`), `--yes` (confirm the project commands) and `--run`
-(where the review's files go). A review started again with the same `--run` directory skips every
+(where the review's files go) and `--description` (a file with the author's description of the
+change, such as a pull request's title and body, which the planner, the experts and the judge read
+as the author's word beside the commit messages). A review started again with the same `--run` directory skips every
 stage already saved there, so an interrupted review carries on where it stopped; eyeful refuses the
-directory when it holds a review of another request: another change, level or set of experts. The
+directory when it holds a review of another request: another change or set of experts. The
 budget and `--verification` may differ. Give a directory outside the repository, or
 leave the flag out to get one under `.eyeful/runs/`. The
 token budget (3,000,000) and the limit per project command (10 minutes) are fixed. Where the
@@ -123,7 +125,7 @@ affected, because they run in the snapshot's own checkout.
    the code under review. The run's output goes to `.eyeful/runs/`, which holds a `.gitignore` of `*`,
    so git never sees it and the next review's snapshot leaves it out.
 2. It reads [`.eyeful/config.yml`](CONFIGURATION.md#project) from the repository, which step 1
-   showed holds the snapshot, checks the request (experts, level, budget, globs) before any agent
+   showed holds the snapshot, checks the request (experts, budget, globs) before any agent
    starts, and prints the subject, the snapshot, experts, agent and verification. With
    `execution` it checks out the snapshot with `git worktree add --detach` into the system's
    temporary directory, with hooks turned off, and prints the commands it will run there, and the user confirms them, unless
@@ -135,19 +137,21 @@ affected, because they run in the snapshot's own checkout.
    With `read_only` or `none` no command runs, so there is no CI check.
 4. Triage sorts the files, and the planner makes a plan from them and the messages of the commits
    in the range (the newest 50), the same as in the cloud.
-5. Each expert, the planner, the fix agent, the reproduction agent, the judge and
-   the summarizer is a new session with the connected
+5. Each expert, the planner, the fix agent, the reproduction agent and the judge
+   is a new session with the connected
    agent's command-line tool ([Agents](#agents)).
 6. With `execution`, the verifier runs `test` in the checkout before the experts start, and again
    on the base commit when it fails, so the experts are told which tests the change breaks
-   ([Tests the change breaks](VERIFICATION.md#regressions)). After them a reproduction agent writes
+   ([Tests the change breaks](VERIFICATION.md#regressions)). When the repository holds an earlier
+   review of the same branch, the reproductions it saw fail run again too, and what they show is
+   carried into this review ([Rounds](REPORT.md#rounds)). After the experts a reproduction agent writes
    a test for each finding a test can show, and the verifier runs it with `test_one`, on the change
    and on its base commit, and the suite again with each fix
    ([the verifier](VERIFICATION.md#the-verifier)). A judge agent reads each finding that no test can
    show or whose test did not show it. With `read_only`, the judge agent reads every finding. A
    finding the judge disputes is still reported, with the judge's reason
    ([the judge](VERIFICATION.md#the-judge)).
-7. `eyeful review` prints the findings in the form of Claude Code's ultrareview, important ones
+7. `eyeful review` prints the findings in the form of Claude Code's ultrareview, `fail` ones
    first ([In the terminal](REPORT.md#terminal)). It writes `snapshot.json`, `change.diff`,
    `review.md`, `findings.json`, `results.sarif`, `result.json` and
    each stage's checkpoint to `.eyeful/runs/<time>/`, and under `agents/` the prompt and the raw
@@ -168,9 +172,7 @@ ends with one JSON block that matches the role's schema, which is the result the
 otherwise submit ([Prompt, skills and tools](EXPERTS.md#skills-and-tools)). If the block is missing
 or does not match, eyeful runs the call once more with the reason added, then counts it as failed.
 eyeful cannot see which files a CLI agent read, so a local review does not list the skills an expert
-left unread. The summarizer gets no file tools where the CLI can withhold them (Claude Code and pi):
-its input holds everything it writes from, and reading the repository again cost more than the
-experts' own reading.
+left unread.
 No MCP server is configured for the agent: MCP is served only by the cloud ([API](API.md#mcp-planned)).
 Because the agent cannot run commands, the only commands that run are the confirmed project
 commands, in the snapshot's checkout; the reproduction agent hands in a test and the verifier runs it.

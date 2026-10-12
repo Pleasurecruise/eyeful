@@ -2,16 +2,12 @@
 name: correctness
 area: correctness
 tier: strong
-evidence: [repro_test, tool, argument]
+evidence: [test, inspection]
 skills:
   - name: code-review
   - name: golang-error-handling
     files: ['**/*.go']
-  - name: golang-concurrency
-    files: ['**/*.go']
   - name: python-error-handling
-    files: ['**/*.py']
-  - name: async-python-patterns
     files: ['**/*.py']
   - name: typescript-advanced-types
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs']

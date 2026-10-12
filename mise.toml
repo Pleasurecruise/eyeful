@@ -128,7 +128,7 @@ run = [
 description = "Check formatting and lint Go and TypeScript"
 depends = ["generate:bindings"]
 run = [
-	"test -z \"$(gofmt -l .)\" || (gofmt -l . && exit 1)",
+	"test -z \"$(gofmt -l cmd internal workflow local apps/web apps/desktop db)\" || (gofmt -l cmd internal workflow local apps/web apps/desktop db && exit 1)",
 	"golangci-lint run ./...",
 	"cd {{config_root}}/workflow && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
 	"cd {{config_root}}/local && golangci-lint run --config {{config_root}}/.golangci.yml ./...",

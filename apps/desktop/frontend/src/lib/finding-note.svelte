@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Badge } from '@eyeful/ui';
-	import { Severity, Verdict, type Finding } from '#bindings/workflow/report';
+	import { Kind, Severity } from '#bindings/workflow';
+	import { type Finding } from '#bindings/workflow/report';
 	import { m } from '#i18n';
 
 	let { finding }: { finding: Finding } = $props();
@@ -8,15 +9,19 @@
 
 <div class="m-2 grid gap-1 rounded-lg border bg-card p-3 font-sans text-sm text-card-foreground">
 	<div class="flex flex-wrap items-center gap-1.5">
-		<Badge variant={finding.severity === Severity.SeverityImportant ? 'destructive' : 'secondary'}>
-			{finding.severity === Severity.SeverityImportant ? m.important() : m.nit()}
+		<Badge variant={finding.severity === Severity.SeverityError ? 'destructive' : 'secondary'}>
+			{finding.severity === Severity.SeverityError
+				? m.severity_error()
+				: finding.severity === Severity.SeverityWarning
+					? m.severity_warning()
+					: m.severity_note()}
 		</Badge>
 		<Badge variant="outline">
-			{finding.verdict === Verdict.VerdictConfirmed
-				? m.confirmed()
-				: finding.verdict === Verdict.VerdictDisputed
-					? m.disputed()
-					: m.plausible()}
+			{finding.kind === Kind.KindFail
+				? m.kind_fail()
+				: finding.kind === Kind.KindOpen
+					? m.kind_open()
+					: m.kind_review()}
 		</Badge>
 		<span class="font-medium">{finding.short_summary}</span>
 	</div>

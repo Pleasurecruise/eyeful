@@ -52,7 +52,8 @@ const replyNotice = `
 
 eyeful gives you no tools of its own, so ignore the tool names in the instructions above:
 
-- The diffs you need are in the input. Read any other file with your read-only tools.
+- The diffs you need, and the commit messages where the instructions speak of them, are in the
+  input. Read any other file with your read-only tools.
 - Nothing runs a reproduction for you. eyeful's verifier runs the one you hand in.
 - Your final message is your result. Where the instructions say to call ` + "`%s`" + `, end the message with
   one fenced ` + "```json" + ` block that holds that tool's arguments, and write nothing after it. It must
@@ -89,10 +90,10 @@ func decode[T reply](text string) (T, error) {
 }
 
 func ask[T reply](ctx context.Context, a *Agents, role workflow.Role, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
-	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, true, prompt, nil)
+	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt, nil)
 }
 
-func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, read bool, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
+func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
 	var zero T
 	if data == nil {
 		schema, err := jsonschema.For[T](nil)
@@ -114,7 +115,7 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 		runCtx, stop := context.WithCancelCause(ctx)
 		hard := time.AfterFunc(a.hard, func() { stop(fmt.Errorf("%w: %s", ErrHardTimeout, a.hard)) })
 		idle := time.AfterFunc(a.idle, func() { stop(fmt.Errorf("%w: %s", ErrIdle, a.idle)) })
-		cmd := exec.CommandContext(runCtx, p.Tool, p.args(data, tier, read)...)
+		cmd := exec.CommandContext(runCtx, p.Tool, p.args(data, tier)...)
 		cmd.Dir, cmd.Env, cmd.WaitDelay = a.cfg.Dir, env, 5*time.Second
 		var stdout bytes.Buffer
 		stderr := tail.New(stderrLimit)
@@ -169,19 +170,19 @@ func (a *Agents) Plan(ctx context.Context, t workflow.PlanTask) (pulls.Analysis,
 	if err != nil {
 		return pulls.Analysis{}, workflow.Usage{}, err
 	}
-	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", true, prompt, schema)
+	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", prompt, schema)
 }
 
 func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Report, workflow.Usage, error) {
-	prompt, err := a.cfg.Set.Review(t, a.cfg.Skills)
+	prompt, err := a.cfg.Set.Review(t, a.cfg.Skills, a.cfg.History)
 	if err != nil {
 		return workflow.Report{}, workflow.Usage{}, err
 	}
-	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, true, prompt, nil)
+	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt, nil)
 }
 
 func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {
-	prompt, err := a.cfg.Set.Fix(t)
+	prompt, err := a.cfg.Set.Fix(t, a.cfg.History)
 	if err != nil {
 		return nil, workflow.Usage{}, err
 	}
@@ -197,21 +198,13 @@ func (a *Agents) Retest(ctx context.Context, t workflow.RetestTask) (workflow.Re
 	return ask[workflow.Repro](ctx, a, workflow.RoleRepro, "", prompt)
 }
 
-func (a *Agents) Judge(ctx context.Context, t workflow.JudgeTask) (workflow.Judgement, workflow.Usage, error) {
-	prompt, err := a.cfg.Set.Judge(t)
-	if err != nil {
-		return workflow.Judgement{}, workflow.Usage{}, err
-	}
-	return ask[workflow.Judgement](ctx, a, workflow.RoleJudge, "", prompt)
-}
-
-func (a *Agents) Summarize(ctx context.Context, t workflow.SummaryTask) ([]workflow.Draft, workflow.Usage, error) {
-	prompt, err := a.cfg.Set.Summarize(t)
+func (a *Agents) Judge(ctx context.Context, t workflow.JudgeTask) ([]workflow.Judgement, workflow.Usage, error) {
+	prompt, err := a.cfg.Set.Judge(t, a.cfg.History)
 	if err != nil {
 		return nil, workflow.Usage{}, err
 	}
-	r, usage, err := run[summaryReply](ctx, a, string(workflow.RoleSummarizer), a.cfg.Set.Roles[workflow.RoleSummarizer].Submit, "", false, prompt, nil)
-	return r.Comments, usage, err
+	r, usage, err := ask[judgeReply](ctx, a, workflow.RoleJudge, "", prompt)
+	return r.Judgements, usage, err
 }
 
 func (a *Agents) CommitMessage(ctx context.Context, patch string) (string, workflow.Usage, error) {
@@ -219,6 +212,6 @@ func (a *Agents) CommitMessage(ctx context.Context, patch string) (string, workf
 	if err != nil {
 		return "", workflow.Usage{}, err
 	}
-	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, true, skill+"\n\n## Diff\n\n"+patch, nil)
+	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch, nil)
 	return r.Message, usage, err
 }

@@ -26,7 +26,7 @@ v1.0 只包含实验需要的部分，通过命令行对数据集运行：
 - agent 在 pi 中运行，使用 eyeful 管理的模型密钥，每个 token 的计数方式一致（见[在 pi 中运行 agent](CLOUD.md#agents-in-pi)）。
 - 被试在 SWE-bench 自带的 Docker 环境中运行，注入缺陷集使用容器运行。
 - 运行归档，保存论文中报告的所有数字，以及各阶段的检查点。
-- quick 和 standard 两个档位，反馈输出为 SARIF 和 Markdown。
+- 反馈输出为 SARIF 和 Markdown。
 - `eval/`：数据集、配置与条件、标注流程和消融实验（见[效果评测](EVALUATION.md)）。
 
 目前已经完成：除了“agent 在 pi 中运行”以外的整个工作流；`eval/` 里的被试构建脚本、eyeful 和 revmux 的运行脚本、标注表和分析脚本；以及在 SWE-bench 被试上做的一次[试点](EVALUATION.md#pilot)，通过本地的 `eyeful` 命令、以 Claude Code 作为 agent 运行。还没有做的：注入缺陷集的被试本身、试点没有覆盖的 SWE-bench 被试、每次审查重复三遍、标注，以及 agent 在 pi 中运行。
@@ -34,9 +34,9 @@ v1.0 只包含实验需要的部分，通过命令行对数据集运行：
 退出条件：
 
 - 主实验已在两个数据集上、以两种配置和三种条件各跑三遍，发现已按效果评测中的要求标注。
-- 这些运行中的每条 `issue (blocking)` 都经验证器确认失败过，判定依据为 `implicit`、`existing` 或 `spec`。
+- 这些运行中的每条 `issue (blocking)` 都经验证器确认失败过，判定依据为 `specified` 或 `implicit`，或者是项目自己的测试这种 `derived`。
 - 预算用完的审查能返回已验证的部分，并标为 partial；审查中途被杀掉的工作进程能从最后完成的阶段继续。
-- 论文能说明 standard 相比 quick 多得到了什么，这是 v1.0 衡量“花费与改动相称”的方式。
+- 论文能说明专家组相比单 agent 多得到了什么、多花了多少，这是 v1.0 衡量“花费与改动相称”的方式。
 
 v1.0 发布之前，控制台、桌面端、Gitee 登录、CORS、限流和 MCP 不加新功能，但保持可用，测试照常保留。
 

@@ -2,7 +2,7 @@
 name: security
 area: security
 tier: strong
-evidence: [repro_test, cve, trigger_path, argument]
+evidence: [test, analysis, inspection]
 skills:
   - name: security-review
   - name: golang-security

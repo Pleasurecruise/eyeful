@@ -149,6 +149,11 @@ func loadExperts(s *Set) error {
 			if _, ok := s.Skill(sk.Name); !ok {
 				return fmt.Errorf("%w: %s names %q", ErrUnknownSkill, p, sk.Name)
 			}
+			if other := slices.IndexFunc(s.Experts, func(e Expert) bool {
+				return !e.Solo && !f.Solo && slices.ContainsFunc(e.Skills, func(k workflow.Skill) bool { return k.Name == sk.Name })
+			}); other >= 0 {
+				return fmt.Errorf("%w: %s and %s both name skill %q; a skill belongs to one expert of the panel", ErrInvalidPrompt, s.Experts[other].Name, f.Name, sk.Name)
+			}
 		}
 		s.Experts = append(s.Experts, Expert{Name: f.Name, Area: f.Area, Tier: f.Tier, Evidence: f.Evidence, Skills: f.Skills, Solo: f.Solo, Blind: f.Blind, Body: body})
 	}
