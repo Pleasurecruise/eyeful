@@ -73,10 +73,6 @@ func checkEvidence(t ReviewTask, f Claim) []string {
 func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task ReviewTask) (expertState, error) {
 	st := expertState{Findings: []Claim{}, Unread: []string{}, Runs: []Run{}}
 	for attempt := range 2 {
-		if !l.allow() {
-			st.Absent = "budget exhausted"
-			return st, nil
-		}
 		report, r, err := invoke(ctx, l, Run{Role: RoleExpert, Expert: task.Expert.Name}, s.Agents.Review, task)
 		if err != nil {
 			return st, err

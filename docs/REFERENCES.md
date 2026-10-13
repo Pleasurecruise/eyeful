@@ -1,152 +1,117 @@
 # References
 
-This page lists the standards eyeful reviews against and the two projects it builds on. Other pages link here when they mention them.
+The standards eyeful reviews against, and the two projects it builds on.
 
 ## Software quality
 
-- ISO/IEC 25010:2023, _Product quality model_. The experts are divided along its quality
-  characteristics, and each expert covers one or more of them ([roster](EXPERTS.md#the-roster)).
+- ISO/IEC 25010:2023, _Product quality model_. The experts are divided along its characteristics
+  ([roster](EXPERTS.md#the-roster)).
 
 ## Code review
 
-- Google Engineering Practices,
-  [The Standard of Code Review](https://google.github.io/eng-practices/review/reviewer/standard.html).
-  Decides when a comment blocks: only when the change makes code health worse. Data comes before
-  opinion, and the style guide decides questions of style ([review standard](REVIEW.md#review-standard)).
-- Google Engineering Practices,
-  [What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html).
-  The questions each expert asks, and the rule that every line is read
-  ([Planning and triage](PLANNER.md)).
-- Google Engineering Practices,
-  [How to write code review comments](https://google.github.io/eng-practices/review/reviewer/comments.html).
-  Comments address the code rather than the author, give their reason and state their severity
-  ([Review feedback](REPORT.md)).
+- Google Engineering Practices:
+  [The Standard of Code Review](https://google.github.io/eng-practices/review/reviewer/standard.html)
+  (when a comment blocks, [review standard](REVIEW.md#review-standard)),
+  [What to look for](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
+  (the experts' questions; every line is read) and
+  [How to write comments](https://google.github.io/eng-practices/review/reviewer/comments.html).
 - [Conventional Comments](https://conventionalcomments.org). The format, labels and decorations of
   every comment ([comment format](REPORT.md#comment-format)).
-- Tenny, [Trust Doesn't Live in the Code Review](https://raft.build/zh-cn/resources/blog/trust-doesnt-live-in-the-code-review/),
-  Raft, 2026. A review is an event and trust is a state: a verdict on one diff does not say the
-  system still holds together, and a check counts only once it has been seen to fail. This is why
-  eyeful never approves and a review without findings proves nothing ([limits](README.md#limits)),
-  why a reproduction has to fail before it is evidence ([the verifier](VERIFICATION.md#the-verifier)),
-  why a re-review reruns the last review's failing tests and calls a finding fixed only when its
-  test went from red to green ([rounds](REPORT.md#rounds)), and why the tests expert asks of every
-  new test what would turn it red ([tests](EXPERTS.md#tests)).
-- OASIS, [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the Static
-  Analysis Results Interchange Format. Findings and their evidence are stored in it
-  ([Findings as SARIF](VERIFICATION.md#sarif)), and its two scales are the only ones eyeful grades a
-  finding on: `level` (§3.27.10) for the severity an expert gives and `kind` (§3.27.9) for how
-  settled the finding is after verification ([Kind and severity](VERIFICATION.md#kind-and-severity)).
+- OASIS, [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html). How findings
+  are stored, and the two scales they are graded on: `kind` (§3.27.9) and `level` (§3.27.10)
+  ([Kind and severity](VERIFICATION.md#kind-and-severity)).
+- Tenny,
+  [Trust Doesn't Live in the Code Review](https://raft.build/zh-cn/resources/blog/trust-doesnt-live-in-the-code-review/),
+  Raft, 2026. A review is an event and trust is a state; a check counts only once it has been seen
+  to fail ([limits](overview.md#limits), [rounds](REPORT.md#rounds), [tests](EXPERTS.md#tests)).
 
 ## Design and maintainability
 
-- T. J. McCabe, "A Complexity Measure", _IEEE Transactions on Software Engineering_, 1976.
-  Cyclomatic complexity, which the design expert's `complexity` tool measures.
+- T. J. McCabe, "A Complexity Measure", _IEEE TSE_, 1976. Cyclomatic complexity.
 - W. Stevens, G. Myers and L. Constantine, "Structured Design", _IBM Systems Journal_, 1974.
   Coupling and cohesion.
-- R. C. Martin, _Design Principles and Design Patterns_, 2000. The SOLID principles.
+- R. C. Martin, _Design Principles and Design Patterns_, 2000. SOLID.
 - M. Nygard,
-  [Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), 2011. Architecture decision records, read when a project keeps them.
+  [Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), 2011.
 
 ## Correctness and security
 
-- [SEI CERT Coding Standards](https://wiki.sei.cmu.edu/confluence/display/seccode), for the languages
-  that have one.
+- [SEI CERT Coding Standards](https://wiki.sei.cmu.edu/confluence/display/seccode).
 - [CWE](https://cwe.mitre.org) and the [CWE Top 25](https://cwe.mitre.org/top25/). The weakness class
   of each correctness and security finding.
-- [OWASP Top 10](https://owasp.org/Top10/). The security expert's checklist of web application
-  risks.
-- [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/). Security
-  requirements by level. eyeful's own sign-in also follows it ([Auth](AUTH.md)).
+- [OWASP Top 10](https://owasp.org/Top10/) and
+  [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/). eyeful's
+  own sign-in also follows ASVS ([Auth](AUTH.md)).
 - [OSV](https://osv.dev) and [CVE](https://www.cve.org). Known vulnerabilities in dependencies.
 
-## Testing
+## Testing {#testing}
 
-- ISO/IEC/IEEE 29119, _Software testing_. Test design techniques and terminology.
 - E. T. Barr, M. Harman, P. McMinn, M. Shahbaz and S. Yoo, "The Oracle Problem in Software Testing:
-  A Survey", _IEEE Transactions on Software Engineering_, 41(5), 2015. Specified, derived, implicit
-  and human test oracles, the four kinds a reproduction declares and the verifier grades
-  ([the oracle problem](VERIFICATION.md#oracle)).
-- ISO/IEC/IEEE 29148:2018, _Requirements engineering_. Inspection, analysis, demonstration and
-  test, the verification methods an expert names as the `evidence` of a finding
-  ([evidence kinds](VERIFICATION.md#evidence-kinds)).
-- A. van Deursen, L. Moonen, A. van den Bergh and G. Kok, "Refactoring Test Code", XP 2001. Test
-  smells.
-- Y. Jia and M. Harman, "An Analysis and Survey of the Development of Mutation Testing", _IEEE
-  Transactions on Software Engineering_, 2011. Mutation testing, used to check whether tests fail
-  when the code breaks.
-- C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. Fail-to-pass and pass-to-pass, the verifier's last two [gates](VERIFICATION.md#the-verifier), and the test statuses `PASSED`, `FAILED` and `ERROR` it records for every run.
-- Martian, "Code Review Bench", 2026, <https://github.com/withmartian/code-review-benchmark>. The offline set of 50 pull requests with golden comments, and the judge prompt and scoring that [`match.py`](EVALUATION.md#tooling) follows.
-- R. Just, D. Jalali and M. D. Ernst, "Defects4J: A Database of Existing Faults to Enable Controlled
-  Testing Studies for Java Programs", ISSTA 2014. A fault is tied to the change that introduced it,
-  the `introduced` gate.
+  A Survey", _IEEE TSE_, 41(5), 2015. Specified, derived, implicit and human oracles
+  ([the oracle](VERIFICATION.md#oracle)).
+- ISO/IEC/IEEE 29148:2018, _Requirements engineering_. Inspection, analysis, demonstration and test
+  ([evidence](VERIFICATION.md#evidence-kinds)).
+- C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. Fail-to-pass, pass-to-pass, and the statuses `PASSED`, `FAILED` and `ERROR`
+  ([the verifier](VERIFICATION.md#the-verifier)).
+- R. Just, D. Jalali and M. D. Ernst, "Defects4J", ISSTA 2014. A fault is tied to the change that
+  introduced it: the `introduced` gate.
 - N. Alshahwan et al., "Automated Unit Test Improvement using Large Language Models at Meta", FSE
   Companion 2024. A generated test is kept only if it builds and gives the same result over five
-  runs, the `runs` and `not_flaky` gates.
+  runs: the `runs` and `not_flaky` gates.
+- ISO/IEC/IEEE 29119, _Software testing_. Test design techniques.
+- A. van Deursen, L. Moonen, A. van den Bergh and G. Kok, "Refactoring Test Code", XP 2001. Test
+  smells.
+- Y. Jia and M. Harman, "An Analysis and Survey of the Development of Mutation Testing", _IEEE TSE_, 2011.
+- Martian, "Code Review Bench", 2026, <https://github.com/withmartian/code-review-benchmark>. The
+  offline set and the scoring [`match.py`](EVALUATION.md#tooling) follows.
 
 ## Usability and accessibility
 
-- W3C, [WCAG 2.2](https://www.w3.org/TR/WCAG22/). Accessibility success criteria.
-- W3C, [WAI-ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/). Accessible patterns
-  for common widgets.
+- W3C, [WCAG 2.2](https://www.w3.org/TR/WCAG22/) and the
+  [WAI-ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/).
 - J. Nielsen,
   [10 Usability Heuristics for User Interface Design](https://www.nngroup.com/articles/ten-usability-heuristics/).
-- ISO 9241-110:2020, _Interaction principles_. Suitability for the task, self-descriptiveness,
-  conformity with expectations, learnability, controllability, use error robustness, user
-  engagement.
+- ISO 9241-110:2020, _Interaction principles_.
 - [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), _Problem Details for HTTP APIs_, and
-  [Semantic Versioning 2.0.0](https://semver.org). Error responses and breaking API changes.
+  [Semantic Versioning 2.0.0](https://semver.org).
 
 ## Readability and documentation
 
 - [Effective Go](https://go.dev/doc/effective_go), [PEP 8](https://peps.python.org/pep-0008/) and the
-  [Google style guides](https://google.github.io/styleguide/). Language conventions, used when the
-  project has no style guide of its own.
-- [Diátaxis](https://diataxis.fr). The four kinds of documentation, used to check that docs change
-  along with behaviour.
+  [Google style guides](https://google.github.io/styleguide/), used when the project has no guide of
+  its own.
+- [Diátaxis](https://diataxis.fr). The four kinds of documentation.
 
 ## Projects
 
-eyeful builds on two projects. It runs one of them, `@pulls.review/core`, and takes ideas from both.
+From [antfu/pulls.review](https://github.com/antfu/pulls.review) (MIT). eyeful runs
+`@pulls.review/core` to group the change ([The plan](PLANNER.md#the-plan)) and shows its summary
+first in the [terminal](REPORT.md#terminal). It also takes three ideas:
 
-From [antfu/pulls.review](https://github.com/antfu/pulls.review) (MIT), in planning and the report.
-eyeful runs `@pulls.review/core` itself to understand and group the change
-([The plan](PLANNER.md#the-plan)), so these come from its code:
+| Idea                                            | Where                             |
+| ----------------------------------------------- | --------------------------------- |
+| Sort files with rules before any model runs     | [Triage](PLANNER.md#triage)       |
+| Read a working tree through a copy of the index | The [snapshot](LOCAL.md#snapshot) |
+| Review a large change one scope at a time       | [Large changes](PLANNER.md#large) |
 
-| What                                          | Where eyeful uses it                                                              |
-| --------------------------------------------- | --------------------------------------------------------------------------------- |
-| Read the whole change before splitting it     | The planner's prompt is core's own prompt for a local agent                       |
-| Group the change by intent, by part of system | Core's `Analysis`: groups with a `category` and `critical`, checked by core       |
-| Show what the change does before any comment  | Core's summary and groups at the top of the [terminal output](REPORT.md#terminal) |
+From [umputun/revmux](https://github.com/umputun/revmux):
 
-And these are ideas eyeful implements on its own:
-
-| Idea                                            | Where eyeful uses it                                                                     |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Sort files with rules before any model runs     | [Triage](PLANNER.md#triage): glob rules set aside lockfiles, generated code and the like |
-| Read a working tree through a copy of the index | The [snapshot](LOCAL.md#snapshot) of uncommitted changes                                 |
-| Review a large change one scope at a time       | [Large changes](PLANNER.md#large): scopes split by Go, files over 512 KB set aside       |
-
-From [umputun/revmux](https://github.com/umputun/revmux), in the stages and the feedback:
-
-| Idea                                                            | Where eyeful uses it                                              |
-| --------------------------------------------------------------- | ----------------------------------------------------------------- |
-| A fixed sequence of stages                                      | [Stages](REVIEW.md#stages)                                        |
-| Merge findings on the same file within two lines, count sources | Merging and corroboration in the [ranked report](REPORT.md)       |
-| Carry on with less when a step fails, instead of aborting       | Failure handling in [stages](REVIEW.md#stages)                    |
-| Pass the previous round's findings to the next round            | [Rounds](REPORT.md#rounds), as the tests that showed them         |
-| Keep a round's input beside its output                          | `snapshot.json` and `change.diff` in the [run](LOCAL.md#snapshot) |
-| One process per reviewer, however much of the change it covers  | Each [expert](EXPERTS.md) runs once over all of its groups        |
-| A cap on reviewers running at once, and time limits per process | Four at once; 2 minutes idle and 20 minutes in all per call       |
-
-revmux's verify stage reads the code without running it. The [evaluation](EVALUATION.md) runs it as
-an external reference.
+| Idea                                                    | Where                                        |
+| ------------------------------------------------------- | -------------------------------------------- |
+| A fixed sequence of stages                              | [Stages](REVIEW.md#stages)                   |
+| Merge findings within two lines and count their sources | The [ranked report](REPORT.md#ranked-report) |
+| Carry on with less when a step fails                    | [Stages](REVIEW.md#stages)                   |
+| Pass the previous round's findings to the next          | [Rounds](REPORT.md#rounds)                   |
+| Keep a round's input beside its output                  | `snapshot.json` and `change.diff`            |
+| One process per reviewer                                | Each [expert](EXPERTS.md) runs once          |
+| A cap on concurrent reviewers and time limits per call  | [Agents](LOCAL.md#agents)                    |
 
 ## Compared with similar tools {#compared}
 
-|                           | Claude Code ultrareview       | revmux                                           | eyeful                                                                        |
-| ------------------------- | ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Who picks reviewers       | Not published                 | The caller picks a profile with a fixed roster   | A planner for each change, checked by Go against the change's files           |
-| What is reviewed          | Bugs                          | What the profile's lenses cover                  | Design, functionality, security, tests, usability, readability                |
-| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code and gives a verdict | The verifier runs a reproduction test; every other finding is marked `review` |
-| Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text per finding   | Conventional Comments: blocking ones on the line, the rest in a ranked report |
-| Where it runs             | Anthropic's cloud             | Inside the reviewed repository, which it trusts  | The user's machine, or a cloud sandbox without credentials                    |
+|                           | Claude Code ultrareview       | revmux                             | eyeful                                                         |
+| ------------------------- | ----------------------------- | ---------------------------------- | -------------------------------------------------------------- |
+| Who picks reviewers       | Not published                 | The caller picks a profile         | A planner groups the change; Go picks by rule                  |
+| What is reviewed          | Bugs                          | What the profile's lenses cover    | Design, functionality, security, tests, usability, readability |
+| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code       | The verifier runs a test; the rest is marked `review`          |
+| Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text | Conventional Comments in a ranked report                       |
+| Where it runs             | Anthropic's cloud             | Inside the reviewed repository     | The user's machine; a cloud sandbox is planned                 |

@@ -15,6 +15,7 @@ const (
 	fallbackPanel = 4
 	expertPercent = 75
 	judgeBatch    = 8
+	quoteWords    = 3
 )
 
 type Tier string
@@ -538,6 +539,7 @@ type suiteState struct {
 type stored interface {
 	ciState | prepareState | planState | expertState | verifyState | judgeState | suiteState
 	spent() []Run
+	open() bool
 }
 
 type reply interface {

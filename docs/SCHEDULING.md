@@ -1,9 +1,7 @@
 # Scheduling and leases
 
-Scheduling happens at two levels. Reviews are assigned to workers by `internal/scheduler`, which is
-running today. Agent runs are assigned to model providers by `internal/dispatch`, which is built and
-tested and will be wired in once the pi runtime exists. At both levels a failure affects only the
-unit that failed, and every decision records its reason.
+Reviews are assigned to workers by `internal/scheduler`, which runs today. Agent runs are assigned
+to model providers by `internal/dispatch`, which is built and tested but not wired in.
 
 ## Reviews over workers {#reviews-over-workers}
 
@@ -64,10 +62,8 @@ servers is planned.
 ## Not done yet
 
 - A `runner` command that only claims and executes reviews.
-- A worker that stops itself once renewals have failed for longer than the TTL. Until then, a worker
-  that has lost its connection can keep running alongside its replacement. Fencing discards its
-  result, but its model spend is not recovered.
-- The run archive. `workflow` already saves each stage's output through its `Archive` interface and
-  skips the stages it finds there ([Architecture](ARCHITECTURE.md#workflow)), but nothing stores
-  them yet, so a reclaimed review cannot resume from its last finished stage.
-- Retrying a failed `Finish` and SSE progress.
+- A worker that stops itself once renewals have failed for longer than the TTL. Until then fencing
+  discards the result of a worker that lost its connection, but not its model spend.
+- The run archive, so a reclaimed review can resume from its last finished stage
+  ([Architecture](ARCHITECTURE.md#workflow)).
+- Retrying a failed `Finish`, and SSE progress.

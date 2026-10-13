@@ -119,13 +119,13 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 		return workflow.TestRun{}, err
 	}
 	defer release()
-	command, label := s.cfg.Test, []string{"test"}
+	command := s.cfg.Test
 	if len(t.Tests) > 0 {
 		quoted := make([]string, len(t.Tests))
 		for i, id := range t.Tests {
 			quoted[i] = "'" + strings.ReplaceAll(id, "'", `'\''`) + "'"
 		}
-		command, label = "", t.Tests
+		command = ""
 		if s.cfg.TestOne != "" {
 			command = strings.ReplaceAll(s.cfg.TestOne, project.Placeholder, strings.Join(quoted, " "))
 		}
@@ -138,20 +138,20 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 		err = s.tree.restore(ctx, s.tree.base)
 	}
 	if err == nil {
-		err = s.apply(edits)
+		err = s.apply(ctx, edits)
 	}
 	if err == nil {
 		var out string
 		run.Passed, out, err = s.run(ctx, command)
 		run.Output = tail.Last(out, 8000)
 		if !run.Passed {
-			run.Failed = label
+			run.Failed = append(run.Failed, t.Tests...)
 		}
 	}
 	return run, errors.Join(err, s.tree.restore(context.WithoutCancel(ctx), s.tree.change))
 }
 
-func (s *Workspace) apply(edits []workflow.Edit) (err error) {
+func (s *Workspace) apply(ctx context.Context, edits []workflow.Edit) (err error) {
 	root, err := os.OpenRoot(s.tree.dir)
 	if err != nil {
 		return fmt.Errorf("open repository: %w", err)
@@ -161,6 +161,12 @@ func (s *Workspace) apply(edits []workflow.Edit) (err error) {
 		p := filepath.Clean(filepath.FromSlash(e.Path))
 		if e.Path == "" || filepath.IsAbs(p) || strings.SplitN(p, string(filepath.Separator), 2)[0] == ".git" {
 			return fmt.Errorf("%w: %q", ErrUnsafeTarget, e.Path)
+		}
+		switch ignored, err := s.tree.ignores(ctx, p); {
+		case err != nil:
+			return fmt.Errorf("%w: %w", ErrInvalidEdit, err)
+		case ignored:
+			return fmt.Errorf("%w: %s is ignored by git, so a run could not clear it away", ErrInvalidEdit, e.Path)
 		}
 		content := e.New
 		if _, err := root.Stat(p); e.Old == "" && err == nil {

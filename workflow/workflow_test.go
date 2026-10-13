@@ -96,6 +96,7 @@ type workspace struct {
 	flaky     bool
 	old       bool
 	added     bool
+	unnamed   bool
 	output    string
 }
 
@@ -103,7 +104,7 @@ func (w *workspace) CI(context.Context) (workflow.Check, error) { return w.ci, n
 func (w *workspace) Setup(context.Context) error                { return w.setup }
 
 func (w *workspace) Read(_ context.Context, path string) (string, error) {
-	if path != "docs/sessions.md" {
+	if path != "docs/sessions.md" && path != "app/session.py" {
 		return "", errors.New("no such file")
 	}
 	return "A session expires\n    at expires_at.", nil
@@ -119,6 +120,9 @@ func (w *workspace) Test(_ context.Context, edits []workflow.Edit, t workflow.Ta
 			failed = slices.Concat(w.baseline, w.broken)
 		case !t.Base:
 			failed = slices.Concat(w.baseline, w.regressed)
+		}
+		if w.unnamed && len(failed) > 0 {
+			return workflow.TestRun{Failed: []string{}}, nil
 		}
 		return workflow.TestRun{Passed: len(failed) == 0, Failed: failed}, nil
 	}
@@ -197,7 +201,7 @@ func goodAnalysis(workflow.PlanTask) (pulls.Analysis, error) {
 }
 
 func repro(oracle workflow.Oracle, body string) *workflow.Repro {
-	return &workflow.Repro{Test: workflow.Edit{Path: "app/test_session.py", New: body}, Run: "app/test_session.py::test_boundary", Fails: "still valid at expires_at", Oracle: oracle, Quote: "session expires at expires_at", Source: "docs/sessions.md"}
+	return &workflow.Repro{Test: workflow.Edit{Path: "app/test_session.py", New: body + `: assert expired, "still valid at expires_at"`}, Run: "app/test_session.py::test_boundary", Fails: "still valid at expires_at", Oracle: oracle, Quote: "session expires at expires_at", Source: "docs/sessions.md"}
 }
 
 func writes(first *workflow.Repro) func(workflow.RetestTask) (workflow.Repro, error) {
@@ -342,18 +346,18 @@ func TestRun(t *testing.T) {
 	t.Run("a reproduction that fails otherwise is corrected once", func(t *testing.T) {
 		a := base()
 		wrong := repro(workflow.OracleSpecified, "real")
-		wrong.Fails = "a text the run never prints"
+		wrong.Fails, wrong.Test.New = "a text the run never prints", `real: assert expired, "a text the run never prints"`
 		var shown workflow.RetestTask
 		a.retest = func(t workflow.RetestTask) (workflow.Repro, error) {
 			if t.Repro == nil {
 				return *wrong, nil
 			}
 			shown = t
-			return *repro(workflow.OracleImplicit, "real"), nil
+			return *repro(workflow.OracleSpecified, "real"), nil
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
 		v := res.Verifications[0]
-		if a.n(workflow.RoleRepro) != 2 || v.Status != workflow.StatusFixed || v.Repro.Fails != "still valid at expires_at" || v.Repro.Oracle != workflow.OracleImplicit || shown.Repro.Fails != wrong.Fails {
+		if a.n(workflow.RoleRepro) != 2 || v.Status != workflow.StatusFixed || v.Repro.Fails != "still valid at expires_at" || v.Repro.Oracle != workflow.OracleSpecified || shown.Repro.Fails != wrong.Fails {
 			t.Fatalf("corrections %d, verification %+v", a.n(workflow.RoleRepro), v)
 		}
 		if shown.Command != "pytest {test}" || !strings.Contains(shown.Output, "AssertionError") || !slices.Contains(res.Comments[0].Decorations, "blocking") {
@@ -365,26 +369,39 @@ func TestRun(t *testing.T) {
 		unquoted := repro(workflow.OracleSpecified, "real")
 		unquoted.Source = "docs/other.md"
 		crash := repro(workflow.OracleImplicit, "real")
-		asserted := repro(workflow.OracleImplicit, "real: still valid at expires_at")
+		crash.Fails = "KeyError: 'expires_at'"
+		worded := repro(workflow.OracleImplicit, "real")
+		worded.Fails = "AssertionError"
+		unloaded := repro(workflow.OracleImplicit, "real")
+		unloaded.Fails = "ImportError"
+		word := repro(workflow.OracleSpecified, "real")
+		word.Quote = "session"
+		code := repro(workflow.OracleSpecified, "real")
+		code.Source = "app/session.py"
 		for name, tc := range map[string]struct {
 			repro    *workflow.Repro
 			added    bool
+			output   string
 			oracle   workflow.Oracle
 			blocking bool
 		}{
-			"a quote found in its source":               {repro(workflow.OracleSpecified, "real"), true, workflow.OracleSpecified, true},
-			"a quote missing from its source":           {unquoted, true, workflow.OracleHuman, false},
-			"a failure the runtime prints":              {crash, true, workflow.OracleImplicit, true},
-			"a failure the test wrote itself":           {asserted, true, workflow.OracleHuman, false},
-			"a test already in the repository":          {&workflow.Repro{Run: "app/test_login.py::test_expiry", Fails: "still valid at expires_at", Oracle: workflow.OracleDerived}, false, workflow.OracleDerived, true},
-			"a test the base commit passes":             {repro(workflow.OracleDerived, "real"), false, workflow.OracleDerived, false},
-			"a test the base commit cannot run":         {repro(workflow.OracleDerived, "real"), true, workflow.OracleHuman, false},
-			"the expert's reading, and the base passes": {repro(workflow.OracleHuman, "real"), false, workflow.OracleDerived, false},
+			"a quote found in its source":               {repro(workflow.OracleSpecified, "real"), true, "", workflow.OracleSpecified, true},
+			"a quote missing from its source":           {unquoted, true, "", workflow.OracleHuman, false},
+			"a quote of one word":                       {word, true, "", workflow.OracleHuman, false},
+			"a quote from a file of code":               {code, true, "", workflow.OracleHuman, false},
+			"a failure the runtime prints":              {crash, true, "KeyError: 'expires_at'", workflow.OracleImplicit, true},
+			"a failure the test wrote itself":           {repro(workflow.OracleImplicit, "real"), true, "", workflow.OracleHuman, false},
+			"an assertion the framework words":          {worded, true, "", workflow.OracleHuman, false},
+			"a test that could not be loaded":           {unloaded, false, "ImportError: cannot import name is_expired", workflow.OracleDerived, false},
+			"a test already in the repository":          {&workflow.Repro{Run: "app/test_login.py::test_expiry", Fails: "still valid at expires_at", Oracle: workflow.OracleDerived}, false, "", workflow.OracleDerived, true},
+			"a test the base commit passes":             {repro(workflow.OracleDerived, "real"), false, "", workflow.OracleDerived, false},
+			"a test the base commit cannot run":         {repro(workflow.OracleDerived, "real"), true, "", workflow.OracleHuman, false},
+			"the expert's reading, and the base passes": {repro(workflow.OracleHuman, "real"), false, "", workflow.OracleDerived, false},
 		} {
 			t.Run(name, func(t *testing.T) {
 				a := base()
 				a.retest = writes(tc.repro)
-				res := run(t, a, &workspace{ci: workflow.Check{Passed: true}, added: tc.added}, &archive{}, request())
+				res := run(t, a, &workspace{ci: workflow.Check{Passed: true}, added: tc.added, output: tc.output}, &archive{}, request())
 				if v := res.Verifications[0]; v.Status != workflow.StatusFixed || v.Repro.Oracle != tc.oracle {
 					t.Fatalf("verification %+v, absent %+v", v, res.Uncertainty.Absent)
 				}
@@ -392,6 +409,49 @@ func TestRun(t *testing.T) {
 					t.Fatalf("comment %+v", c)
 				}
 			})
+		}
+	})
+
+	t.Run("a failure text the test does not write proves nothing", func(t *testing.T) {
+		a, ws := base(), &workspace{ci: workflow.Check{Passed: true}}
+		generic := repro(workflow.OracleDerived, "real")
+		generic.Fails = "FAIL"
+		a.retest = writes(generic)
+		res := run(t, a, ws, &archive{}, request())
+		if v := res.Verifications[0]; v.Status != workflow.StatusConfirmed || v.Repro != nil || ws.tests != 1 || a.n(workflow.RoleFix) != 0 {
+			t.Fatalf("verification %+v after %d test runs and %d fixes", v, ws.tests, a.n(workflow.RoleFix))
+		}
+		if c := res.Comments[0]; c.Kind != workflow.KindReview || slices.Contains(c.Decorations, "blocking") {
+			t.Fatalf("comment %+v", c)
+		}
+	})
+
+	t.Run("a comment says what its reproduction showed", func(t *testing.T) {
+		a := base()
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			f := finding("app/session.py", map[string]int{"correctness": 10, "skeptic": 12, "security": 14}[t.Expert.Name], workflow.EvidenceTest)
+			f.Subject, f.Severity = "claimed by "+t.Expert.Name, map[string]workflow.Severity{"correctness": workflow.SeverityError}[t.Expert.Name]
+			if f.Severity == "" {
+				f.Severity = workflow.SeverityWarning
+			}
+			return answers(t, f), nil
+		}
+		a.retest = func(t workflow.RetestTask) (workflow.Repro, error) {
+			if t.Finding.Line == 14 {
+				return *repro(workflow.OracleSpecified, "real"), nil
+			}
+			return *repro(workflow.OracleSpecified, "imagined"), nil
+		}
+		w, err := workflow.New(slog.New(slog.DiscardHandler), append(slices.Clone(roster), workflow.Expert{Name: "skeptic", Tier: workflow.TierStrong, Evidence: []workflow.EvidenceKind{workflow.EvidenceTest}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, request())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c := res.Comments[0]; len(res.Comments) != 1 || len(c.Experts) != 3 || c.Kind != workflow.KindFail || c.Subject != "claimed by security" || c.Severity != workflow.SeverityWarning {
+			t.Fatalf("comments %+v", res.Comments)
 		}
 	})
 
@@ -572,6 +632,17 @@ func TestRun(t *testing.T) {
 		v := res.Verifications[0]
 		if v.Status != workflow.StatusReproduced || !strings.Contains(v.Reason, "test_login") || res.Comments[0].Fix != nil {
 			t.Fatalf("verification %+v", v)
+		}
+	})
+
+	t.Run("a suite that does not name its tests", func(t *testing.T) {
+		res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}, baseline: []string{"test_old"}, unnamed: true}, &archive{}, request())
+		if v := res.Verifications[0]; v.Status != workflow.StatusReproduced || !strings.Contains(v.Reason, "does not name") || res.Comments[0].Fix != nil || res.Regression != nil {
+			t.Fatalf("a fix on a suite that was already failing: %+v, regression %+v", v, res.Regression)
+		}
+		res = run(t, base(), &workspace{ci: workflow.Check{Passed: true}, regressed: []string{"test_login"}, unnamed: true}, &archive{}, request())
+		if res.Regression == nil || len(res.Regression.Failed) != 0 {
+			t.Fatalf("a suite the change breaks: %+v", res.Regression)
 		}
 	})
 
@@ -884,6 +955,60 @@ func TestResume(t *testing.T) {
 	if resumed.n(workflow.RoleExpert) != 0 || resumed.n(workflow.RoleFix) != 1 || res.Verifications[0].Status != workflow.StatusFixed {
 		t.Fatalf("experts %d, fixes %d, %+v", resumed.n(workflow.RoleExpert), resumed.n(workflow.RoleFix), res.Verifications)
 	}
+}
+
+func TestResumeRetries(t *testing.T) {
+	t.Run("an expert whose call failed", func(t *testing.T) {
+		ar, down := &archive{}, base()
+		down.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			if t.Expert.Name == "security" {
+				return workflow.Report{}, errors.New("usage limit reached")
+			}
+			return answers(t, finding("app/session.py", 10, workflow.EvidenceTest), finding("app/session.py", 20, workflow.EvidenceInspection)), nil
+		}
+		if res := run(t, down, &workspace{ci: workflow.Check{Passed: true}}, ar, request()); len(res.Uncertainty.Absent) != 1 || res.Outcome != workflow.OutcomePartial || len(res.Verifications) != 2 {
+			t.Fatalf("absent %+v, outcome %s, %+v", res.Uncertainty.Absent, res.Outcome, res.Verifications)
+		}
+		up := base()
+		up.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			return answers(t, finding("app/session.py", 30, workflow.EvidenceAnalysis)), nil
+		}
+		res := run(t, up, &workspace{ci: workflow.Check{Passed: true}}, ar, request())
+		if up.n(workflow.RoleExpert) != 1 || up.n(workflow.RolePlanner) != 0 || len(res.Uncertainty.Absent) != 0 || res.Outcome != workflow.OutcomeComplete {
+			t.Fatalf("experts %d, planner %d, absent %+v, outcome %s", up.n(workflow.RoleExpert), up.n(workflow.RolePlanner), res.Uncertainty.Absent, res.Outcome)
+		}
+		if len(res.Findings) != 3 || len(res.Verifications) != 3 {
+			t.Fatalf("a finding of the expert that came back has no verdict: %+v", res.Verifications)
+		}
+	})
+
+	t.Run("a plan is kept as it was made", func(t *testing.T) {
+		ar, down := &archive{}, base()
+		down.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			return pulls.Analysis{}, errors.New("usage limit reached")
+		}
+		if res := run(t, down, &workspace{ci: workflow.Check{Passed: true}}, ar, request()); res.PlanSource != workflow.PlanFromDefault {
+			t.Fatalf("plan from %s", res.PlanSource)
+		}
+		up := base()
+		if res := run(t, up, &workspace{ci: workflow.Check{Passed: true}}, ar, request()); up.n(workflow.RolePlanner)+up.n(workflow.RoleExpert) != 0 || res.PlanSource != workflow.PlanFromDefault {
+			t.Fatalf("planner %d, experts %d, plan from %s", up.n(workflow.RolePlanner), up.n(workflow.RoleExpert), res.PlanSource)
+		}
+	})
+
+	t.Run("a step the budget refused", func(t *testing.T) {
+		ar, small := &archive{}, request()
+		small.Budget = workflow.Budget{Tokens: 280}
+		poor := base()
+		if res := run(t, poor, &workspace{ci: workflow.Check{Passed: true}}, ar, small); !res.Uncertainty.BudgetExhausted || poor.n(workflow.RoleRepro) != 0 {
+			t.Fatalf("exhausted %v, reproductions %d", res.Uncertainty.BudgetExhausted, poor.n(workflow.RoleRepro))
+		}
+		rich := base()
+		res := run(t, rich, &workspace{ci: workflow.Check{Passed: true}}, ar, request())
+		if rich.n(workflow.RoleExpert) != 0 || rich.n(workflow.RoleRepro) != 1 || rich.n(workflow.RoleFix) != 1 || res.Verifications[0].Status != workflow.StatusFixed {
+			t.Fatalf("experts %d, reproductions %d, fixes %d, %+v", rich.n(workflow.RoleExpert), rich.n(workflow.RoleRepro), rich.n(workflow.RoleFix), res.Verifications)
+		}
+	})
 }
 
 func TestNew(t *testing.T) {

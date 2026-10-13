@@ -3,16 +3,22 @@ package workflow
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"maps"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 )
 
-var severityRank = map[Severity]int{SeverityError: 3, SeverityWarning: 2, SeverityNote: 1}
+var (
+	severityRank = map[Severity]int{SeverityError: 3, SeverityWarning: 2, SeverityNote: 1}
+	crash        = regexp.MustCompile(`panic:|panicked at|fatal error:|DATA RACE|Sanitizer|SIG[A-Z]+|[Ss]egmentation fault|timed out|\w(Error|Exception)\b`)
+	notCrash     = regexp.MustCompile(`(?i)assert|import|modulenotfound|syntax`)
+)
 
 func corroboration(f Finding, all []Finding) int {
 	// TODO(workflow): weigh corroboration across model families above agreement within one.
@@ -46,6 +52,8 @@ func checkRepro(r Repro) string {
 		return fmt.Sprintf("oracle %q is not specified, derived, implicit or human", r.Oracle)
 	case r.Oracle == OracleSpecified && r.Quote == "":
 		return fmt.Sprintf("oracle %q needs the quoted text", OracleSpecified)
+	case r.Oracle != OracleImplicit && r.Test != Edit{} && !strings.Contains(r.Test.New, r.Fails):
+		return fmt.Sprintf("fails is not in the test: unless the oracle is %q, fails is a message the test itself writes, such as its assertion message", OracleImplicit)
 	case r.Oracle != OracleDerived && r.Test == Edit{}:
 		return fmt.Sprintf("only oracle %q can name a test already in the repository in run and leave test out; oracle %q hands in a new test file", OracleDerived, r.Oracle)
 	case r.Test.Old != "" || (r.Test.Path == "") != (r.Test.New == ""):
@@ -71,29 +79,30 @@ func (r *Repro) status(run TestRun) TestStatus {
 	return TestError
 }
 
-func grade(ctx context.Context, s Session, r *Repro, commits []string, base TestStatus) Oracle {
-	oracle := r.Oracle
+func grade(ctx context.Context, s Session, r *Repro, change Change, base TestStatus) Oracle {
+	held := r.Oracle != OracleHuman
 	switch {
-	case oracle == OracleImplicit && strings.Contains(r.Test.New, r.Fails):
-		oracle = OracleHuman
-	case oracle == OracleDerived && r.Test != Edit{} && base != TestPassed:
-		oracle = OracleHuman
-	case oracle == OracleSpecified:
-		text := strings.Join(commits, "\n")
+	case r.Oracle == OracleImplicit:
+		held = !strings.Contains(r.Test.New, r.Fails) && crash.MatchString(r.Fails) && !notCrash.MatchString(r.Fails)
+	case r.Oracle == OracleDerived && r.Test != Edit{}:
+		held = base == TestPassed
+	case r.Oracle == OracleSpecified:
+		text := strings.Join(append(slices.Clone(change.Commits), change.Description), "\n")
 		if r.Source != "" {
-			var err error
-			if text, err = s.Workspace.Read(ctx, r.Source); err != nil {
-				text = ""
+			text = ""
+			if read, err := s.Workspace.Read(ctx, r.Source); err == nil && matchAny(docsGlobs, r.Source) {
+				text = read
 			}
 		}
-		if !strings.Contains(strings.Join(strings.Fields(text), " "), strings.Join(strings.Fields(r.Quote), " ")) {
-			oracle = OracleHuman
-		}
+		held = len(strings.Fields(r.Quote)) >= quoteWords && strings.Contains(strings.Join(strings.Fields(text), " "), strings.Join(strings.Fields(r.Quote), " "))
 	}
-	if oracle == OracleHuman && base == TestPassed {
+	switch {
+	case held:
+		return r.Oracle
+	case base == TestPassed:
 		return OracleDerived
 	}
-	return oracle
+	return OracleHuman
 }
 
 func trial(ctx context.Context, s Session, r *Repro) ([]TestStatus, string, error) {
@@ -117,10 +126,6 @@ func trial(ctx context.Context, s Session, r *Repro) ([]TestStatus, string, erro
 
 func (w *Workflow) write(ctx context.Context, s Session, l *ledger, f Finding, command string) (verifyState, error) {
 	st := verifyState{Verification: Verification{Finding: f.ID, Status: StatusUnverified}, Runs: []Run{}}
-	if !l.allow() {
-		st.Verification.Reason = "budget exhausted before the reproduction was written"
-		return st, nil
-	}
 	repro, r, err := invoke(ctx, l, Run{Role: RoleRepro, Expert: f.Expert}, s.Agents.Retest, RetestTask{Finding: f, Command: command})
 	if err != nil {
 		return st, err
@@ -141,7 +146,7 @@ func (w *Workflow) reproduce(ctx context.Context, s Session, l *ledger, f Findin
 	st := verifyState{Verification: Verification{Finding: f.ID, Status: StatusUnverified, Repro: &repro}, Runs: []Run{}}
 	v := &st.Verification
 	seen, output, runErr := trial(ctx, s, v.Repro)
-	if runErr == nil && len(seen) == reproRuns && seen[0] == TestError && l.allow() {
+	if runErr == nil && len(seen) == reproRuns && seen[0] == TestError {
 		again, r, err := invoke(ctx, l, Run{Role: RoleRepro, Expert: f.Expert}, s.Agents.Retest, RetestTask{Finding: f, Command: req.Project.TestOne, Repro: v.Repro, Output: output})
 		if err != nil {
 			return st, err
@@ -178,7 +183,7 @@ func (w *Workflow) reproduce(ctx context.Context, s Session, l *ledger, f Findin
 		return st, nil
 	}
 	graded := *v.Repro
-	graded.Oracle = grade(ctx, s, v.Repro, req.Change.Commits, v.Base)
+	graded.Oracle = grade(ctx, s, v.Repro, req.Change, v.Base)
 	v.Status, v.Repro = StatusReproduced, &graded
 	return w.repair(ctx, s, l, f, files, suite, st)
 }
@@ -191,9 +196,6 @@ func (w *Workflow) repair(ctx context.Context, s Session, l *ledger, f Finding, 
 	}
 	repro := v.Repro
 	test := repro.edits()
-	if !l.allow() {
-		return stop("budget exhausted before a fix was written")
-	}
 	blind := f
 	blind.Discussion = ""
 	fix, r, err := invoke(ctx, l, Run{Role: RoleFix, Expert: f.Expert}, s.Agents.Fix, FixTask{Finding: blind, Repro: *repro, Files: pick(files, []string{f.Path, repro.Test.Path})})
@@ -223,6 +225,9 @@ func (w *Workflow) repair(ctx context.Context, s Session, l *ledger, f Finding, 
 	if err != nil {
 		return stop("the suite could not run with the fix: " + err.Error())
 	}
+	if !after.Passed && len(after.Failed) == 0 {
+		return stop("the suite fails with the fix, and its command does not name the tests that fail")
+	}
 	broken := slices.DeleteFunc(slices.Clone(after.Failed), func(t string) bool { return slices.Contains(suite.Change.Failed, t) })
 	if len(broken) > 0 {
 		return stop(fmt.Sprintf("the fix breaks %v", broken))
@@ -251,9 +256,6 @@ func (w *Workflow) judge(ctx context.Context, s Session, l *ledger, batch []Find
 			st.Verifications[i].Reason = reason
 		}
 		return st, nil
-	}
-	if !l.allow() {
-		return stop("budget exhausted before the judge ran")
 	}
 	answers, r, err := invoke(ctx, l, Run{Role: RoleJudge}, s.Agents.Judge, task)
 	if err != nil {
@@ -374,7 +376,12 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 		batches[len(batches)-1] = append(batches[len(batches)-1], f)
 	}
 	states, err := each(ctx, batches, func(b []Finding) (judgeState, error) {
-		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("judge/%s/%s", req.Verification, b[0].ID), func() (judgeState, error) { return w.judge(ctx, s, l, b, tried, files, req.Change) })
+		var members strings.Builder
+		for _, f := range b {
+			members.WriteString(f.ID + "\n")
+		}
+		key := sha256.Sum256([]byte(members.String()))
+		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("judge/%s/%x", req.Verification, key[:8]), func() (judgeState, error) { return w.judge(ctx, s, l, b, tried, files, req.Change) })
 	})
 	for _, st := range states {
 		out = append(out, st.Verifications...)

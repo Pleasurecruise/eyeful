@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -43,6 +44,18 @@ func (w *Worktree) settle(ctx context.Context) (string, error) {
 	}
 	out, err := w.git(ctx, "write-tree")
 	return strings.TrimSpace(out), err
+}
+
+func (w *Worktree) ignores(ctx context.Context, path string) (bool, error) {
+	_, err := w.git(ctx, "check-ignore", "--quiet", "--", path)
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.As(err, &exit) && exit.ExitCode() == 1:
+		return false, nil
+	}
+	return false, err
 }
 
 func (w *Worktree) restore(ctx context.Context, tree string) (err error) {

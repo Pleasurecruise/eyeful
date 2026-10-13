@@ -40,19 +40,24 @@ prints. Hand in the whole reproduction again with the mistake put right.
 
 - `test` is a new test file (`{"path": "...", "old": "", "new": "<whole file>"}`) at a path where no
   file exists yet, and `run` is the test identifier for the command.
-- `fails` is a short text the test prints only when it fails for the reason the finding gives, such
-  as its own assertion message or the panic it provokes. Do not put text there that a run prints
-  whether or not the claim is true, such as an import error.
+- `fails` is a short text the test prints only when it fails for the reason the finding gives. Give
+  the test's assertion a message of its own and put that message in `fails`, word for word: eyeful
+  refuses a reproduction whose `fails` is not in the test file, because a text such as `FAIL` or
+  `AssertionError` is printed whatever went wrong. The one exception is the `implicit` oracle
+  below.
 - `oracle` says where the expected behaviour comes from. Its values are the kinds of test oracle
   in Barr et al., "The Oracle Problem in Software Testing":
-  - `specified` for text you quote word for word in `quote`, with the file that holds it in
-    `source`, or no `source` when it is a commit message of this change. eyeful looks the quote up,
-    and a quote it cannot find counts as `human`;
+  - `specified` for text you quote word for word in `quote`, at least three words of it, with the
+    documentation file that holds it in `source`, or no `source` when it is a commit message or the
+    description of this change. eyeful looks the quote up, and a quote it cannot find, or one taken
+    from a file of code, counts as `human`;
   - `derived` for what the version before this change did: a test already in the repository, which
     you name in `run` while leaving `test` out, or the base commit's behaviour, which your new test
     passes on;
   - `implicit` for a crash, an unhandled error, a race or a timeout, where `fails` is what the
-    runtime prints and not a message your test wrote;
+    runtime prints, such as `panic:` or the name of the error raised, and not a message your test
+    wrote. A failed assertion, or a test that could not be imported or compiled, is not a crash and
+    counts as `human`;
   - `human` when the expected behaviour is only your own reading, so a person has to decide.
 
 ## How eyeful checks it

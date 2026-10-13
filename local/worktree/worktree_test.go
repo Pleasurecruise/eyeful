@@ -50,6 +50,7 @@ func repo(t *testing.T) (string, string) {
 	root, outside := t.TempDir(), t.TempDir()
 	sh(t, root, "git", "init", "-q", "-b", "main")
 	write(t, filepath.Join(root, "app.txt"), "one\n")
+	write(t, filepath.Join(root, ".gitignore"), "build/\n")
 	sh(t, root, "git", "add", ".")
 	sh(t, root, "git", "commit", "-q", "-m", "init")
 	write(t, filepath.Join(root, ".git/hooks/post-checkout"), "#!/bin/sh\ntouch "+filepath.Join(outside, "hook-ran")+"\n")
@@ -110,7 +111,7 @@ func TestWorktree(t *testing.T) {
 	if run, err := ws.Test(ctx, []workflow.Edit{repro, fix}, workflow.Target{Tests: []string{"t"}}); err != nil || !run.Passed {
 		t.Fatalf("repro with the fix: %+v, %v", run, err)
 	}
-	if run, err := ws.Test(ctx, nil, workflow.Target{Touched: []string{"app.txt"}}); err != nil || run.Passed {
+	if run, err := ws.Test(ctx, nil, workflow.Target{Touched: []string{"app.txt"}}); err != nil || run.Passed || len(run.Failed) != 0 {
 		t.Fatalf("suite on the change: %+v, %v", run, err)
 	}
 
@@ -130,12 +131,13 @@ func TestWorktree(t *testing.T) {
 		"git dir": {Path: ".git/hooks/pre-commit", New: "x"},
 		"absent":  {Path: "app.txt", Old: "missing", New: "x"},
 		"replace": {Path: "app.txt", New: "fixed"},
+		"ignored": {Path: "build/repro.txt", New: "x"},
 	} {
 		if _, err := ws.Test(ctx, []workflow.Edit{e}, workflow.Target{Tests: []string{"t"}}); err == nil {
 			t.Errorf("%s: edit accepted", name)
 		}
 	}
-	if exists(filepath.Join(filepath.Dir(w.Dir()), "escape.txt")) {
+	if exists(filepath.Join(filepath.Dir(w.Dir()), "escape.txt")) || exists(filepath.Join(w.Dir(), "build")) {
 		t.Fatal("an edit escaped the repository")
 	}
 

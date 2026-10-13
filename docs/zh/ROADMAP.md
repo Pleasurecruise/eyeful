@@ -1,59 +1,65 @@
-# 版本路线图
+# 路线图
 
-本页列出每个版本做什么，以及发布前要满足哪些条件。其他文档描述设计并注明哪些未实现，这一篇给这些工作排顺序。一个版本只有在满足退出条件、并且 `.agents/POLARIS.md` 中的硬性指标都没有退步时才发布。
-
-论文问三个问题：带规划的专家组是否比单个 agent 检出更多；每种验证方式下报告的内容有多少是可采取行动的；执行验证能确认什么，代价是多少（见[研究问题](EVALUATION.md#research-question)）。所以下一个版本只做回答这些问题所需要的部分，并完成实验；本地和云端客户端等有了数据之后再做。
+每个版本交付什么，以及发布前必须证明什么。当退出标准成立、且 `.agents/POLARIS.md` 里没有硬性指标倒退时，一个版本才发布。
 
 ```mermaid
 flowchart TB
-    v0["v0 基础<br/>已完成"] --> v1["v1.0 研究核心与评测<br/>进行中"]
-    v1 --> v11["v1.1 本地审查<br/>大部分已完成"]
-    v11 --> v2["v2.0 云端审查<br/>计划中"]
-    v2 --> later["以后<br/>计划中"]
+    v0["v0 基础<br/>已完成"] --> v1["v1.0 研究核心与评估<br/>进行中"]
+    v1 --> v11["v1.1 本地审查<br/>基本完成"]
+    v11 --> v2["v2.0 云端审查<br/>规划中"]
+    v2 --> later["之后<br/>规划中"]
 ```
 
 ## v0：基础（已完成）
 
-v0 是后续版本的基础，已经全部在仓库里：GitHub App 和 Gitee 登录、API key 和加密保存的第三方 token（见[登录与凭据](AUTH.md)）；CRUD API、OpenAPI 文档和 TypeScript SDK（见[API 约定](API.md)）；带租约、fencing 和回收的 PostgreSQL 队列，以及已经写好但还没接入的模型路由（见[任务调度与租约](SCHEDULING.md)）；控制台的仓库浏览；能列出本地改动的桌面窗口；运行 `mise run check` 的 CI。这些内容和研究问题关系不大，所以 v1.0 收窄了范围。
+- GitHub App 和 Gitee 登录、API 密钥、加密保存的提供商 token（见[登录](AUTH.md)）。
+- CRUD API、它的 OpenAPI 文档和 TypeScript SDK（见 [API](API.md)）。
+- 带租约、fencing 和回收器的 PostgreSQL 队列；提供商路由已写好但未接入（见[调度](SCHEDULING.md)）。
+- 控制台的仓库浏览器、桌面窗口，以及运行 `mise run check` 的 CI。
 
-## v1.0：研究核心与评测（进行中）
+## v1.0：研究核心与评估（进行中）
 
-v1.0 只包含实验需要的部分，通过命令行对数据集运行：
+只包含[研究问题](EVALUATION.md#research-question)需要的东西，从命令行针对数据集驱动。
 
-- `workflow` 模块：规划与分诊、专家、验证器和汇总（见[各个阶段](REVIEW.md#stages)）。CI 校验简化为运行数据集自带的测试。
-- 发现可以复现的两个专家：correctness 和 security，以及它们的 skill、工具和检查清单；还有独自审查、作为单 agent 基线的 generalist（见[专家](EXPERTS.md)）。
-- 带六道关卡和判定依据评定的验证器（见[证据与验证](VERIFICATION.md)），以及作为对照条件的只读评判 agent。
-- agent 在 pi 中运行，使用 eyeful 管理的模型密钥，每个 token 的计数方式一致（见[在 pi 中运行 agent](CLOUD.md#agents-in-pi)）。
-- 被试在 SWE-bench 自带的 Docker 环境中运行，注入缺陷集使用容器运行。
-- 运行归档，保存论文中报告的所有数字，以及各阶段的检查点。
-- 反馈输出为 SARIF 和 Markdown。
-- `eval/`：数据集、配置与条件、标注流程和消融实验（见[效果评测](EVALUATION.md)）。
+| 部分                                                                                | 状态                                    |
+| ----------------------------------------------------------------------------------- | --------------------------------------- |
+| `workflow` 模块：规划、专家、验证器、汇总                                           | 已完成                                  |
+| correctness 和 security 专家，以及 generalist 基线                                  | 已完成                                  |
+| 验证器的六道关卡、判定依据的核对、只读的裁判                                        | 已完成                                  |
+| 运行存档和阶段检查点；SARIF 和 Markdown 形式的反馈                                  | 已完成                                  |
+| `eval/`：被试构建、运行器、标注表、分析                                             | 已完成                                  |
+| 在 SWE-bench、Code Review Bench 和 ReviewBench 上的试点                             | 已运行（见[试点](EVALUATION.md#pilot)） |
+| 用 eyeful 掌管的密钥在 pi 里运行 agent（见 [pi 里的 agent](CLOUD.md#agents-in-pi)） | 待做                                    |
+| 注入缺陷的被试                                                                      | 待做                                    |
+| 每次审查重复三次，以及标注                                                          | 待做                                    |
 
-目前已经完成：除了“agent 在 pi 中运行”以外的整个工作流；`eval/` 里的被试构建脚本、eyeful 和 revmux 的运行脚本、标注表和分析脚本；以及在 SWE-bench 被试上做的一次[试点](EVALUATION.md#pilot)，通过本地的 `eyeful` 命令、以 Claude Code 作为 agent 运行。还没有做的：注入缺陷集的被试本身、试点没有覆盖的 SWE-bench 被试、每次审查重复三遍、标注，以及 agent 在 pi 中运行。
+退出标准：
 
-退出条件：
+- 主实验已在两个数据集上、以两种配置和全部三种条件各运行三次，发现已标注。
+- 这些运行里的每条 `issue (blocking)` 都被验证器看到失败过，并且判定依据是 `specified` 或 `implicit`，或者是项目自己测试的 `derived`。
+- 预算用完的审查返回它已验证的部分，并标为 partial。审查中途被杀掉的工作进程从最后完成的阶段继续。
+- 论文能够报告专家组相对单 agent 多了什么、花了多少。
 
-- 主实验已在两个数据集上、以两种配置和三种条件各跑三遍，发现已按效果评测中的要求标注。
-- 这些运行中的每条 `issue (blocking)` 都经验证器确认失败过，判定依据为 `specified` 或 `implicit`，或者是项目自己的测试这种 `derived`。
-- 预算用完的审查能返回已验证的部分，并标为 partial；审查中途被杀掉的工作进程能从最后完成的阶段继续。
-- 论文能说明专家组相比单 agent 多得到了什么、多花了多少，这是 v1.0 衡量“花费与改动相称”的方式。
+在 v1.0 发布之前，控制台、桌面应用、Gitee 登录、CORS、限流和 MCP 都不加新功能。
 
-v1.0 发布之前，控制台、桌面端、Gitee 登录、CORS、限流和 MCP 不加新功能，但保持可用，测试照常保留。
+## v1.1：本地审查（基本完成）
 
-## v1.1：本地审查（大部分已完成）
+同样的工作流跑在用户的机器上（见[本地运行](LOCAL.md)）。它先于 v1.0 完成，这样专家和验证器可以在真实改动上试用：
 
-v1.1 在用户电脑上运行同一套流程（见[本地运行](LOCAL.md)）。新增 `local/agents`，用来运行用户自己的编码 agent 命令行，不使用 MCP；快照及项目命令用的一次性检出；`eyeful review` 和桌面端在用户确认后发起审查；补上 v1.0 没做的专家（design、tests、usability、readability）。数据库迁移从直接修改 `0001_init` 改为每次变更一个文件（见[数据库与迁移](PERSISTENCE.md)）。
+- `local/agents`、快照及其检出；
+- 全部六个专家，带着来自 skills.sh 的 skill；
+- `eyeful review`、`provider`、`connect` 和桌面应用。
 
-其中一部分已经先于 v1.0 完成，因为有了它，实验用的专家和验证器可以在真实改动上试用：不使用 MCP 的 `local/agents`、快照及其检出、六个专家及来自 skills.sh 的 skill，`eyeful review`、`provider` 和 `connect`，以及能做同样事情的桌面端。
+待做：迁移从修改 `0001_init` 改为每次改动一个文件（见[持久化](PERSISTENCE.md)）。
 
-退出条件：在 eyeful 自己的仓库上运行 `eyeful review` 能得到反馈，期间不访问服务端，也没有任何凭据或模型密钥离开本机。
+退出标准：在 eyeful 自己的仓库上运行 `eyeful review` 能不调用服务器就返回反馈，并且没有凭据或模型密钥离开这台机器。
 
-## v2.0：云端审查（计划中）
+## v2.0：云端审查（规划中）
 
-v2.0 对 pull request 运行这套流程（见[云端运行](CLOUD.md)）。新增基于 GitHub Actions 的 CI 校验；`internal/checkout` 和 `internal/sandbox`，每次审查一个不含凭据的沙箱；source、outbox 和 sink；以 `COMMENT` review 发布评论，以及可选的 Check Run；E2E 运行；SSE 进度推送；`runner` 命令。
+工作流跑在 pull request 上（见[云端运行](CLOUD.md)）：针对 GitHub Actions 的 CI 检查、`internal/checkout` 和 `internal/sandbox`、来源、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行、SSE 进度和 `runner` 命令。
 
-退出条件：对不受信任的 pull request 做云端审查时，代码只在它的沙箱里运行；审查途中杀掉工作进程，不丢失任何东西，也不会重复执行。
+退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途被杀掉的工作进程不丢任何东西，也不重复运行任何东西。
 
-## 以后（计划中）
+## 之后（规划中）
 
-`POST /mcp` 上的 MCP 接口（见 [API 约定](API.md#mcp-planned)）、webhook 和定时触发、性能方面的专家、团队共享审查。
+`POST /mcp` 上的 MCP（见 [API](API.md#mcp-planned)）、webhook 和定时来源、性能专家，以及团队共有的审查。

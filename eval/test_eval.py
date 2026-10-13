@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from analyze import bootstrap, difference, mcnemar
 from label import distinct, kappa
 from match import tally
 from model import Finding, Region, Review, Subject
-from reviewbench import candidate, held, key
+from reviewbench import candidate, held, key, standing
 from run import stopped
 from subjects import added, labels, removed
 
@@ -150,6 +152,21 @@ class ReviewBench(unittest.TestCase):
         self.assertEqual(len(part), 2)
         self.assertNotIn("c_d_2-11111111", part)
         self.assertEqual(list(part), list(held(dict(reversed(list(rows.items()))), {"c_d_2-11111111"}, 2)))
+
+    def test_a_pull_request_with_nothing_handed_in_still_counts_its_golden_findings(self) -> None:
+        hit = {"matched_to_ground_truth": True, "matched_truth_label": "tp", "covered_golden_indices": [0]}
+        miss = {"matched_to_ground_truth": False, "matched_truth_label": "", "covered_golden_indices": []}
+        judged = {
+            "completed": {name: {"metrics": {"overall": {"golden_tp_count": 2}}} for name in ("reviewed", "unreviewed")},
+            "details": {"reviewed": {"candidate_findings": [miss, hit]}, "unreviewed": {"candidate_findings": []}},
+        }
+        with tempfile.TemporaryDirectory() as golden:
+            for name in judged["completed"]:
+                (Path(golden) / f"{name}.json").write_text(json.dumps({"findings": [{"tp_fp": "tp"}, {"tp_fp": "tp"}, {"tp_fp": "fp"}]}))
+            whole = standing("run", "panel", judged, Path(golden), 0)
+            first = standing("run", "panel", judged, Path(golden), 1)
+        self.assertEqual(whole, {"run": "run", "config": "panel", "first": "all", "pulls": 2, "comments": 1.0, "grounded_recall": 0.25, "grounded_precision": 1.0})
+        self.assertEqual((first["comments"], first["grounded_recall"], first["grounded_precision"]), (0.5, 0.0, ""))
 
 
 if __name__ == "__main__":

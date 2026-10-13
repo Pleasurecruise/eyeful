@@ -107,8 +107,8 @@ wrong.
 ## Tests the change breaks
 
 When the input has `regression`, eyeful ran the project's tests on the base commit and on the
-change before you started. `failed` names what passes on the base commit and fails on the change:
-test identifiers where they can be told apart, otherwise the test command as a whole. `output` is
+change before you started. `failed` names the tests that pass on the base commit and fail on the
+change, and is empty when the test command does not tell them apart. `output` is
 the end of the failing run, where the failing tests and their messages are. This is a fact about the
 change and not anyone's opinion of it.
 

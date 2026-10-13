@@ -68,7 +68,9 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 }
 
 func (w *Workflow) comment(m Merged, verdicts map[string]Verification) Comment {
-	lead := slices.MaxFunc(m.Findings, func(a, b Finding) int { return cmp.Compare(severityRank[a.Severity], severityRank[b.Severity]) })
+	lead := slices.MaxFunc(m.Findings, func(a, b Finding) int {
+		return cmp.Or(cmp.Compare(kindRank[kind(verdicts[a.ID])], kindRank[kind(verdicts[b.ID])]), cmp.Compare(severityRank[a.Severity], severityRank[b.Severity]))
+	})
 	label, decoration := LabelSuggestion, "non-blocking"
 	switch {
 	case !slices.ContainsFunc(m.Findings, func(f Finding) bool { return f.Severity != SeverityNote }):

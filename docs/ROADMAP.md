@@ -1,13 +1,7 @@
 # Roadmap
 
-This page lists what each version delivers and what it has to show before release. The other
-documents describe the design and mark what is planned; this one puts that work in order. A version
-is released when its exit criteria hold and no hard measure in `.agents/POLARIS.md` has regressed.
-
-The thesis asks three questions: whether a planned panel detects more than a single agent, how
-much of what is reported is actionable under each kind of verification, and what execution can
-confirm and at what cost ([Evaluation](EVALUATION.md#research-question)). The next version therefore
-builds only what those questions need and runs the experiment. The local and cloud clients come after the data exists.
+What each version delivers and what it must show before release. A version is released when its
+exit criteria hold and no hard measure in `.agents/POLARIS.md` has regressed.
 
 ```mermaid
 flowchart TB
@@ -19,76 +13,62 @@ flowchart TB
 
 ## v0: Foundation (done)
 
-v0 is the base the later versions build on, and all of it is in the repository: GitHub App and
-Gitee sign-in, API keys and sealed provider tokens ([Auth](AUTH.md)); the CRUD API, its OpenAPI
-document and the TypeScript SDK ([API](API.md)); the PostgreSQL queue with leases, fencing and a
-reaper, plus provider routing that is built but not wired in ([Scheduling](SCHEDULING.md)); the
-console's repository browser; the desktop window that lists local changes; and CI running
-`mise run check`. Little of this answers the research question, which is why v1.0 narrows the
-scope.
+- GitHub App and Gitee sign-in, API keys and sealed provider tokens ([Auth](AUTH.md)).
+- The CRUD API, its OpenAPI document and the TypeScript SDK ([API](API.md)).
+- The PostgreSQL queue with leases, fencing and a reaper; provider routing, built but not wired in
+  ([Scheduling](SCHEDULING.md)).
+- The console's repository browser, the desktop window, and CI running `mise run check`.
 
 ## v1.0: Research core and evaluation (in progress)
 
-v1.0 contains only what the experiment needs, driven from the command line against a dataset:
+Only what the [research questions](EVALUATION.md#research-question) need, driven from the command
+line against a dataset.
 
-- The `workflow` module: planning and triage, experts, verifier and summary
-  ([stages](REVIEW.md#stages)). The CI check is reduced to running the dataset's own tests.
-- The two experts whose findings can be reproduced, correctness and security, with their skills,
-  tools and checklists, and the generalist that reviews alone as the single-agent baseline
-  ([Experts](EXPERTS.md)).
-- The verifier with its six gates and the graded oracle
-  ([Evidence and verification](VERIFICATION.md)), and the read-only judge used as the comparison
-  condition.
-- Agents in pi, with model keys that eyeful controls, so every token is counted the same way
-  ([Agents in pi](CLOUD.md#agents-in-pi)).
-- Subjects running in SWE-bench's Docker environments, and in containers for the injected-defect
-  set.
-- The run archive, which holds every number the thesis reports, and stage checkpoints.
-- Feedback as SARIF and Markdown.
-- `eval/`: the datasets, the configurations and conditions, the labelling workflow and the
-  ablations ([Evaluation](EVALUATION.md)).
-
-Built so far: the workflow with all of the above except agents in pi; `eval/` with the subject
-builder, the runners for eyeful and revmux, the labelling sheet and the analysis; and a
-[pilot](EVALUATION.md#pilot) on SWE-bench subjects, driven through the local `eyeful` command with
-Claude Code as the agent. Still to do: the injected-defect subjects themselves, the SWE-bench
-subjects the pilot left out, three repetitions of every review, the labelling, and agents in pi.
+| Part                                                                           | State                              |
+| ------------------------------------------------------------------------------ | ---------------------------------- |
+| The `workflow` module: planning, experts, verifier, summary                    | Built                              |
+| The correctness and security experts, and the generalist baseline              | Built                              |
+| The verifier's six gates, the graded oracle, the read-only judge               | Built                              |
+| The run archive and stage checkpoints; feedback as SARIF and Markdown          | Built                              |
+| `eval/`: subject builders, runners, labelling sheet, analysis                  | Built                              |
+| Pilots on SWE-bench, Code Review Bench and ReviewBench                         | Run ([Pilot](EVALUATION.md#pilot)) |
+| Agents in pi with keys eyeful controls ([Agents in pi](CLOUD.md#agents-in-pi)) | To do                              |
+| The injected-defect subjects                                                   | To do                              |
+| Three repetitions of every review, and the labelling                           | To do                              |
 
 Exit criteria:
 
 - The main experiment has run on both datasets, in both configurations and all three conditions,
-  three times each, and the findings are labelled as the evaluation describes.
+  three times each, and the findings are labelled.
 - Every `issue (blocking)` in those runs was seen failing by the verifier and has a `specified` or
   `implicit` oracle, or a `derived` one that is a test of the project's own.
-- A review that runs out of budget returns what it verified, marked partial. A worker killed in the
-  middle of a review resumes from its last finished stage.
-- The thesis can report what the panel adds over the single agent and what it costs, which is how
-  v1.0 measures proportion.
+- A review that runs out of budget returns what it verified, marked partial. A worker killed in
+  mid-review resumes from its last finished stage.
+- The thesis can report what the panel adds over the single agent and what it costs.
 
 Until v1.0 is released, the console, the desktop app, Gitee sign-in, CORS, rate limits and MCP get
-no new features. They keep working and keep their tests.
+no new features.
 
 ## v1.1: Local review (mostly built)
 
-v1.1 runs the same workflow on the user's machine ([Running locally](LOCAL.md)). It adds
-`local/agents`, which runs the user's own coding agent CLIs without MCP; the snapshot and its disposable checkout
-for project commands; `eyeful review` and the desktop app starting a review after confirmation;
-and the experts v1.0 left out (design, tests, usability, readability). Migrations change from
-editing `0001_init` to one file per change ([Persistence](PERSISTENCE.md)).
+The same workflow on the user's machine ([Running locally](LOCAL.md)). Built ahead of v1.0, so the
+experts and the verifier can be tried on real changes:
 
-Built ahead of v1.0, because the experiment's experts and verifier can be tried on real changes
-with it: `local/agents` without MCP, the snapshot and its checkout, all six experts with skills
-from skills.sh, `eyeful review`, `provider` and `connect`, and the desktop app doing the same.
+- `local/agents`, the snapshot and its checkout;
+- all six experts with skills from skills.sh;
+- `eyeful review`, `provider`, `connect`, and the desktop app.
+
+Still to do: migrations move from editing `0001_init` to one file per change
+([Persistence](PERSISTENCE.md)).
 
 Exit criterion: `eyeful review` on eyeful's own repository returns feedback without calling the
 server, and no credential or model key leaves the machine.
 
 ## v2.0: Cloud review (planned)
 
-v2.0 runs the workflow on pull requests ([Running in the cloud](CLOUD.md)). It adds the CI check
-against GitHub Actions; `internal/checkout` and `internal/sandbox`, with one credential-free sandbox
-per review; sources, the outbox and sinks; comments posted as a `COMMENT` review with the optional
-Check Run; E2E runs; SSE progress; and a `runner` command.
+The workflow on pull requests ([Running in the cloud](CLOUD.md)): the CI check against GitHub
+Actions, `internal/checkout` and `internal/sandbox`, sources, the outbox and sinks, comments posted
+as a `COMMENT` review, E2E runs, SSE progress and a `runner` command.
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
 its sandbox, and a worker killed mid-review loses nothing and runs nothing twice.

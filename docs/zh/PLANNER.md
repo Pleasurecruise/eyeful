@@ -1,92 +1,74 @@
-# 规划与分诊
+# 规划与分拣
 
-审查的第一个阶段要做三件事：看改动是否到了可以审查的程度，把不需要审查的文件放到一边，再决定剩下的文件由哪些专家来审。这三步按成本从低到高依次进行。本页的步骤和规则都已在 `workflow` 中实现，本地审查会带着规划器的提示词运行它们（见[本地运行](LOCAL.md#agents)）；读取 GitHub 上的 CI 结果和云端运行时的 `submit_plan` 工具还没有实现，原本要在分诊和规划器之间运行的工具也没有（见[档位](LEVELS.md#planned)）。
+第一个阶段检查改动是否可以审查，把不需要审查的文件放到一边，再决定其余文件由哪些专家审查。读取 GitHub 上的 CI 和云端的 `submit_plan` 工具还没有实现。
 
 ```mermaid
 flowchart LR
-    ci{"CI 校验"} -->|未通过| diagnose["CI agent<br/>原因和修复方法"]
-    ci -->|通过| triage["分诊<br/>只用规则"]
-    triage --> planner["规划器 agent"]
-    planner -->|submit_plan| check{"Go 检查计划"}
-    check -->|合格| run["启动专家"]
-    check -->|不合格| retry["重试一次，<br/>仍不合格就用默认专家"]
+    ci{"CI 检查"} -->|失败| diagnose["CI agent<br/>原因与修法"]
+    ci -->|通过| triage["分拣<br/>规则，不用模型"]
+    triage --> planner["规划 agent<br/>给改动分组"]
+    planner --> pick["Go 挑选专家"]
 ```
 
-## CI 校验 {#ci-check}
+## CI 检查 {#ci-check}
 
-如果改动编译不过，或者项目自己的测试没通过，专家找到的问题多半和 CI 报的重复。所以这一阶段先看 CI。
+在云端，eyeful 读取 head 提交的 GitHub Actions 运行，有运行还在进行时就等待。在本地，验证器运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 里的 `lint` 命令。`test` 命令不属于这项检查（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
 
-在云端，eyeful 读取 head 提交对应的 GitHub Actions 运行记录。还有运行没结束时，审查先等待；全部通过，或者仓库没有配置 workflow，就继续往下走。
+检查失败时不启动任何专家。CI agent 阅读日志，报告每个失败、它的原因和修法，审查以 `ci_failed` 结束。
 
-在本地没有 CI 记录可读，由验证器在工作目录里运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 中的 `lint` 命令。`test` 命令不属于这一步。用 `execution` 时，它在这一步之后、专家开始之前运行；被改动弄坏的测试不会让审查结束，而是成为交给专家的线索（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
+## 分拣 {#triage}
 
-校验没通过时，不会启动任何专家，只启动 CI agent。它读取失败任务的日志（本地则读命令输出），对每处失败说明是哪个 workflow、job 和 step，原因是什么，怎么修。审查以 `ci_failed` 结束。CI 通过时这一步没有额外开销，不通过时只多跑一次 agent。
+用规则、不用模型，把锁文件、生成的代码、vendored 代码、二进制文件、`.eyeful/config.yml` 里的 `skip` 路径以及 diff 超过 512 KB 的文件放到一边。它们不交给任何专家，并被列为未审查。其余每一行都至少交给一个专家，依据是 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)。
 
-## 分诊 {#triage}
-
-分诊只用规则给改动的文件分类，不调用模型。通过 glob 匹配找出锁文件、生成代码、第三方代码、二进制文件，以及 `.eyeful/config.yml` 里 `skip` 列出的路径；另有一条大小规则，把 diff 超过 512 KB 的文件放到一边。这些文件不交给专家，在反馈里列为“未审查”。参照 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)，其余每一行都至少要交给一个专家。
-
-剩下的文件整理成一份清单，每个文件一行：
+剩下的文件组成一份清单：
 
 ```text
 path                      class   +lines  -lines
 app/auth/session.py       code        12       3
-app/auth/test_session.py  test         0       0
 web/src/Login.svelte      code        40      18
-package-lock.json         lock       310     120
-commits: "fix session expiry at the boundary", "show the expiry on the login page"
+commits: "fix session expiry at the boundary"
 ```
 
-## 大改动 {#large}
+## 大型改动 {#large}
 
-分诊保留下来的文件改动超过 2000 行时，先拆成若干范围，再做任何规划。这借鉴了 pulls.review 一次只审一个范围的做法。拆分由 Go 只根据路径完成，不调用模型，所以同样的改动总是得到同样的范围，云端和本地都一样：
+改动行数超过 2,000 的改动在规划之前先拆成若干范围。Go 只按路径来拆，所以同一个改动总是得到同样的范围：
 
-1. 文件按路径排序，先按第一级目录分组，再按前两级目录分组。两级之后仍超过 2000 行的组，按路径顺序切成每份不超过 2000 行的几部分；单个文件本身就更大时，自成一部分。
-2. 相邻的组在合计不超过 2000 行的前提下合并，避免出现几乎空的范围。
-3. 每个范围按顺序单独规划、单独分配专家，清单只包含这个范围的文件。规划器看到的清单从不超过一个范围，Go 也按各自的范围检查每份计划。
-4. 每个范围最多花掉审查预算的平均一份。某个范围用完自己那份后不再启动 agent，审查结果为 `partial`，后面的范围照常运行。
+1. 文件先按第一级目录分组，再按前两级。仍超过 2,000 行的组按路径顺序切开，单个更大的文件自成一个范围。
+2. 相邻的组合并到一起，直到 2,000 行为止。
+3. 每个范围有自己的计划、自己的专家和均分的预算。用完份额的范围不再启动 agent，审查以 `partial` 结束。
 
-项目的测试在第一个范围之前对整个改动只跑一次（见[被改动弄坏的测试](VERIFICATION.md#regressions)），验证和汇总也只对所有范围的发现运行一次。报告按顺序列出这些范围，作者可以据此把改动拆成一组 stacked 改动（见[排序报告](REPORT.md#ranked-report)）；eyeful 从不创建分支或 pull request。
+项目的测试、验证和汇总对整个改动只运行一次。报告按顺序列出各个范围（见[排序报告](REPORT.md#ranked-report)）。
 
-## 审查计划 {#the-plan}
-
-计划分两步：先由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 弄清这次改动干了什么并分组，再由 Go 按规则给每组挑专家。
+## 计划 {#the-plan}
 
 ### 给改动分组
 
-eyeful 直接使用 pulls.review 自己的分析，不是照着写一份。`packages/pulls` 把本地 agent 需要的 `@pulls.review/core` 函数打包成 `workflow/pulls/core.js`，Go 用纯 Go 写的 JavaScript 运行时 [moejs](https://github.com/Calcium-Ion/moejs) 运行它，所以二进制文件既不需要 Node，也不需要 cgo。规划器就是对已连接 agent 的一次调用：
+规划是对已连接 agent 的一次调用，由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 驱动。`packages/pulls` 把它打包成 `workflow/pulls/core.js`，Go 用 [moejs](https://github.com/Calcium-Ion/moejs) 运行它，所以二进制既不需要 Node 也不需要 cgo。
 
-1. core 解析分诊保留下来的文件的 diff（`parsePatch`），生成 pulls.review 给本地 agent 的提示词（`buildCliAgentSystemPrompt` 和 `buildAnalysisPrompt`）：文件清单和每个文件的 hunk 标题、放得下时的 diff，以及运行目录里 `change.diff` 的路径，清单不够时 agent 去读它；
-2. agent 按 core 的 `Analysis`（`analysisJsonSchema`）作答：一段说明这次为什么改的概述，以及按意图分的组，每组有触及系统的哪一部分（`category`）、名称、说明、文件，需要格外小心的标 `critical`；
-3. core 按自己的 schema 校验答案，并检查每个文件是否恰好在一个组里（`findCoverageIssues`）。不合格的答案连同 core 给出的原因退回给 agent 重做一次；第二次还不合格，或者连续两次调用失败，就使用专家名单里的前四个专家，所有保留下来的文件放在一个组里，并在反馈里说明。
+1. core 解析 diff 并构建提示词：清单、hunk 头，以及放得下的 diff。
+2. agent 给出改动的摘要和分组。每个组有 `category`、标签、文件，需要格外小心的标 `critical`。
+3. core 按 schema 检查回答，并确认每个文件恰好属于一个组。被拒绝的回答重试一次。之后审查就用名册里的前四个专家审查一个包含全部文件的组，反馈里会说明。
 
 ```json
 {
-	"overallSummary": "Sessions are now treated as expired at the exact expiry second, and the login page shows when a session ends.",
+	"overallSummary": "Sessions now expire at the exact expiry second.",
 	"groups": [
 		{
 			"key": "session-expiry",
 			"label": "Session expiry",
-			"summary": "A session was still accepted at the second it expired.",
 			"category": "security",
 			"critical": true,
 			"filePaths": ["app/auth/session.py"]
-		},
-		{
-			"key": "login-page",
-			"label": "Login page",
-			"category": "ui",
-			"filePaths": ["web/src/Login.svelte"]
 		}
 	]
 }
 ```
 
-core 标了 `critical` 的组，或者包含 `.eyeful/config.yml` 中 `risk` 路径的组，算作核心组。核心组排在前面，专家先看它们。
+被标为 `critical`、或包含 `.eyeful/config.yml` 里 `risk` 路径的组是核心组。
 
 ### 挑选专家
 
-Go 用一张固定的表把每个组对应到专家，所以同样的分组总是得到同样的专家：
+Go 用一张固定的表把每个组对应到专家：
 
 | 类别                         | 专家                                   |
 | ---------------------------- | -------------------------------------- |
@@ -99,6 +81,6 @@ Go 用一张固定的表把每个组对应到专家，所以同样的分组总�
 | `scripts`                    | security、correctness                  |
 | `config`、`build`、`deps`    | security                               |
 | `assets`、`other`            | 无                                     |
-| 核心组另外加上               | correctness、skeptic、security、design |
+| 核心组额外加上               | correctness、skeptic、security、design |
 
-`ui` 和 `scripts` 分组里的代码出的是功能性的错，比如组件泄漏资源，或者脚本在另一个系统上跑不起来，所以 correctness 专家也要读：在基准的 pull request 上，漏掉的五条发现里有两条就属于这种情况，而它们所在的分组当时没有 correctness 读者。之后每个专家只运行一次，审查分给它的所有组（见[专家](EXPERTS.md)），预算由 Go 分配。
+每个专家对自己的所有组只运行一次（见[专家](EXPERTS.md)）。

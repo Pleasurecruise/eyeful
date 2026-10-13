@@ -24,6 +24,18 @@ func (s verifyState) spent() []Run  { return s.Runs }
 func (s judgeState) spent() []Run   { return s.Runs }
 func (suiteState) spent() []Run     { return nil }
 
+func (s ciState) open() bool     { return failed(s.Runs) }
+func (prepareState) open() bool  { return false }
+func (planState) open() bool     { return false }
+func (s expertState) open() bool { return s.Absent != "" }
+func (s verifyState) open() bool { return failed(s.Runs) }
+func (s judgeState) open() bool  { return failed(s.Runs) }
+func (suiteState) open() bool    { return false }
+
+func failed(runs []Run) bool {
+	return slices.ContainsFunc(runs, func(r Run) bool { return r.Error != "" })
+}
+
 func checkpoint[T stored](ctx context.Context, a Archive, l *ledger, key string, fn func() (T, error)) (T, error) {
 	var st T
 	data, ok, err := a.Load(ctx, key)
@@ -44,6 +56,9 @@ func checkpoint[T stored](ctx context.Context, a Archive, l *ledger, key string,
 	}
 	if err := ctx.Err(); err != nil {
 		return st, fmt.Errorf("%s: %w", key, err)
+	}
+	if st.open() {
+		return st, nil
 	}
 	if data, err = json.Marshal(st); err != nil {
 		return st, fmt.Errorf("encode %s: %w", key, err)
@@ -104,6 +119,11 @@ func (l *ledger) spend(r Run) {
 }
 
 func invoke[T reply, K task](ctx context.Context, l *ledger, r Run, fn func(context.Context, K) (T, Usage, error), t K) (T, Run, error) {
+	var v T
+	if !l.allow() {
+		r.Error = "budget exhausted"
+		return v, r, nil
+	}
 	v, usage, err := fn(ctx, t)
 	if ctx.Err() != nil {
 		return v, r, fmt.Errorf("%s %s: %w", r.Role, r.Expert, ctx.Err())
@@ -180,7 +200,7 @@ func (w *Workflow) ci(ctx context.Context, s Session, l *ledger) (ciState, error
 		return st, fmt.Errorf("ci check: %w", err)
 	}
 	st.Check = c
-	if c.Passed || !l.allow() {
+	if c.Passed {
 		return st, nil
 	}
 	d, r, err := invoke(ctx, l, Run{Role: RoleCI}, s.Agents.Diagnose, DiagnoseTask{Log: c.Log})
@@ -222,10 +242,6 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 	}
 	task := PlanTask{Diff: diff, Rejected: []string{}}
 	for attempt := 1; attempt <= 2; attempt++ {
-		if !l.allow() {
-			st.Notes = append(st.Notes, "budget exhausted before the planner ran")
-			break
-		}
 		answer, r, err := invoke(ctx, l, Run{Role: RolePlanner}, s.Agents.Plan, task)
 		if err != nil {
 			return err
@@ -304,7 +320,7 @@ func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request,
 	switch {
 	case st.Error != "":
 		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "the project's tests could not run before the review, so they gave the experts no lead and no fix is verified: "+st.Error)
-	case len(broken) > 0:
+	case len(broken) > 0, !st.Change.Passed && st.Base.Passed:
 		res.Regression = &TestRun{Failed: broken, Output: st.Change.Output}
 	}
 	return st, nil

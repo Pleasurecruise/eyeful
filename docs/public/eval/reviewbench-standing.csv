@@ -1,0 +1,5 @@
+run,config,first,pulls,comments,grounded_recall,grounded_precision
+before,panel,5,23,3.8,0.181,0.807
+before,panel,all,23,12.9,0.315,0.796
+dbf9e50,panel,5,19,4.8,0.227,0.883
+dbf9e50,panel,all,19,19.8,0.422,0.808

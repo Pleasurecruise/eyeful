@@ -26,7 +26,11 @@ func Markdown(r workflow.Result) (string, error) {
 			fmt.Fprintf(&b, "- `%s` %s %s: %s\n  Fix: %s\n", f.Workflow, f.Job, f.Step, f.Cause, f.Fix)
 		}
 	}
-	if r.Regression != nil {
+	switch {
+	case r.Regression == nil:
+	case len(r.Regression.Failed) == 0:
+		b.WriteString("\n## Tests the change breaks\n\nThe project's tests pass on the base commit and fail on the change. Its command does not name the tests that fail.\n")
+	default:
 		fmt.Fprintf(&b, "\n## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
 	}
 	resolved(&b, r)
