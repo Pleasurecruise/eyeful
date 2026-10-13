@@ -357,6 +357,7 @@ type Comment struct {
 type Usage struct {
 	Model    string `json:"model"`
 	Tokens   int64  `json:"tokens"`
+	Cached   int64  `json:"cached"`
 	MicroUSD int64  `json:"micro_usd"`
 }
 

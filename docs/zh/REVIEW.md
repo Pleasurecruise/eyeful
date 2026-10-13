@@ -53,7 +53,7 @@ eyeful 遵循 Google [Standard of Code Review](https://google.github.io/eng-prac
 | `ci_failed` | CI 检查失败，反馈给出诊断           |
 | `partial`   | 预算用完，或有专家没有交报告        |
 
-工作进程怎样领取和完成审查，见[调度与租约](SCHEDULING.md#reviews-over-workers)。
+工作进程怎样领取和完成审查，见[调度与租约](cloud/SCHEDULING.md#reviews-over-workers)。
 
 ## 审查规则 {#rules}
 

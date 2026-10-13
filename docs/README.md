@@ -48,7 +48,6 @@ How a review works:
 | [Evidence and verification](VERIFICATION.md) | The verifier, oracles, the judge, SARIF            |
 | [Review feedback](REPORT.md)                 | Comment format, the ranked report, rounds          |
 | [Running locally](LOCAL.md)                  | Desktop and CLI, the snapshot, agents, local risks |
-| [Running in the cloud](CLOUD.md)             | Pull requests, agents in pi, the sandbox           |
 | [Questions and answers](FAQ.md)              | What is reviewed, large changes, changing files    |
 | [References](REFERENCES.md)                  | Standards and borrowed projects                    |
 | [Principles](PRINCIPLES.md)                  | The author's eight working principles              |
@@ -57,18 +56,25 @@ The thesis: [Evaluation](EVALUATION.md).
 
 How the code is built:
 
-| Document                                  | Covers                                         |
-| ----------------------------------------- | ---------------------------------------------- |
-| [Architecture](ARCHITECTURE.md)           | Components, layout, dependency direction       |
-| [Scheduling and leases](SCHEDULING.md)    | Leases, retries, provider routing, rate limits |
-| [Sign-in and credentials](AUTH.md)        | Credentials and how they are protected         |
-| [Database and migrations](PERSISTENCE.md) | Schema, migrations, queries                    |
-| [API](API.md)                             | HTTP conventions, errors, routes               |
-| [Local development](DEVELOPMENT.md)       | Setup, commands, code generation               |
-| [Code style and review](STYLEGUIDE.md)    | Coding rules and how changes are reviewed      |
+| Document                               | Covers                                    |
+| -------------------------------------- | ----------------------------------------- |
+| [Architecture](ARCHITECTURE.md)        | Components, the workflow, layout          |
+| [Local development](DEVELOPMENT.md)    | Setup, commands, code generation          |
+| [Code style and review](STYLEGUIDE.md) | Coding rules and how changes are reviewed |
 
-How it is deployed: [Deployment](DEPLOYMENT.md) and [Configuration](CONFIGURATION.md). What comes
-next: the [Roadmap](ROADMAP.md).
+The cloud server, which is separate and whose reviews are planned:
+
+| Document                                        | Covers                                         |
+| ----------------------------------------------- | ---------------------------------------------- |
+| [Running in the cloud](cloud/CLOUD.md)          | Pull requests, agents in pi, the sandbox       |
+| [The server](cloud/SERVER.md)                   | Components, layout, lifecycle                  |
+| [Scheduling and leases](cloud/SCHEDULING.md)    | Leases, retries, provider routing, rate limits |
+| [Sign-in and credentials](cloud/AUTH.md)        | Credentials and how they are protected         |
+| [Database and migrations](cloud/PERSISTENCE.md) | Schema, migrations, queries                    |
+| [API](cloud/API.md)                             | HTTP conventions, errors, routes               |
+| [Deployment](cloud/DEPLOYMENT.md)               | Running the server                             |
+
+Every setting is in [Configuration](CONFIGURATION.md). What comes next: the [Roadmap](ROADMAP.md).
 
 Each document owns one topic and describes what the code does now; planned work is marked. English
 is the source and `zh/` is the translation.

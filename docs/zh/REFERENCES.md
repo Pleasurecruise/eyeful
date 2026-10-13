@@ -6,10 +6,11 @@ eyeful 审查时依据的标准，以及它借鉴的两个项目。
 
 - ISO/IEC 25010:2023，_Product quality model_。专家按它的质量特性划分（见[名册](EXPERTS.md#the-roster)）。
 
-## 代码审查
+## 代码审查 {#code-review}
 
 - Google Engineering Practices：[The Standard of Code Review](https://google.github.io/eng-practices/review/reviewer/standard.html)（评论何时阻塞，见[评审标准](REVIEW.md#review-standard)）、[What to look for](https://google.github.io/eng-practices/review/reviewer/looking-for.html)（专家问的问题；每一行都要读）和 [How to write comments](https://google.github.io/eng-practices/review/reviewer/comments.html)。
-- [Conventional Comments](https://conventionalcomments.org)。每条评论的格式、标签和修饰词（见[评论格式](REPORT.md#comment-format)）。
+- [Conventional Comments](https://conventionalcomments.org)。每条评论的格式，以及标签和修饰词的名字（见[评论格式](REPORT.md#comment-format)）。它是社区约定，只给标签命名，不论证分类。
+- M. V. Mäntylä 和 C. Lassenius，[“What Types of Defects Are Really Discovered in Code Reviews?”](https://doi.org/10.1109/TSE.2008.71)，_IEEE TSE_，35(3)，2009。评审发现分为功能性缺陷和可演化性缺陷：`note` 与其他严重度之间的那条线（见[评论格式](REPORT.md#comment-format)）。
 - OASIS，[SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)。发现的保存格式，以及给发现定级的两套刻度：`kind`（§3.27.9）和 `level`（§3.27.10）（见[类别与严重度](VERIFICATION.md#kind-and-severity)）。
 - Tenny，[Trust Doesn't Live in the Code Review](https://raft.build/zh-cn/resources/blog/trust-doesnt-live-in-the-code-review/)，Raft，2026。审查是一个事件，信任是一种状态；一项检查只有被看到失败过才算数（见[局限](overview.md#limits)、[多轮审查](REPORT.md#rounds)、[tests](EXPERTS.md#tests)）。
 
@@ -24,7 +25,7 @@ eyeful 审查时依据的标准，以及它借鉴的两个项目。
 
 - [SEI CERT Coding Standards](https://wiki.sei.cmu.edu/confluence/display/seccode)。
 - [CWE](https://cwe.mitre.org) 和 [CWE Top 25](https://cwe.mitre.org/top25/)。每条正确性和安全发现的弱点类别。
-- [OWASP Top 10](https://owasp.org/Top10/) 和 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)。eyeful 自己的登录也遵循 ASVS（见[登录](AUTH.md)）。
+- [OWASP Top 10](https://owasp.org/Top10/) 和 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)。eyeful 自己的登录也遵循 ASVS（见[登录](cloud/AUTH.md)）。
 - [OSV](https://osv.dev) 和 [CVE](https://www.cve.org)。依赖里的已知漏洞。
 
 ## 测试 {#testing}
@@ -33,6 +34,7 @@ eyeful 审查时依据的标准，以及它借鉴的两个项目。
 - ISO/IEC/IEEE 29148:2018，_Requirements engineering_。inspection、analysis、demonstration 和 test（见[证据](VERIFICATION.md#evidence-kinds)）。
 - C. E. Jimenez 等，“SWE-bench: Can Language Models Resolve Real-World GitHub Issues?”，ICLR 2024。fail-to-pass、pass-to-pass，以及 `PASSED`、`FAILED`、`ERROR` 三种状态（见[验证器](VERIFICATION.md#the-verifier)）。
 - R. Just、D. Jalali 和 M. D. Ernst，“Defects4J”，ISSTA 2014。缺陷与引入它的改动绑定：`introduced` 关卡。
+- C. Zhang 等，“SoK: DARPA's AI Cyber Challenge (AIxCC): Competition Design, Architectures, and Lessons Learned”，arXiv:2602.07666，2026。先证明漏洞存在，再用复现和功能测试验证补丁：正是关卡支撑的两个结论。它是先例，不是关卡的来源。
 - N. Alshahwan 等，“Automated Unit Test Improvement using Large Language Models at Meta”，FSE Companion 2024。生成的测试只有能构建、且五次运行结果一致才保留：`runs` 和 `not_flaky` 关卡。
 - ISO/IEC/IEEE 29119，_Software testing_。测试设计技术。
 - A. van Deursen、L. Moonen、A. van den Bergh 和 G. Kok，“Refactoring Test Code”，XP 2001。测试坏味道。

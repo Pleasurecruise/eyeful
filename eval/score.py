@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from typesafe_sdk import Noul, TypeSafeClient
@@ -27,7 +28,7 @@ def main() -> None:
     args = parser.parse_args()
     kept = json.loads(args.out.read_text()) if args.out.exists() else {"fingerprint": "", "completed": {}, "details": {}}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    with TypeSafeClient() as client:
+    with TypeSafeClient(api_key=os.environ["EYEFUL_TYPESAFE_API_KEY"]) as client:
         for path in sorted(args.candidates.glob("*.json")):
             name = path.stem
             if name in kept["completed"]:

@@ -66,7 +66,7 @@ A review moves from `queued` to `running` to `done`, and ends with one result:
 | `partial`   | The budget ran out or an expert handed in no report |
 
 How workers claim and finish reviews is in
-[Scheduling and leases](SCHEDULING.md#reviews-over-workers).
+[Scheduling and leases](cloud/SCHEDULING.md#reviews-over-workers).
 
 ## Rules {#rules}
 

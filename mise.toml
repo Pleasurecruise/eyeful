@@ -19,15 +19,13 @@ run = ["go mod download", "pnpm install"]
 
 [tasks."dev:server"]
 description = "Run only the API server on :8080 (migrates first)"
-run = "go run ./cmd/server serve"
-
-[tasks."db:up"]
-description = "Start PostgreSQL in Docker for local development"
-run = "docker compose up -d postgres"
+dir = "cloud"
+run = "go run . serve"
 
 [tasks."generate:db"]
-description = "Regenerate internal/db/sqlc from db/queries"
+description = "Regenerate cloud/internal/db/sqlc from cloud/db/queries"
 hide = true
+dir = "cloud"
 run = "go tool github.com/sqlc-dev/sqlc/cmd/sqlc generate"
 
 [tasks."dev:web"]
@@ -40,11 +38,12 @@ hide = true
 run = "pnpm --filter @eyeful/web dev"
 
 [tasks."generate:sdk"]
-description = "Regenerate spec/ from handler annotations and packages/sdk from spec/"
+description = "Regenerate cloud/spec from handler annotations and cloud/sdk from it"
 hide = true
+dir = "cloud"
 run = [
 	"go tool github.com/swaggo/swag/v2/cmd/swag init --v3.1 --generalInfo swagger.go --dir internal/handlers --output spec --outputTypes go,json,yaml --parseInternal --parseDependency",
-	"pnpm run generate:sdk",
+	"pnpm --filter @eyeful/sdk run generate",
 	"pnpm --filter @eyeful/sdk run typecheck"
 ]
 
@@ -95,7 +94,7 @@ run = "pnpm --filter @eyeful/docs build"
 description = "Build bin/eyeful-server with the console embedded"
 run = [
 	"pnpm --filter @eyeful/web build",
-	"go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/server"
+	"cd {{config_root}}/cloud && go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o ../bin/eyeful-server ."
 ]
 
 [tasks.install]
@@ -116,33 +115,41 @@ run = "wails3 package"
 
 [tasks.test]
 description = "Run Go tests with the race detector, and the evaluation scripts' tests"
+depends = ["test:server"]
 run = [
-	"go test -race -p 1 ./...",
+	"go test -race ./...",
 	"cd {{config_root}}/workflow && go test -race ./...",
 	"cd {{config_root}}/local && go test -race ./...",
 	"cd {{config_root}}/apps/desktop && go vet ./...",
 	"cd {{config_root}}/eval && python3 -m unittest --quiet test_eval"
 ]
 
+[tasks."test:server"]
+description = "Run the server's tests; those that need PostgreSQL skip without EYEFUL_TEST_DATABASE_URL"
+hide = true
+dir = "cloud"
+run = "go test -race -p 1 ./..."
+
 [tasks.lint]
 description = "Check formatting and lint Go and TypeScript"
 depends = ["generate:bindings"]
 run = [
-	"test -z \"$(gofmt -l cmd internal workflow local apps/web apps/desktop db)\" || (gofmt -l cmd internal workflow local apps/web apps/desktop db && exit 1)",
+	"test -z \"$(gofmt -l cmd cloud workflow local apps/desktop)\" || (gofmt -l cmd cloud workflow local apps/desktop && exit 1)",
 	"golangci-lint run ./...",
+	"cd {{config_root}}/cloud && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
 	"cd {{config_root}}/workflow && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
 	"cd {{config_root}}/local && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
 	"cd {{config_root}}/apps/desktop && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
-	"bash -c 'diff <(cd docs && ls *.md) <(cd docs/zh && ls *.md)'",
+	"bash -c 'diff <(cd docs && ls *.md cloud/*.md) <(cd docs/zh && ls *.md cloud/*.md)'",
 	"pnpm exec vp check",
 	"pnpm --recursive --filter '!eyeful' run typecheck"
 ]
 
 [tasks.format]
 description = "Format Go and TypeScript"
-run = ["gofmt -w cmd internal workflow local apps/web apps/desktop db", "pnpm exec vp fmt"]
+run = ["gofmt -w cmd cloud workflow local apps/desktop", "pnpm exec vp fmt"]
 
 [tasks.check]
 description = "Lint, test, and fail if generated files are stale"
 depends = ["lint", "test", "generate"]
-run = "git diff --exit-code -- spec packages/sdk/src internal/db/sqlc workflow/pulls/core.js"
+run = "git diff --exit-code -- cloud/spec cloud/sdk/src cloud/internal/db/sqlc workflow/pulls/core.js"

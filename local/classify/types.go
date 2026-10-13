@@ -23,6 +23,6 @@ type finding struct {
 const sameQuestion = "Two code reviewers each wrote a finding about the same change. Do `findings.%s` and `findings.%s` report the same underlying problem, so that one fix would resolve both? Answer no when they are different problems that only sit on nearby lines."
 
 var (
-	ErrNoKey      = errors.New("TYPESAFE_API_KEY is not set")
+	ErrNoKey      = errors.New("EYEFUL_TYPESAFE_API_KEY is not set")
 	ErrUnanswered = errors.New("jev left a question unanswered")
 )

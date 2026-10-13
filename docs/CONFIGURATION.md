@@ -66,15 +66,16 @@ own configuration file. When a required value is missing, the tool fails instead
 It holds the credentials, each next to the client ID it belongs to, and `.env.example` lists exactly
 these.
 
-| Secret                        | Purpose                                                                                      |
-| ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `EYEFUL_DATABASE_URL`         | PostgreSQL URL. Required.                                                                    |
-| `EYEFUL_TEST_DATABASE_URL`    | A database that `go test` may wipe. If unset, those tests are skipped.                       |
-| `EYEFUL_TOKEN_KEY`            | Base64 of 32 bytes, used to encrypt stored provider tokens. Required.                        |
-| `EYEFUL_GITHUB_CLIENT_ID`     | GitHub App client ID, kept next to its secret. Required.                                     |
-| `EYEFUL_GITHUB_CLIENT_SECRET` | GitHub App client secret, for sign-in and repository access. Required.                       |
-| `EYEFUL_GITEE_CLIENT_ID`      | Gitee OAuth client ID, kept next to its secret. Optional, but only together with the secret. |
-| `EYEFUL_GITEE_CLIENT_SECRET`  | Gitee OAuth client secret, for sign-in. Optional.                                            |
+| Secret                        | Purpose                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `EYEFUL_DATABASE_URL`         | PostgreSQL URL. Required.                                                                       |
+| `EYEFUL_TEST_DATABASE_URL`    | A database that `go test` may wipe. If unset, those tests are skipped.                          |
+| `EYEFUL_TOKEN_KEY`            | Base64 of 32 bytes, used to encrypt stored provider tokens. Required.                           |
+| `EYEFUL_TYPESAFE_API_KEY`     | TypeSafe API key, for [Jev](ARCHITECTURE.md#jev). Optional: without it findings are not merged. |
+| `EYEFUL_GITHUB_CLIENT_ID`     | GitHub App client ID, kept next to its secret. Required.                                        |
+| `EYEFUL_GITHUB_CLIENT_SECRET` | GitHub App client secret, for sign-in and repository access. Required.                          |
+| `EYEFUL_GITEE_CLIENT_ID`      | Gitee OAuth client ID, kept next to its secret. Optional, but only together with the secret.    |
+| `EYEFUL_GITEE_CLIENT_SECRET`  | Gitee OAuth client secret, for sign-in. Optional.                                               |
 
 ### Variables: `mise.toml` and flags {#variables}
 
@@ -83,17 +84,17 @@ of `mise.toml`: `EYEFUL_INSECURE_COOKIES=true` so sessions work over plain HTTP 
 exposed to the internet), `EYEFUL_PUBLIC_URL`, `EYEFUL_SERVER_URL` and `DOCS_URL`. On a server these
 come from the platform's environment.
 
-| Variable                     | Purpose                                                                                                         |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`                | Listen address. Default `:8080`.                                                                                |
-| `EYEFUL_PUBLIC_URL`          | Console URL, used as the base of OAuth redirects and as the trusted origin. Default `http://localhost:8080`.    |
-| `EYEFUL_CORS_ORIGINS`        | Other console origins, comma-separated ([Cross-origin access](AUTH.md#cross-origin-access)). No default.        |
-| `EYEFUL_INSECURE_COOKIES`    | Send cookies without `Secure` (local only). Default `false`.                                                    |
-| `EYEFUL_RATE_LIMIT`          | Requests per minute per client IP on every API route ([Rate limits](SCHEDULING.md#rate-limits)). Default `600`. |
-| `EYEFUL_CRITICAL_RATE_LIMIT` | Requests per minute per client IP on sign-in and new reviews. Default `30`.                                     |
-| `EYEFUL_LOG_LEVEL`           | `debug`, `info`, `warn` or `error`. Default `info`.                                                             |
-| `EYEFUL_SERVER_URL`          | The server that the console's `vp dev` forwards API calls to. Set in `mise.toml`.                               |
-| `DOCS_URL`                   | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.                   |
+| Variable                     | Purpose                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `EYEFUL_ADDR`                | Listen address. Default `:8080`.                                                                                      |
+| `EYEFUL_PUBLIC_URL`          | Console URL, used as the base of OAuth redirects and as the trusted origin. Default `http://localhost:8080`.          |
+| `EYEFUL_CORS_ORIGINS`        | Other console origins, comma-separated ([Cross-origin access](cloud/AUTH.md#cross-origin-access)). No default.        |
+| `EYEFUL_INSECURE_COOKIES`    | Send cookies without `Secure` (local only). Default `false`.                                                          |
+| `EYEFUL_RATE_LIMIT`          | Requests per minute per client IP on every API route ([Rate limits](cloud/SCHEDULING.md#rate-limits)). Default `600`. |
+| `EYEFUL_CRITICAL_RATE_LIMIT` | Requests per minute per client IP on sign-in and new reviews. Default `30`.                                           |
+| `EYEFUL_LOG_LEVEL`           | `debug`, `info`, `warn` or `error`. Default `info`.                                                                   |
+| `EYEFUL_SERVER_URL`          | The server that the console's `vp dev` forwards API calls to. Set in `mise.toml`.                                     |
+| `DOCS_URL`                   | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.                         |
 
 Some settings are flags only: `--workers` (2), `--lease-ttl` (`30s`), `--poll` (`1s`), `--max-attempts`
 (3), `--session-ttl` (`720h`), `--shutdown-timeout` (`30s`) and `--no-migrate`. The server refuses to

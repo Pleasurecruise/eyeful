@@ -18,7 +18,7 @@
 - skeptic 审查和 correctness 相同的组，但看不到计划。
 - generalist 只在被点名时运行，比如 `eyeful review generalist`，并拥有全部 skill。它是[评估](EVALUATION.md)里的单 agent 基线。
 - 还没有专家覆盖性能（见[路线图](ROADMAP.md)）。
-- 档位通过[供应商路由](SCHEDULING.md#agent-runs-over-providers)选择模型。
+- 档位通过[供应商路由](cloud/SCHEDULING.md#agent-runs-over-providers)选择模型。
 
 ## 提示词、skill 与工具 {#skills-and-tools}
 

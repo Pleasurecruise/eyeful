@@ -8,7 +8,7 @@ A snapshot: a base commit and one commit holding the code under review, fixed be
   base, and `--head` reviews a commit or branch
   ([What can be reviewed](LOCAL.md#what-can-be-reviewed), [The snapshot](LOCAL.md#snapshot)).
 - In the cloud it is always a pull request, and each push is a new snapshot
-  ([Running in the cloud](CLOUD.md#what-can-be-reviewed)).
+  ([Running in the cloud](cloud/CLOUD.md#what-can-be-reviewed)).
 
 ## What if the change is too large?
 

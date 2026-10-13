@@ -24,12 +24,19 @@ const groups = [
 		'VERIFICATION',
 		'REPORT',
 		'LOCAL',
-		'CLOUD',
 		'FAQ',
 		'REFERENCES'
 	],
-	['ARCHITECTURE', 'SCHEDULING', 'AUTH', 'PERSISTENCE', 'API', 'DEVELOPMENT', 'STYLEGUIDE'],
-	['DEPLOYMENT', 'CONFIGURATION'],
+	['ARCHITECTURE', 'DEVELOPMENT', 'STYLEGUIDE', 'CONFIGURATION'],
+	[
+		'cloud/CLOUD',
+		'cloud/SERVER',
+		'cloud/SCHEDULING',
+		'cloud/AUTH',
+		'cloud/PERSISTENCE',
+		'cloud/API',
+		'cloud/DEPLOYMENT'
+	],
 	['ROADMAP'],
 	['EVALUATION']
 ];
@@ -82,7 +89,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'',
-					['How eyeful reviews', 'How the code is built', 'How it is deployed', 'Plan', 'Thesis'],
+					['How eyeful reviews', 'How the code is built', 'The cloud server', 'Plan', 'Thesis'],
 					[
 						[
 							'Overview',
@@ -94,20 +101,24 @@ export default defineConfig({
 							'Evidence and verification',
 							'Review feedback',
 							'Running locally',
-							'Running in the cloud',
 							'Questions and answers',
 							'References'
 						],
 						[
 							'Architecture',
+							'Local development',
+							'Code style and review',
+							'Configuration reference'
+						],
+						[
+							'Running in the cloud',
+							'The server',
 							'Scheduling and leases',
 							'Sign-in and credentials',
 							'Database and migrations',
 							'API',
-							'Local development',
-							'Code style and review'
+							'Deployment'
 						],
-						['Deployment', 'Configuration reference'],
 						['Roadmap'],
 						['Evaluation']
 					]
@@ -122,7 +133,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'/zh',
-					['项目思路', '项目框架', '项目部署', '计划', '毕业设计'],
+					['项目思路', '项目框架', '云端服务器', '计划', '毕业设计'],
 					[
 						[
 							'eyeful 是什么',
@@ -134,20 +145,19 @@ export default defineConfig({
 							'证据与验证',
 							'审查反馈',
 							'本地运行',
-							'云端运行',
 							'常见问题',
 							'参考文献'
 						],
+						['整体架构', '本地开发', '代码规范与评审', '配置项参考'],
 						[
-							'整体架构',
+							'云端运行',
+							'服务器',
 							'任务调度与租约',
 							'登录与凭据',
 							'数据库与迁移',
 							'API 约定',
-							'本地开发',
-							'代码规范与评审'
+							'部署上线'
 						],
-						['部署上线', '配置项参考'],
 						['版本路线图'],
 						['效果评测']
 					]

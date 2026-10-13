@@ -156,11 +156,12 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	if u.BudgetExhausted {
 		lines = append(lines, "The budget ran out; experts and verifications after that point did not run.")
 	}
-	var tokens int64
+	var tokens, cached int64
 	for _, run := range r.Runs {
 		tokens += run.Usage.Tokens
+		cached += run.Usage.Cached
 	}
-	lines = append(lines, fmt.Sprintf("%d agent runs, %d tokens reported.", len(r.Runs), tokens))
+	lines = append(lines, fmt.Sprintf("%d agent runs, %d tokens reported, and %d more read from the cache.", len(r.Runs), tokens, cached))
 	b.WriteString("\n## Uncertainty\n\n")
 	for _, l := range lines {
 		fmt.Fprintf(b, "- %s\n", l)

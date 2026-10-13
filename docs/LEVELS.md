@@ -17,7 +17,9 @@ Nobody picks a level. The models decide in three places:
 ## Budget {#budget}
 
 A review has a budget in tokens and money, and each command the verifier runs has a timeout. There
-is no limit on total time.
+is no limit on total time. Tokens are new input, output and cache writes. Tokens an agent reads back
+from the provider's cache are recorded apart and do not count against the budget; they grow with
+every turn an agent takes, so a review's bill is higher than its token count.
 
 - Go checks the budget before starting each agent, so running agents still finish.
 - The planner and the experts may spend three quarters; the rest is kept for verification.

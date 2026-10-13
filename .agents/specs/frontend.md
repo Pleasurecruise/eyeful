@@ -1,6 +1,6 @@
 # Frontend verification
 
-Use for changes to the console (`apps/web`) or the desktop (`apps/desktop`).
+Use for changes to the console (`cloud/web`) or the desktop (`apps/desktop`).
 
 1. Build and run the real entrypoint: `mise run build` then `bin/eyeful-server serve`, or
    `mise run dev:desktop` for the desktop window, which needs no server.

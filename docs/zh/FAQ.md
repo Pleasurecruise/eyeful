@@ -5,7 +5,7 @@
 一个快照：基准提交，加上一个包含被审查代码的提交，在任何东西运行之前就固定下来。
 
 - 在本地，默认是相对于 `HEAD` 的未提交改动。`--base` 改为和 merge base 比较，`--head` 审查某个提交或分支（见[可以审查什么](LOCAL.md#what-can-be-reviewed)、[快照](LOCAL.md#snapshot)）。
-- 在云端永远是 pull request，每次推送都是新的快照（见[云端运行](CLOUD.md#what-can-be-reviewed)）。
+- 在云端永远是 pull request，每次推送都是新的快照（见[云端运行](cloud/CLOUD.md#what-can-be-reviewed)）。
 
 ## 改动太大怎么办？
 

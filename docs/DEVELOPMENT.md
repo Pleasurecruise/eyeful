@@ -6,12 +6,13 @@
 mise trust && mise install   # Go, Node.js, pnpm, golangci-lint
 mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
-createdb eyeful && createdb eyeful_test
 ```
 
-PostgreSQL 18 comes from Homebrew (`brew install postgresql@18`, then
-`brew services start postgresql@18`) or from Docker (`mise run db:up`, with the URL pointing at
-`eyeful:eyeful@localhost`). The desktop app also needs the platform's webview: it is built into
+Only the server needs PostgreSQL; the CLI, the desktop app and the evaluation keep everything in
+files. To run the server, install PostgreSQL 18 from Homebrew (`brew install postgresql@18`, then
+`brew services start postgresql@18`) and run `createdb eyeful && createdb eyeful_test`.
+
+The desktop app needs the platform's webview: it is built into
 macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-4-dev` and `libwebkitgtk-6.0-dev` on Ubuntu 24.04).
 
 ## Commands {#commands}
@@ -55,8 +56,8 @@ Values live only at the repository root: credentials in `.env`, shared local set
 
 ## Code generation
 
-sqlc (`generate:db`) writes `internal/db/sqlc`. swag v2 (`generate:sdk`, first) writes `spec/`, which the
-binary embeds. `@hey-api/openapi-ts` (`generate:sdk`) writes `packages/sdk/src`. `packages/pulls`
+sqlc (`generate:db`) writes `cloud/internal/db/sqlc`. swag v2 (`generate:sdk`, first) writes `cloud/spec/`, which the
+binary embeds. `@hey-api/openapi-ts` (`generate:sdk`) writes `cloud/sdk/src`. `packages/pulls`
 (`generate:pulls`) bundles `@pulls.review/core` into `workflow/pulls/core.js`.
 `wails3 generate bindings` (`generate:bindings`) writes the desktop's services into
 `apps/desktop/frontend/bindings`, the Wails default, as classes, so a Go `nil` slice arrives as
@@ -92,7 +93,7 @@ strings in. A message added to `en.json` is added to `zh.json` in the same chang
 
 ## Regenerating the frontend
 
-`apps/web`, `apps/desktop/frontend` and `packages/ui` were created by generators:
+`cloud/web`, `apps/desktop/frontend` and `packages/ui` were created by generators:
 
 ```sh
 pnpm exec vp create svelte --no-interactive --no-agent --no-editor --no-hooks \
@@ -116,7 +117,7 @@ The only changes made on top of the generated code are these:
   and `touch dist/.gitkeep` after `build` (`go:embed` needs the directory to exist); Paraglide as
   `sv add paraglide` sets it up, without its server hooks and URL strategy, since both apps are
   static.
-- In `apps/web`: name `@eyeful/web`, `@eyeful/sdk`; a dev proxy for the API paths; `embed.go`; the
+- In `cloud/web`: name `@eyeful/web`, `@eyeful/sdk`; a dev proxy for the API paths; `embed.go`; the
   routes. The hash router keeps console paths apart from API routes on the same origin.
 - In `apps/desktop/frontend`: name `@eyeful/desktop`, `@wailsio/runtime`; `#bindings/*` imports;
   `build:dev` for `wails3 dev`; the review page. The hash router is needed because Wails serves the

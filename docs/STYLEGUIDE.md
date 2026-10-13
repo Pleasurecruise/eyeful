@@ -6,9 +6,9 @@ section, and the review steps at the end are how a change is checked before it i
 ## Structure
 
 - Packages are named after the capability they own; no `utils`, `helpers`, `common`, `manager`,
-  `service`. Dependency direction is in [Architecture](ARCHITECTURE.md#dependency-direction).
+  `service`. Dependency direction is in [Architecture](cloud/SERVER.md#dependency-direction).
 - Each package keeps its types, enums, sentinel errors and consumer interfaces in `types.go`.
-- Constructors are plain functions with typed parameters. Only a composition root (`internal/app`,
+- Constructors are plain functions with typed parameters. Only a composition root (`cloud/internal/app`,
   `local/app`) imports fx. There is no package-level state.
 - Interfaces belong to their consumer and list only what it calls.
 - HTTP handlers are CRUD, one file per resource, in the order create, list, get, update, delete.

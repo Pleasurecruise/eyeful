@@ -13,7 +13,6 @@ review, because each one comes with evidence that runs.
   measurably against read-only verification.
 - Proportion: a review spends only what the change needs, and each level that has shipped shows what
   its extra time and money buy over the one below it.
-- Safety: reviewing an untrusted pull request is as safe as not reviewing it.
 - Simplicity: the fewest services, stores, routes and agents that achieve the above.
 
 ## Hard measures
@@ -21,16 +20,22 @@ review, because each one comes with evidence that runs.
 - eyeful never approves a change; approval belongs to a person.
 - A finding is marked verified only when eyeful's verifier, not the agent that wrote it, ran the
   reproduction and saw it fail.
-- No credential (GitHub token, API token, model key) enters a sandbox, a log, an error response or
-  the console bundle.
-- In the cloud, code under review runs only inside its review's sandbox, which reaches only package
-  registries; agents read the code with read-only tools outside it. On a user's machine, only the
-  project commands that user confirmed run.
+- No credential (GitHub token, API token, model key) enters a log or an error response.
+- On a user's machine, only the project commands that user confirmed run.
 - Local and cloud never mix: no code, record, account or key crosses between a user's machine and
   the cloud.
+- A review that runs out of budget still returns what it verified, marked partial.
+
+## The cloud server
+
+The server in `cloud/` is a separate program with one more outcome and its own hard measures.
+
+- Safety: reviewing an untrusted pull request is as safe as not reviewing it.
+- No credential enters a sandbox or the console bundle.
+- Code under review runs only inside its review's sandbox, which reaches only package registries;
+  agents read the code with read-only tools outside it.
 - A result from a superseded lease is never written; a review is never lost or run twice to
   completion because a worker died.
-- A review that runs out of budget still returns what it verified, marked partial.
 
 A change may improve one outcome without a numeric before/after result. Hard measures are release
 gates and may never regress. Outcomes are measured as [Evaluation](../docs/EVALUATION.md) describes;

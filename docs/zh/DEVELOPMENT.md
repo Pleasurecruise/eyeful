@@ -6,10 +6,11 @@
 mise trust && mise install   # Go, Node.js, pnpm, golangci-lint
 mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
-createdb eyeful && createdb eyeful_test
 ```
 
-PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 `brew services start postgresql@18`），也可以用 Docker（`mise run db:up`，数据库地址改为 `eyeful:eyeful@localhost`）。桌面端还需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
+只有服务器需要 PostgreSQL；CLI、桌面端和评测都把数据存在文件里。要运行服务器时，用 Homebrew 安装 PostgreSQL 18（`brew install postgresql@18`，然后 `brew services start postgresql@18`），再执行 `createdb eyeful && createdb eyeful_test`。
+
+桌面端需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
 
 ## 常用命令 {#commands}
 
@@ -46,7 +47,7 @@ PostgreSQL 18 可以用 Homebrew 安装（`brew install postgresql@18`，然后 
 
 ## 代码生成
 
-sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:sdk` 的第一步）生成 `spec/`，由二进制文件内嵌。`@hey-api/openapi-ts`（`generate:sdk`）生成 `packages/sdk/src`。`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
+sqlc（`generate:db`）生成 `cloud/internal/db/sqlc`。swag v2（`generate:sdk` 的第一步）生成 `cloud/spec/`，由二进制文件内嵌。`@hey-api/openapi-ts`（`generate:sdk`）生成 `cloud/sdk/src`。`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
 桌面图标的源文件是 `apps/desktop/build/appicon.png`；`generate:icons` 会一并生成 dev 和打包构建使用的 macOS `icons.icns`、`Assets.car`，以及 Windows `icon.ico`。
 
 ## 多语言
@@ -63,7 +64,7 @@ sqlc（`generate:db`）生成 `internal/db/sqlc`。swag v2（`generate:sdk` 的�
 
 ## 重新生成前端
 
-`apps/web`、`apps/desktop/frontend` 和 `packages/ui` 都是生成器创建的：
+`cloud/web`、`apps/desktop/frontend` 和 `packages/ui` 都是生成器创建的：
 
 ```sh
 pnpm exec vp create svelte --no-interactive --no-agent --no-editor --no-hooks \
@@ -83,7 +84,7 @@ pnpm dlx shadcn-svelte@1.7.0 add <component>             # in packages/ui
 
 - 三者都有：使用精确版本、`@typescript/native`、带 `--tsgo` 的 `typecheck`；`vite.config.ts` 从 `vite-plus` 导入；删除 `.npmrc`、`.vscode` 和模板自带的 README。
 - 两个应用：使用 `@eyeful/ui`；`tailwindcss()`；`router: { type: 'hash' }`；adapter 输出到 `dist/`，`build` 之后执行 `touch dist/.gitkeep`（`go:embed` 要求目录存在）；按 `sv add paraglide` 的方式接入 Paraglide，但去掉它的服务端 hook 和 URL 策略，因为两个应用都是静态的。
-- `apps/web`：包名 `@eyeful/web`，使用 `@eyeful/sdk`；为 API 路径配置开发代理；`embed.go`；各页面路由。hash 路由让控制台路径和同源的 API 路由互不冲突。
+- `cloud/web`：包名 `@eyeful/web`，使用 `@eyeful/sdk`；为 API 路径配置开发代理；`embed.go`；各页面路由。hash 路由让控制台路径和同源的 API 路由互不冲突。
 - `apps/desktop/frontend`：包名 `@eyeful/desktop`，使用 `@wailsio/runtime`；`#bindings/*` 导入；供 `wails3 dev` 使用的 `build:dev`；审查页面。这里必须用 hash 路由，因为 Wails 从 `wails://` 提供页面，它的 origin 是 `null`。
 - `apps/desktop/build`：名称、标识符和版本来自 `config.yml` 的 `info`，由 `wails3 task common:update:build-assets` 写入 `Info.plist`、`Info.dev.plist` 以及 Windows 和 Linux 的清单，这些文件不手动修改。绑定生成时不带 `-i`。
 - `packages/ui`：包名 `@eyeful/ui`；删除模板的演示页面 `src/routes`；使用 `#lib` 子路径导入，因为 shadcn 命令行在 `$app/tsconfig` 下不接受 `$lib`；`prepare` 时用 `svelte-package` 构建 `dist/`；`src/lib/index.ts` 重新导出各组件、`mode-watcher` 和 `svelte-sonner`。`src/lib/components/ui` 只放 `shadcn-svelte add` 生成的组件，不做修改，不参与 Oxlint 检查，因为 Oxlint 读不了它们的 `.svelte` 导出，改由 svelte-check 覆盖。eyeful 自己的组件（diff 视图、文件树和文件列表）放在旁边的 `src/lib/components`。

@@ -12,14 +12,22 @@
 [discussion]
 ```
 
-Go 从四个标签里选一个：
+标签由一条发现的三个事实决定，每个事实都用已发表的尺度：
 
-| 标签         | 用于                                                |
-| ------------ | --------------------------------------------------- |
-| `issue`      | 类别为 `fail` 的发现                                |
-| `question`   | 证据是 `test` 或 `analysis`、但还不是 `fail` 的发现 |
-| `suggestion` | 只靠 `inspection` 的发现                            |
-| `nitpick`    | `note` 发现                                         |
+| 事实     | 尺度                                   | 在 eyeful 里                              |
+| -------- | -------------------------------------- | ----------------------------------------- |
+| 关于什么 | 功能性或可演化性，Mäntylä 和 Lassenius | `note` 是可演化性，其余是功能性           |
+| 怎样检验 | 验证方法，ISO/IEC/IEEE 29148           | [证据](VERIFICATION.md#evidence-kinds)    |
+| 有多确定 | `kind`，SARIF 2.1.0                    | [类别](VERIFICATION.md#kind-and-severity) |
+
+Go 取第一条符合的。标签的名字和含义来自 Conventional Comments；哪些事实对应哪个标签，是 eyeful 自己的规则（见[参考资料](REFERENCES.md#code-review)）。
+
+| 标签         | 用于                                                     | Conventional Comments 的定义                                |
+| ------------ | -------------------------------------------------------- | ----------------------------------------------------------- |
+| `nitpick`    | 评论背后的发现全是 `note`                                | "trivial preference-based requests"                         |
+| `issue`      | 类别为 `fail` 的发现                                     | "highlight specific problems"                               |
+| `question`   | 给出了失败场景、但还没被证实的发现：`test` 或 `analysis` | "a potential concern but … not quite sure if it's relevant" |
+| `suggestion` | 没有场景、对照标准读出来的发现：`inspection`             | "propose improvements"                                      |
 
 修饰词说明评论是否阻塞、属于哪个方面：`security`、`correctness`、`design`、`tests`、`ux`、`readability`。只有 `issue` 是 `blocking`（见[一次审查](REVIEW.md#review-standard)）。主题和讨论是专家自己的原话，取自评论背后最严重的那条发现。
 

@@ -101,7 +101,8 @@ The severity (§3.27.10) is the expert's estimate of the cost if the change is m
 
 With `execution`, before any expert starts, the verifier runs the project's `test` command on the
 change. If it fails, the command runs again on the base commit. What passes there and fails on the
-change is a regression.
+change is a regression. This happens before the review and saves it work: the experts are told what
+already fails and do not have to find it.
 
 The experts that report `test` findings are given the failing tests and the end of the output. A
 finding that explains one names that test as its reproduction, with a `derived` oracle. The feedback
@@ -137,6 +138,13 @@ these gates in order:
 The gates come from SWE-bench (fail-to-pass, pass-to-pass), Defects4J (the base commit) and Meta's
 TestGen-LLM (repeated runs) ([References](REFERENCES.md#testing)). Their order and the `fails` text
 are eyeful's.
+
+The gates support two separate claims. The first four show that the problem is real and that the
+change introduced it. The last two show that the suggested fix works. A fix that passes is plausible,
+not proven correct, because an agent wrote both it and the test, so a finding blocks on the first
+claim and the oracle alone. DARPA's AI Cyber Challenge has the same two parts: an input that
+triggers the vulnerability, then a patch that resolves it and keeps the functional tests passing
+([References](REFERENCES.md#testing)).
 
 - `fails` is a short text the test prints when it fails for the claimed reason. Unless the oracle is
   `implicit` it must be a message the test file itself writes, so a text any failure prints, such

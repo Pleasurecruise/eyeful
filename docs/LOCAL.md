@@ -68,7 +68,7 @@ the window regains focus.
 
 With `--head` the head must be checked out and the working copy clean, because the agents read the
 code in the repository. Local mode never reviews a pull request and never calls the eyeful server
-([Running in the cloud](CLOUD.md)).
+([Running in the cloud](cloud/CLOUD.md)).
 
 ## The snapshot {#snapshot}
 
@@ -127,12 +127,12 @@ block matching the role's schema; a missing or invalid block is retried once.
   silence or a tool error runs once more.
 - **Concurrency.** At most four experts run at once.
 
-No MCP server is configured for the agent ([API](API.md#mcp-planned)).
+No MCP server is configured for the agent ([API](cloud/API.md#mcp-planned)).
 
 ## The classifier {#classifier}
 
 `local/classify` asks [Jev](ARCHITECTURE.md#jev) through [go-jev](https://github.com/mattn/go-jev),
-with the key in `TYPESAFE_API_KEY`. A request carries each finding's file, line, subject and
+with the key in [`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets). A request carries each finding's file, line, subject and
 discussion, and no code.
 
 ## Local risks {#local-risks}
@@ -152,4 +152,4 @@ discussion, and no code.
 
 A confirmed command runs with the user's own permissions. There is no sandbox on the user's
 machine; code from someone else belongs in the cloud sandbox
-([Running in the cloud](CLOUD.md#the-sandbox)).
+([Running in the cloud](cloud/CLOUD.md#the-sandbox)).

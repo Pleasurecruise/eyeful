@@ -13,10 +13,10 @@ flowchart TB
 
 ## v0: Foundation (done)
 
-- GitHub App and Gitee sign-in, API keys and sealed provider tokens ([Auth](AUTH.md)).
-- The CRUD API, its OpenAPI document and the TypeScript SDK ([API](API.md)).
+- GitHub App and Gitee sign-in, API keys and sealed provider tokens ([Auth](cloud/AUTH.md)).
+- The CRUD API, its OpenAPI document and the TypeScript SDK ([API](cloud/API.md)).
 - The PostgreSQL queue with leases, fencing and a reaper; provider routing, built but not wired in
-  ([Scheduling](SCHEDULING.md)).
+  ([Scheduling](cloud/SCHEDULING.md)).
 - The console's repository browser, the desktop window, and CI running `mise run check`.
 
 ## v1.0: Research core and evaluation (in progress)
@@ -24,17 +24,17 @@ flowchart TB
 Only what the [research questions](EVALUATION.md#research-question) need, driven from the command
 line against a dataset.
 
-| Part                                                                           | State                              |
-| ------------------------------------------------------------------------------ | ---------------------------------- |
-| The `workflow` module: planning, experts, verifier, summary                    | Built                              |
-| The correctness and security experts, and the generalist baseline              | Built                              |
-| The verifier's six gates, the graded oracle, the read-only judge               | Built                              |
-| The run archive and stage checkpoints; feedback as SARIF and Markdown          | Built                              |
-| `eval/`: subject builders, runners, labelling sheet, analysis                  | Built                              |
-| Pilots on SWE-bench, Code Review Bench and ReviewBench                         | Run ([Pilot](EVALUATION.md#pilot)) |
-| Agents in pi with keys eyeful controls ([Agents in pi](CLOUD.md#agents-in-pi)) | To do                              |
-| The injected-defect subjects                                                   | To do                              |
-| Three repetitions of every review, and the labelling                           | To do                              |
+| Part                                                                                 | State                              |
+| ------------------------------------------------------------------------------------ | ---------------------------------- |
+| The `workflow` module: planning, experts, verifier, summary                          | Built                              |
+| The correctness and security experts, and the generalist baseline                    | Built                              |
+| The verifier's six gates, the graded oracle, the read-only judge                     | Built                              |
+| The run archive and stage checkpoints; feedback as SARIF and Markdown                | Built                              |
+| `eval/`: subject builders, runners, labelling sheet, analysis                        | Built                              |
+| Pilots on SWE-bench, Code Review Bench and ReviewBench                               | Run ([Pilot](EVALUATION.md#pilot)) |
+| Agents in pi with keys eyeful controls ([Agents in pi](cloud/CLOUD.md#agents-in-pi)) | To do                              |
+| The injected-defect subjects                                                         | To do                              |
+| Three repetitions of every review, and the labelling                                 | To do                              |
 
 Exit criteria:
 
@@ -59,15 +59,15 @@ experts and the verifier can be tried on real changes:
 - `eyeful review`, `provider`, `connect`, and the desktop app.
 
 Still to do: migrations move from editing `0001_init` to one file per change
-([Persistence](PERSISTENCE.md)).
+([Persistence](cloud/PERSISTENCE.md)).
 
 Exit criterion: `eyeful review` on eyeful's own repository returns feedback without calling the
 server, and no credential or model key leaves the machine.
 
 ## v2.0: Cloud review (planned)
 
-The workflow on pull requests ([Running in the cloud](CLOUD.md)): the CI check against GitHub
-Actions, `internal/checkout` and `internal/sandbox`, sources, the outbox and sinks, comments posted
+The workflow on pull requests ([Running in the cloud](cloud/CLOUD.md)): the CI check against GitHub
+Actions, `cloud/internal/checkout` and `cloud/internal/sandbox`, sources, the outbox and sinks, comments posted
 as a `COMMENT` review, E2E runs, SSE progress and a `runner` command.
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
@@ -75,5 +75,5 @@ its sandbox, and a worker killed mid-review loses nothing and runs nothing twice
 
 ## Later (planned)
 
-MCP on `POST /mcp` ([API](API.md#mcp-planned)), webhook and scheduled sources, a performance expert,
+MCP on `POST /mcp` ([API](cloud/API.md#mcp-planned)), webhook and scheduled sources, a performance expert,
 and team ownership of reviews.

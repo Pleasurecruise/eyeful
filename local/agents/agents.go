@@ -139,6 +139,7 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 		ans, err := p.parse(stdout.Bytes())
 		usage.Model = ans.usage.Model
 		usage.Tokens += ans.usage.Tokens
+		usage.Cached += ans.usage.Cached
 		usage.MicroUSD += ans.usage.MicroUSD
 		if err = errors.Join(err, runErr); err != nil {
 			bad = fmt.Errorf("%s: %w: %s (if it is not signed in, %s)", p.Tool, err, tail.Last(strings.TrimSpace(stderr.String()), stderrLimit), p.Login)

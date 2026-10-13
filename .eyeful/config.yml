@@ -4,15 +4,15 @@ test: mise run test
 test_one: go test -p 1 ./... -run {test}
 coverage: go test -p 1 -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
 risk:
-  - internal/auth/**
-  - internal/review/**
-  - internal/scheduler/**
-  - internal/server/**
-  - db/migrations/**
+  - cloud/internal/auth/**
+  - cloud/internal/review/**
+  - cloud/internal/scheduler/**
+  - cloud/internal/server/**
+  - cloud/db/migrations/**
 skip:
   - workflow/prompts/skills/**
   - packages/ui/src/lib/components/ui/**
-  - packages/sdk/src/**
-  - spec/swagger.*
+  - cloud/sdk/src/**
+  - cloud/spec/swagger.*
   - apps/desktop/build/**
   - docs/zh/**

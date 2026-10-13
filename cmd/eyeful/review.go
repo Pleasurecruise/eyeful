@@ -21,7 +21,7 @@ type reviewCmd struct {
 	Verification string   `enum:"execution,read_only,none" default:"read_only" help:"How findings are checked: run their tests in a checkout of the change, a judge agent, or not at all."`
 	Description  string   `type:"existingfile" help:"A file with the author's description of the change, such as a pull request's title and body; the reviewers read it as the author's word."`
 	Archive      string   `name:"run" type:"path" help:"Directory for this review's files; stages already saved there are not run again. Empty makes one under .eyeful/runs."`
-	TypesafeKey  string   `env:"TYPESAFE_API_KEY" help:"TypeSafe API key; Jev says which findings on the same lines are one problem. Without it they are not merged."`
+	TypesafeKey  string   `env:"EYEFUL_TYPESAFE_API_KEY" help:"TypeSafe API key; Jev says which findings on the same lines are one problem. Without it they are not merged."`
 	Yes          bool     `short:"y" help:"Confirm the project commands without asking."`
 }
 

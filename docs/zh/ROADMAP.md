@@ -12,26 +12,26 @@ flowchart TB
 
 ## v0：基础（已完成）
 
-- GitHub App 和 Gitee 登录、API 密钥、加密保存的提供商 token（见[登录](AUTH.md)）。
-- CRUD API、它的 OpenAPI 文档和 TypeScript SDK（见 [API](API.md)）。
-- 带租约、fencing 和回收器的 PostgreSQL 队列；提供商路由已写好但未接入（见[调度](SCHEDULING.md)）。
+- GitHub App 和 Gitee 登录、API 密钥、加密保存的提供商 token（见[登录](cloud/AUTH.md)）。
+- CRUD API、它的 OpenAPI 文档和 TypeScript SDK（见 [API](cloud/API.md)）。
+- 带租约、fencing 和回收器的 PostgreSQL 队列；提供商路由已写好但未接入（见[调度](cloud/SCHEDULING.md)）。
 - 控制台的仓库浏览器、桌面窗口，以及运行 `mise run check` 的 CI。
 
 ## v1.0：研究核心与评估（进行中）
 
 只包含[研究问题](EVALUATION.md#research-question)需要的东西，从命令行针对数据集驱动。
 
-| 部分                                                                                | 状态                                    |
-| ----------------------------------------------------------------------------------- | --------------------------------------- |
-| `workflow` 模块：规划、专家、验证器、汇总                                           | 已完成                                  |
-| correctness 和 security 专家，以及 generalist 基线                                  | 已完成                                  |
-| 验证器的六道关卡、判定依据的核对、只读的裁判                                        | 已完成                                  |
-| 运行存档和阶段检查点；SARIF 和 Markdown 形式的反馈                                  | 已完成                                  |
-| `eval/`：被试构建、运行器、标注表、分析                                             | 已完成                                  |
-| 在 SWE-bench、Code Review Bench 和 ReviewBench 上的试点                             | 已运行（见[试点](EVALUATION.md#pilot)） |
-| 用 eyeful 掌管的密钥在 pi 里运行 agent（见 [pi 里的 agent](CLOUD.md#agents-in-pi)） | 待做                                    |
-| 注入缺陷的被试                                                                      | 待做                                    |
-| 每次审查重复三次，以及标注                                                          | 待做                                    |
+| 部分                                                                                      | 状态                                    |
+| ----------------------------------------------------------------------------------------- | --------------------------------------- |
+| `workflow` 模块：规划、专家、验证器、汇总                                                 | 已完成                                  |
+| correctness 和 security 专家，以及 generalist 基线                                        | 已完成                                  |
+| 验证器的六道关卡、判定依据的核对、只读的裁判                                              | 已完成                                  |
+| 运行存档和阶段检查点；SARIF 和 Markdown 形式的反馈                                        | 已完成                                  |
+| `eval/`：被试构建、运行器、标注表、分析                                                   | 已完成                                  |
+| 在 SWE-bench、Code Review Bench 和 ReviewBench 上的试点                                   | 已运行（见[试点](EVALUATION.md#pilot)） |
+| 用 eyeful 掌管的密钥在 pi 里运行 agent（见 [pi 里的 agent](cloud/CLOUD.md#agents-in-pi)） | 待做                                    |
+| 注入缺陷的被试                                                                            | 待做                                    |
+| 每次审查重复三次，以及标注                                                                | 待做                                    |
 
 退出标准：
 
@@ -50,16 +50,16 @@ flowchart TB
 - 全部六个专家，带着来自 skills.sh 的 skill；
 - `eyeful review`、`provider`、`connect` 和桌面应用。
 
-待做：迁移从修改 `0001_init` 改为每次改动一个文件（见[持久化](PERSISTENCE.md)）。
+待做：迁移从修改 `0001_init` 改为每次改动一个文件（见[持久化](cloud/PERSISTENCE.md)）。
 
 退出标准：在 eyeful 自己的仓库上运行 `eyeful review` 能不调用服务器就返回反馈，并且没有凭据或模型密钥离开这台机器。
 
 ## v2.0：云端审查（规划中）
 
-工作流跑在 pull request 上（见[云端运行](CLOUD.md)）：针对 GitHub Actions 的 CI 检查、`internal/checkout` 和 `internal/sandbox`、来源、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行、SSE 进度和 `runner` 命令。
+工作流跑在 pull request 上（见[云端运行](cloud/CLOUD.md)）：针对 GitHub Actions 的 CI 检查、`cloud/internal/checkout` 和 `cloud/internal/sandbox`、来源、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行、SSE 进度和 `runner` 命令。
 
 退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途被杀掉的工作进程不丢任何东西，也不重复运行任何东西。
 
 ## 之后（规划中）
 
-`POST /mcp` 上的 MCP（见 [API](API.md#mcp-planned)）、webhook 和定时来源、性能专家，以及团队共有的审查。
+`POST /mcp` 上的 MCP（见 [API](cloud/API.md#mcp-planned)）、webhook 和定时来源、性能专家，以及团队共有的审查。

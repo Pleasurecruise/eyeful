@@ -159,9 +159,9 @@ func TestProviders(t *testing.T) {
 		apiKey   bool
 		findings int
 	}{
-		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence", "--disable-slash-commands"}, workflow.Usage{Model: "claude-opus-5", Tokens: 120, MicroUSD: 250000}, false, 0},
-		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral", "--ignore-user-config", "--disable plugins", "-c project_doc_max_bytes=0"}, workflow.Usage{Model: "codex", Tokens: 240}, true, 1},
-		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls", "--no-mcp", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, MicroUSD: 30000}, true, 0},
+		{"claude", []string{"-p", "--json-schema", "--model opus", "--tools Read,Grep,Glob", "--no-session-persistence", "--disable-slash-commands"}, workflow.Usage{Model: "claude-opus-5", Tokens: 120, Cached: 5, MicroUSD: 250000}, false, 0},
+		{"codex", []string{"exec", "--json", "--sandbox read-only", "--ephemeral", "--ignore-user-config", "--disable plugins", "-c project_doc_max_bytes=0"}, workflow.Usage{Model: "codex", Tokens: 240, Cached: 100}, true, 1},
+		{"pi", []string{"--mode json", "--no-session", "--tools read,grep,find,ls", "--no-mcp", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"}, workflow.Usage{Model: "anthropic/claude-sonnet-5-5", Tokens: 120, Cached: 2900, MicroUSD: 30000}, true, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a, out, repo := setup(t, tt.name, "ok")

@@ -22,7 +22,7 @@ runs each once over all of its groups, up to four at a time. The standards named
 - The generalist runs only when named, as in `eyeful review generalist`, with every skill. It is the
   single-agent baseline of the [evaluation](EVALUATION.md).
 - No expert covers performance yet ([Roadmap](ROADMAP.md)).
-- The tier selects models through [provider routing](SCHEDULING.md#agent-runs-over-providers).
+- The tier selects models through [provider routing](cloud/SCHEDULING.md#agent-runs-over-providers).
 
 ## Prompt, skills and tools {#skills-and-tools}
 

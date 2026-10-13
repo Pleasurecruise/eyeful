@@ -14,14 +14,23 @@ Every comment follows [Conventional Comments](https://conventionalcomments.org):
 [discussion]
 ```
 
-Go picks one of four labels:
+A label follows from three facts about a finding, each on a published scale:
 
-| Label        | Given to                                                           |
-| ------------ | ------------------------------------------------------------------ |
-| `issue`      | A finding whose kind is `fail`                                     |
-| `question`   | A finding whose evidence is `test` or `analysis`, not yet a `fail` |
-| `suggestion` | A finding that rests on `inspection` alone                         |
-| `nitpick`    | A `note` finding                                                   |
+| Fact                  | Scale                                             | In eyeful                                        |
+| --------------------- | ------------------------------------------------- | ------------------------------------------------ |
+| What it is about      | Functional or evolvability, Mäntylä and Lassenius | A `note` is evolvability; the rest is functional |
+| How it can be checked | Verification methods, ISO/IEC/IEEE 29148          | [Evidence](VERIFICATION.md#evidence-kinds)       |
+| How settled it is     | `kind`, SARIF 2.1.0                               | [Kind](VERIFICATION.md#kind-and-severity)        |
+
+Go takes the first row that fits. The names and their meanings are those of Conventional Comments;
+which facts give which label is eyeful's own rule ([References](REFERENCES.md#code-review)).
+
+| Label        | Given to                                                                     | Conventional Comments                                       |
+| ------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `nitpick`    | Every finding behind the comment is a `note`                                 | "trivial preference-based requests"                         |
+| `issue`      | A finding whose kind is `fail`                                               | "highlight specific problems"                               |
+| `question`   | A finding that names a failing scenario, not yet shown: `test` or `analysis` | "a potential concern but … not quite sure if it's relevant" |
+| `suggestion` | A finding with no scenario, read against a standard: `inspection`            | "propose improvements"                                      |
 
 Decorations say whether the comment blocks and which area it concerns: `security`, `correctness`,
 `design`, `tests`, `ux`, `readability`. Only an `issue` is `blocking`

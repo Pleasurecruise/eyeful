@@ -39,7 +39,6 @@ flowchart LR
 | [证据与验证](VERIFICATION.md) | 验证器、判定依据、裁判、SARIF       |
 | [审查反馈](REPORT.md)         | 评论格式、排序报告、多轮审查        |
 | [本地运行](LOCAL.md)          | 桌面端和 CLI、快照、agent、本地风险 |
-| [云端运行](CLOUD.md)          | pull request、pi 里的 agent、沙箱   |
 | [常见问题](FAQ.md)            | 审查什么、大型改动、文件变化        |
 | [参考资料](REFERENCES.md)     | 标准和借鉴的项目                    |
 | [原则](PRINCIPLES.md)         | 作者的八条工作原则                  |
@@ -50,14 +49,22 @@ flowchart LR
 
 | 文档                            | 内容                         |
 | ------------------------------- | ---------------------------- |
-| [架构](ARCHITECTURE.md)         | 组件、布局、依赖方向         |
-| [调度与租约](SCHEDULING.md)     | 租约、重试、提供商路由、限流 |
-| [登录与凭据](AUTH.md)           | 凭据及其保护方式             |
-| [数据库与迁移](PERSISTENCE.md)  | 表结构、迁移、查询           |
-| [API](API.md)                   | HTTP 约定、错误、路由        |
+| [架构](ARCHITECTURE.md)         | 组件、工作流、布局           |
 | [本地开发](DEVELOPMENT.md)      | 环境搭建、命令、代码生成     |
 | [代码风格与审查](STYLEGUIDE.md) | 编码规则，以及改动怎样被审查 |
 
-怎样部署：[部署](DEPLOYMENT.md)和[配置](CONFIGURATION.md)。接下来做什么：[路线图](ROADMAP.md)。
+云端服务器是独立的一部分，它的审查还在规划中：
+
+| 文档                                 | 内容                              |
+| ------------------------------------ | --------------------------------- |
+| [云端运行](cloud/CLOUD.md)           | pull request、pi 里的 agent、沙箱 |
+| [服务器](cloud/SERVER.md)            | 组件、布局、生命周期              |
+| [调度与租约](cloud/SCHEDULING.md)    | 租约、重试、提供商路由、限流      |
+| [登录与凭据](cloud/AUTH.md)          | 凭据及其保护方式                  |
+| [数据库与迁移](cloud/PERSISTENCE.md) | 表结构、迁移、查询                |
+| [API](cloud/API.md)                  | HTTP 约定、错误、路由             |
+| [部署](cloud/DEPLOYMENT.md)          | 怎样运行服务器                    |
+
+所有配置项见[配置](CONFIGURATION.md)。接下来做什么：[路线图](ROADMAP.md)。
 
 每篇文档只负责一个主题，描述代码现在的行为；规划中的工作会标明。英文是源文档，`zh/` 是译文。

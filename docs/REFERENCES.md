@@ -7,7 +7,7 @@ The standards eyeful reviews against, and the two projects it builds on.
 - ISO/IEC 25010:2023, _Product quality model_. The experts are divided along its characteristics
   ([roster](EXPERTS.md#the-roster)).
 
-## Code review
+## Code review {#code-review}
 
 - Google Engineering Practices:
   [The Standard of Code Review](https://google.github.io/eng-practices/review/reviewer/standard.html)
@@ -15,8 +15,13 @@ The standards eyeful reviews against, and the two projects it builds on.
   [What to look for](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
   (the experts' questions; every line is read) and
   [How to write comments](https://google.github.io/eng-practices/review/reviewer/comments.html).
-- [Conventional Comments](https://conventionalcomments.org). The format, labels and decorations of
-  every comment ([comment format](REPORT.md#comment-format)).
+- [Conventional Comments](https://conventionalcomments.org). The format of every comment and the
+  names of its labels and decorations ([comment format](REPORT.md#comment-format)). A community
+  convention, so it names the labels and does not justify them.
+- M. V. Mäntylä and C. Lassenius,
+  ["What Types of Defects Are Really Discovered in Code Reviews?"](https://doi.org/10.1109/TSE.2008.71),
+  _IEEE TSE_, 35(3), 2009. Review findings are functional or evolvability defects: the line between
+  a `note` and the other severities ([comment format](REPORT.md#comment-format)).
 - OASIS, [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html). How findings
   are stored, and the two scales they are graded on: `kind` (§3.27.9) and `level` (§3.27.10)
   ([Kind and severity](VERIFICATION.md#kind-and-severity)).
@@ -41,7 +46,7 @@ The standards eyeful reviews against, and the two projects it builds on.
   of each correctness and security finding.
 - [OWASP Top 10](https://owasp.org/Top10/) and
   [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/). eyeful's
-  own sign-in also follows ASVS ([Auth](AUTH.md)).
+  own sign-in also follows ASVS ([Auth](cloud/AUTH.md)).
 - [OSV](https://osv.dev) and [CVE](https://www.cve.org). Known vulnerabilities in dependencies.
 
 ## Testing {#testing}
@@ -55,6 +60,10 @@ The standards eyeful reviews against, and the two projects it builds on.
   ([the verifier](VERIFICATION.md#the-verifier)).
 - R. Just, D. Jalali and M. D. Ernst, "Defects4J", ISSTA 2014. A fault is tied to the change that
   introduced it: the `introduced` gate.
+- C. Zhang et al., "SoK: DARPA's AI Cyber Challenge (AIxCC): Competition Design, Architectures, and
+  Lessons Learned", arXiv:2602.07666, 2026. A proof of vulnerability, then a patch validated by
+  reproducing it and running the functional tests: the two claims the gates support. A precedent,
+  not where the gates come from.
 - N. Alshahwan et al., "Automated Unit Test Improvement using Large Language Models at Meta", FSE
   Companion 2024. A generated test is kept only if it builds and gives the same result over five
   runs: the `runs` and `not_flaky` gates.

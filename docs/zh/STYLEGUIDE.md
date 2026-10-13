@@ -4,9 +4,9 @@
 
 ## 代码结构
 
-- 包以它负责的能力命名；不要 `utils`、`helpers`、`common`、`manager`、`service`。依赖方向见[整体架构](ARCHITECTURE.md#dependency-direction)。
+- 包以它负责的能力命名；不要 `utils`、`helpers`、`common`、`manager`、`service`。依赖方向见[整体架构](cloud/SERVER.md#dependency-direction)。
 - 每个包把自己的类型、枚举、sentinel error 和消费方接口放在 `types.go`。
-- 构造函数是参数带类型的普通函数；只有组合根（`internal/app`、`local/app`）引入 fx。没有包级状态。
+- 构造函数是参数带类型的普通函数；只有组合根（`cloud/internal/app`、`local/app`）引入 fx。没有包级状态。
 - 接口属于它的消费方，只列出消费方会调用的方法。
 - HTTP handler 按 CRUD 组织，每个资源一个文件，顺序为 create、list、get、update、delete。
 

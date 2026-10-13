@@ -79,15 +79,15 @@ linters:
   exclusions:
     rules:
       # cipher.NewGCMWithRandomNonce takes a nil nonce and draws a random one itself.
-      - path: internal/auth/seal\.go
+      - path: cloud/internal/auth/seal\.go
         linters: [gosec]
         text: G407
       # Error code names such as api_key_not_found and provider token URLs are not secrets.
-      - path: internal/(apperror/|auth/types\.go)
+      - path: cloud/internal/(apperror/|auth/types\.go)
         linters: [gosec]
         text: G101
       # Secure follows --insecure-cookies, which exists for plain-http local development.
-      - path: internal/handlers/(sessions|oauth)\.go
+      - path: cloud/internal/handlers/(sessions|oauth)\.go
         linters: [gosec]
         text: G124
       # git runs fixed subcommands in the repository the caller chose.
@@ -115,7 +115,7 @@ linters:
         linters: [nilerr]
       - path: _test\.go
         linters: [gosec, wrapcheck, gocyclo]
-      - path: internal/db/sqlc/
+      - path: cloud/internal/db/sqlc/
         linters: [forbidigo]
 
 formatters:

@@ -140,6 +140,7 @@ type piUsage struct {
 	Input      int64  `json:"input"`
 	Output     int64  `json:"output"`
 	CacheWrite int64  `json:"cacheWrite"`
+	CacheRead  int64  `json:"cacheRead"`
 	Cost       piCost `json:"cost"`
 }
 

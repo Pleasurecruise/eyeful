@@ -48,6 +48,7 @@ var Providers = []Provider{
 			a := answer{text: r.Result, usage: workflow.Usage{
 				Model:    strings.Join(slices.Sorted(maps.Keys(r.ModelUsage)), ", "),
 				Tokens:   u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens,
+				Cached:   u.CacheReadInputTokens,
 				MicroUSD: int64(r.TotalCostUSD * 1e6),
 			}}
 			if len(r.StructuredOutput) > 0 {
@@ -83,6 +84,7 @@ var Providers = []Provider{
 					a.text = e.Item.Text
 				case e.Type == "turn.completed":
 					a.usage.Tokens += e.Usage.InputTokens - e.Usage.CachedInputTokens + e.Usage.OutputTokens
+					a.usage.Cached += e.Usage.CachedInputTokens
 				case e.Type == "turn.failed":
 					return a, fmt.Errorf("%w: %s", ErrFailed, e.Error.Message)
 				case e.Type == "error":
@@ -131,6 +133,7 @@ var Providers = []Provider{
 				a.text = text.String()
 				a.usage.Model = m.Provider + "/" + m.Model
 				a.usage.Tokens += m.Usage.Input + m.Usage.Output + m.Usage.CacheWrite
+				a.usage.Cached += m.Usage.CacheRead
 				cost += m.Usage.Cost.Total
 			}
 			a.usage.MicroUSD = int64(cost * 1e6)

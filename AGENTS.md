@@ -13,8 +13,8 @@ then implement. Do not write a plan, in chat or in files, unless asked.
 Follow [Code style](docs/STYLEGUIDE.md). The rules broken most often:
 
 - Run everything through mise: `dev`, `test`, `format`, `lint`, `generate`, `check`.
-- API changes follow [Changing the API](docs/API.md#changing-the-api) and land with `spec/` and
-  `packages/sdk` in one commit.
+- API changes follow [Changing the API](docs/cloud/API.md#changing-the-api) and land with `cloud/spec/` and
+  `cloud/sdk` in one commit.
 - No comments except `TODO(area): …`; no single-caller helpers; no `any`.
 - Libraries are pinned exactly at their latest release; toolchains follow `latest`.
 - Frontend commands go through Vite+ (`vp`); Go lint exceptions go in `.golangci.yml`, never inline.

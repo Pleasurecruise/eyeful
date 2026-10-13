@@ -60,7 +60,7 @@ token 预算（3,000,000）和每条项目命令的时限（10 分钟）是固�
 | 一个分支及其未提交的工作 | `--base main`          | `main` 和 `HEAD` 的 merge base | 已暂存、未暂存和未跟踪的文件 |
 | 一个提交或分支           | `--head X`、`--base Y` | `Y` 和 `X` 的 merge base       | `X`                          |
 
-使用 `--head` 时 head 必须已检出且工作区干净，因为 agent 读的是仓库里的代码。本地模式从不审查 pull request，也从不调用 eyeful 服务器（见[云端运行](CLOUD.md)）。
+使用 `--head` 时 head 必须已检出且工作区干净，因为 agent 读的是仓库里的代码。本地模式从不审查 pull request，也从不调用 eyeful 服务器（见[云端运行](cloud/CLOUD.md)）。
 
 ## 快照 {#snapshot}
 
@@ -97,11 +97,11 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 - **时间。** 2 分钟没有任何输出、或运行满 20 分钟的调用会被停止。因无输出或工具出错而停止的调用会再运行一次。
 - **并发。** 最多四个专家同时运行。
 
-不为 agent 配置任何 MCP 服务器（见 [API](API.md#mcp-planned)）。
+不为 agent 配置任何 MCP 服务器（见 [API](cloud/API.md#mcp-planned)）。
 
 ## 分类器 {#classifier}
 
-`local/classify` 通过 [go-jev](https://github.com/mattn/go-jev) 向 [Jev](ARCHITECTURE.md#jev) 提问，密钥取自 `TYPESAFE_API_KEY`。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
+`local/classify` 通过 [go-jev](https://github.com/mattn/go-jev) 向 [Jev](ARCHITECTURE.md#jev) 提问，密钥取自 [`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets)。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
 
 ## 本地风险 {#local-risks}
 
@@ -118,4 +118,4 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 | 审查期间工作区发生变化                     | 快照先固定下来，结束时 eyeful 会报告差异                                                                      |
 | agent 读取仓库之外的文件                   | 没有防护：CLI 的读工具能读到用户能读的所有文件                                                                |
 
-确认过的命令以用户自己的权限运行。用户的机器上没有沙箱；别人的代码应该放到云端沙箱里（见[云端运行](CLOUD.md#the-sandbox)）。
+确认过的命令以用户自己的权限运行。用户的机器上没有沙箱；别人的代码应该放到云端沙箱里（见[云端运行](cloud/CLOUD.md#the-sandbox)）。

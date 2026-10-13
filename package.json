@@ -3,11 +3,7 @@
 	"private": true,
 	"license": "AGPL-3.0-only",
 	"type": "module",
-	"scripts": {
-		"generate:sdk": "openapi-ts"
-	},
 	"devDependencies": {
-		"@hey-api/openapi-ts": "0.99.0",
 		"@typescript/native": "npm:typescript@7.0.2",
 		"typescript": "6.0.3",
 		"vite-plus": "catalog:"
