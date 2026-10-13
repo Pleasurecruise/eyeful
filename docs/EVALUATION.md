@@ -5,9 +5,9 @@ in `eval/` and pilots have run. The full datasets, the labelling and the main ex
 to do ([Roadmap](ROADMAP.md)).
 
 **What the pilots support so far:** on public pull requests the panel finds more known problems
-than a single agent, for about three times the tokens. Counted at the same number of comments it is
-level with published review products, not ahead. Execution-based verification has no valid
-measurement yet.
+than a single agent, for about three times the tokens. On eight injected defects the panel reported
+all eight and carried five through every gate, and the oracle rule let one of them block. Nothing is
+labelled yet, so precision is unknown.
 
 ## Research questions {#research-question}
 
@@ -127,42 +127,6 @@ run with `uv run`. `mise run test` runs their tests.
 
 ## Pilot {#pilot}
 
-### SWE-bench, 18 subjects
-
-**Invalid as a comparison.** It ran on 11 October 2026, before reviews were sandboxed, so reviewers
-could read each subject's description. It shows only that the procedure runs.
-
-Setup: 18 SWE-bench Verified subjects, one review per configuration, Claude Code on
-`claude-sonnet-5-5`, revmux on its `claude-only` profile.
-
-| Reviewer           | Recall            | Findings per review | Tokens (thousands) | Seconds     |
-| ------------------ | ----------------- | ------------------- | ------------------ | ----------- |
-| eyeful, panel      | 0.83 [0.67, 1.00] | 0.89 [0.67, 1.11]   | 89 [81, 98]        | 39 [33, 46] |
-| eyeful, single     | 0.67 [0.44, 0.89] | 0.67 [0.44, 0.89]   | 58 [50, 67]        | 29 [23, 36] |
-| revmux claude-only | 0.94 [0.83, 1.00] | 1.22 [1.00, 1.44]   | 326 [291, 368]     | 41 [36, 48] |
-
-Neither difference is significant (McNemar p = 0.38 and 0.50). Under execution, 26 of 28 findings
-came with a reproduction:
-
-| Measure                                        | Value                                                  |
-| ---------------------------------------------- | ------------------------------------------------------ |
-| Verifiable rate: passed all six gates          | 0.62 [0.38, 0.82]                                      |
-| Where the others stopped                       | `fails_as_claimed` 5, `pass_to_pass` 3, `introduced` 2 |
-| Oracles of the confirmed findings              | `base` 11, `agent` 7, `implicit` 1                     |
-| Blocking with the oracle rule, and without it  | 1, and 19                                              |
-| Verification loss on the known defect          | 0.32 [0.11, 0.56]                                      |
-| Tokens (thousands): none, read-only, execution | 80, 104, 89                                            |
-
-- The oracle names are those the code had then: `existing` and `base` are now `derived`, `spec` is
-  `specified`, `agent` is `human`.
-- A reverted fix has no issue text, so the oracle rule turned 18 of 19 confirmed reproductions into
-  questions.
-- The three `pass_to_pass` stops are subjects whose suite came out empty, a limit of the builder.
-- Asking once for a corrected reproduction, added afterwards, moved the verifiable rate from 0.62 to
-  0.65 and the loss from 0.32 to 0.25 on the same findings.
-- On 12 subjects, named experts without the planner and dependent experts each found 12 of 12,
-  against 11 for the panel.
-
 ### Code Review Bench, seven pull requests {#crb-pilot}
 
 Setup: 12 October 2026, seven pull requests (three Cal.com, two Sentry, two Grafana, 37 golden
@@ -197,12 +161,10 @@ Setup: 12 October 2026, the 25 test pull requests, one review per configuration,
 of Claude Sonnet 5. Both model accounts ran out: ten pull requests have a score for both
 configurations.
 
-| Reviewer                  | Grounded recall | Grounded precision | Comments a pull request | Tokens (thousands) |
-| ------------------------- | --------------- | ------------------ | ----------------------- | ------------------ |
-| eyeful panel              | 0.41            | 0.82               | 16.0                    | 590                |
-| eyeful panel, first five  | 0.26            |                    | 4.5                     |                    |
-| eyeful panel, first three | 0.19            |                    | 2.9                     |                    |
-| eyeful single agent       | 0.25            | 0.79               | 6.2                     | 190                |
+| Reviewer            | Grounded recall | Grounded precision | Comments a pull request | Tokens (thousands) |
+| ------------------- | --------------- | ------------------ | ----------------------- | ------------------ |
+| eyeful panel        | 0.41            | 0.82               | 16.0                    | 590                |
+| eyeful single agent | 0.25            | 0.79               | 6.2                     | 190                |
 
 - The panel found more golden findings than the single agent on seven of the ten and fewer on none.
 - The judge is lenient: it called 93 of the panel's 104 unmatched comments real problems.
@@ -220,17 +182,6 @@ Setup: 12 and 13 October 2026, the same 25 pull requests, the binary built from 
 the same model. The panel reviewed all 25, two of them `partial` because the two largest changes
 used up the budget. The single agent reviewed 20 before the provider's limit. One row per review is
 in [`reviewbench-test.csv`](/eval/reviewbench-test.csv); the `before` rows are the earlier pilot.
-
-**Recall.** The judge, on `deepseek-v4.1-flash`, scored 17 of the panel's reviews and none of the
-single agent's. The eight it did not reach include both `partial` reviews.
-
-| Panel, 17 pull requests | Grounded recall   | Grounded precision | Comments a pull request |
-| ----------------------- | ----------------- | ------------------ | ----------------------- |
-| every comment           | 0.393 (92 of 234) | 0.788              | 18.6                    |
-| first five              | 0.231             | 0.882              | 4.8                     |
-
-On the 15 pull requests scored in both runs the panel found 76 of 196 golden findings before and 84
-at `dbf9e50`, with 15.7 and 19.5 comments. With one review each this is not told apart from noise.
 
 **Cost.** On the pull requests reviewed in both runs:
 
@@ -251,32 +202,40 @@ agent reads:
 
 A change a hundred times larger costs the panel about ten times as much.
 
-#### Beside the leaderboard {#reviewbench-standing}
+### Injected defects, eight subjects {#injected-pilot}
 
-ReviewBench publishes a [leaderboard](https://review-bench.ai) of seven review products. The figure
-shows where eyeful's panel stands. **It is not a ranking:**
+Setup: 13 October 2026, the eight subjects built so far, from four Python repositories: three
+boundary errors, two missing checks, two wrong conditions and a resource leak. Sandboxed, the panel
+once per subject, the binary built from `790aefb`, every agent on `volcengine/deepseek-v4.1-flash`.
+The three conditions share one set of findings. pi was given `--thinking off`, and the model still
+reasoned in most turns, as it did in every run on this page.
 
-- The leaderboard is scored on all 219 pull requests, eyeful on 23 of the 25 test pull requests.
-  The benchmark says a score on that set shows an adapter works, not how good a reviewer is.
-- The 25 are the pull requests eyeful is developed on.
-- The leaderboard is judged by Claude Sonnet 5, eyeful by `deepseek-v4.1-flash`, which is lenient.
-- Each pull request was reviewed once.
+| What became of the known defect                                  | Subjects |
+| ---------------------------------------------------------------- | -------- |
+| Reported                                                         | 8 of 8   |
+| Reproduced, introduced, fixed and nothing else broken            | 5        |
+| Its reproduction stopped at `introduced`; the judge confirmed it | 1        |
+| Its reproduction stopped at `introduced`                         | 1        |
+| Reported only as a `note`, so nothing verified it                | 1        |
+| Shown as an `issue (blocking)`                                   | 1        |
 
-![eyeful beside the ReviewBench leaderboard](/eval/reviewbench-standing.svg)
-
-The figure uses the `before` run, which has the most scores: 23 pull requests, four of them never
-reviewed because the model accounts ran out. Those four count as finding nothing. Leaving them out
-would give 0.377 in place of 0.315.
-
-| eyeful panel  | Comments a pull request | Grounded recall | Grounded precision |
-| ------------- | ----------------------- | --------------- | ------------------ |
-| every comment | 12.9                    | 0.315           | 0.796              |
-| first five    | 3.8                     | 0.181           | 0.807              |
-
-At five comments, which is about what the products hand in, eyeful is level with Codex and below
-Copilot, Devin and Qodo, and its precision is below their 0.84 to 0.88. The leaderboard's rows are
-in [`reviewbench-leaderboard.csv`](/eval/reviewbench-leaderboard.csv) as read on 13 October 2026,
-and eyeful's in [`reviewbench-standing.csv`](/eval/reviewbench-standing.csv).
+- Thirteen reproductions were written. All ran, gave the same result five times and failed as
+  claimed. Nine passed the other gates and four stopped at `introduced`. Every fix asked for was
+  verified: nine of nine.
+- Three of the four stops are on one subject, whose change adds the file under test. Its tests fail
+  on the base commit too, and the gate reads that as pre-existing although the defect is known to
+  come from the change. The cause is not diagnosed.
+- The oracle rule decides what blocks. Of the five defects that passed every gate, one had a
+  `specified` oracle and blocks; the others had `human` (2) and `derived` from a new test (2) and
+  are questions.
+- The reviews made 27 comments: 13 questions, 13 nitpicks and one issue. None is labelled.
+- A review under execution took 319 thousand tokens and 408 seconds, against 199 thousand and 238
+  with no verification. Experts spent 58% of the tokens and reproduction 32%. Each review read
+  another 2.5 million tokens from the cache.
+- Eight subjects reviewed once is a check that the chain works, not an estimate.
+- `analyze.py` counts findings one by one, and findings merged into one problem carry no verdict of
+  their own, so its verifiable rate and loss are too low here. The table is counted per known
+  defect from each `result.json`. TODO(eval): count per problem.
 
 ### Jev, on the archived reviews {#jev-pilot}
 

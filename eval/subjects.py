@@ -52,56 +52,30 @@ def git(repo: Path, *args: str, stdin: str | None = None) -> str:
     return sh(["git", *IDENTITY, *args], cwd=repo, stdin=stdin)
 
 
-def removed(patch: str) -> tuple[Region, ...]:
-    regions: list[Region] = []
+def regions(patch: str, side: str) -> tuple[Region, ...]:
+    other, header, prefix, group = ("+", "--- ", "a/", 1) if side == "-" else ("-", "+++ ", "b/", 3)
+    found: list[Region] = []
     path, line, start, end = "", 0, 0, 0
-    for row in patch.splitlines():
-        if row.startswith("--- "):
-            path = row[4:].removeprefix("a/")
-        elif m := HUNK.match(row):
-            line, start, end = int(m.group(1)), 0, 0
-        elif row.startswith("+++ ") or row.startswith("diff ") or row.startswith("index "):
+    for row in [*patch.splitlines(), "diff "]:
+        hunk = HUNK.match(row)
+        meta = row.startswith(("diff ", "index ", "--- ", "+++ "))
+        if start and (hunk or meta or not row.startswith((side, other))):
+            found.append(Region(path, start, end))
+            start = end = 0
+        if row.startswith(header):
+            path = row[4:].removeprefix(prefix)
+        elif hunk:
+            line = int(hunk.group(group))
+        elif meta:
             continue
-        elif row.startswith("-"):
+        elif row.startswith(side):
             start, end = start or line, line
             line += 1
-        elif row.startswith("+"):
+        elif row.startswith(other):
             start, end = start or line, end or line
         elif path and line:
-            if start:
-                regions.append(Region(path, start, end))
-                start = end = 0
             line += 1
-    if start:
-        regions.append(Region(path, start, end))
-    return tuple(dict.fromkeys(regions))
-
-
-def added(patch: str) -> tuple[Region, ...]:
-    regions: list[Region] = []
-    path, line, start, end = "", 0, 0, 0
-    for row in patch.splitlines():
-        if row.startswith("+++ "):
-            path = row[4:].removeprefix("b/")
-        elif m := HUNK.match(row):
-            if start:
-                regions.append(Region(path, start, end))
-            line, start, end = int(m.group(3)), 0, 0
-        elif row.startswith("--- ") or row.startswith("diff ") or row.startswith("index "):
-            continue
-        elif row.startswith("+"):
-            start, end = start or line, line
-            line += 1
-        elif row.startswith("-"):
-            start, end = start or line, end or line
-        elif path and line:
-            if start:
-                regions.append(Region(path, start, end))
-                start = end = 0
-            line += 1
-    if start:
-        regions.append(Region(path, start, end))
-    return tuple(dict.fromkeys(regions))
+    return tuple(dict.fromkeys(found))
 
 
 def labels(tests: list[str], label: bool) -> list[str]:
@@ -169,11 +143,11 @@ def swebench(row: dict[str, str], out: Path, repos: Path, arch: str) -> Subject:
     git(repo, "commit", "--quiet", "--no-verify", "-m", "Prepare the release branch")
     base = git(repo, "rev-parse", "HEAD").strip()
     git(repo, "apply", "--reverse", "--whitespace=nowarn", stdin=row["patch"])
-    regions = removed(row["patch"])
-    touched = ", ".join(dict.fromkeys(r.path for r in regions))
+    defect = regions(row["patch"], "-")
+    touched = ", ".join(dict.fromkeys(r.path for r in defect))
     git(repo, "commit", "--quiet", "--no-verify", "--all", "-m", f"Rework {touched}")
     head = git(repo, "rev-parse", "HEAD").strip()
-    subject = Subject(name, "swebench", row.get("difficulty", ""), str(repo), base, head, image, regions)
+    subject = Subject(name, "swebench", row.get("difficulty", ""), str(repo), base, head, image, defect)
     subject.save(home / "subject.json")
     return subject
 
@@ -198,7 +172,7 @@ def injected(spec: dict[str, str], out: Path, repos: Path) -> Subject:
     message = git(repo, "log", "-1", "--format=%B", spec["commit"])
     git(repo, "commit", "--quiet", "--no-verify", "--all", "-m", message)
     head = git(repo, "rev-parse", "HEAD").strip()
-    subject = Subject(name, "injected", spec["kind"], str(repo), base, head, spec["image"], added(patch))
+    subject = Subject(name, "injected", spec["kind"], str(repo), base, head, spec["image"], regions(patch, "+"))
     subject.save(home / "subject.json")
     return subject
 

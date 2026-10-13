@@ -8,7 +8,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from model import Review, load_reviews
+from model import MERGE, Review, load_reviews
 from subjects import PULL
 
 JUDGE = """You are evaluating AI code review tools.
@@ -29,7 +29,6 @@ Respond with ONLY a JSON object:
 {{"reasoning": "brief explanation", "match": true/false, "confidence": 0.0-1.0}}"""
 PI = ["--mode", "json", "--no-session", "--no-tools", "--no-mcp", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"]
 PARALLEL = 8
-MERGE = 2
 ATTEMPTS = 5
 SECONDS = 300
 

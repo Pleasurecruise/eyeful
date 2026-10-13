@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from subjects import added, git, sh
+from subjects import git, regions, sh
 
 KINDS = ("boundary error", "missing check", "wrong condition", "resource leak", "injection flaw")
 PLATFORM = "linux/arm64"
@@ -133,8 +133,8 @@ def defect(repo: Path, sha: str, path: str, kind: str, model: str) -> tuple[str,
     git(repo, "checkout", "--quiet", "--force", "--detach", sha)
     (repo / path).write_text(content.replace(answer["old"], answer["new"]))
     patch = git(repo, "diff", "--", path)
-    changed = {n for r in added(git(repo, "show", "--format=", sha)) if r.path == path for n in range(r.start, r.end + 1)}
-    inside = any(n in changed for r in added(patch) for n in range(r.start, r.end + 1))
+    changed = {n for r in regions(git(repo, "show", "--format=", sha), "+") if r.path == path for n in range(r.start, r.end + 1)}
+    inside = any(n in changed for r in regions(patch, "+") for n in range(r.start, r.end + 1))
     return (patch, str(answer.get("summary", ""))) if patch and inside else None
 
 

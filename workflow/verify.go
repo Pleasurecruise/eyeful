@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -221,7 +220,7 @@ func (w *Workflow) repair(ctx context.Context, s Session, l *ledger, f Finding, 
 	if suite.Error != "" {
 		return stop("the suite could not run on the change: " + suite.Error)
 	}
-	after, err := s.Workspace.Test(ctx, fixed, Target{Touched: slices.Sorted(maps.Keys(files))})
+	after, err := s.Workspace.Test(ctx, fixed, Target{})
 	if err != nil {
 		return stop("the suite could not run with the fix: " + err.Error())
 	}

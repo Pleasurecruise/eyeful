@@ -69,7 +69,7 @@ def candidate(row: dict, config: str, result: dict, seconds: float, folded: bool
     findings = [
         {
             "producer": agent, "file": c["path"], "start_line": c["line"], "end_line": c["line"],
-            "message": "\n\n".join(part.strip() for part in (c["subject"], c.get("discussion", ""), c.get("scenario", "")) if part.strip()),
+            "message": "\n\n".join(part.strip() for part in (c["subject"], c["discussion"], c.get("scenario", "")) if part.strip()),
         }
         for c in result["comments"]
         if folded or (c["label"] != NITPICK and not c.get("objection"))
@@ -233,6 +233,7 @@ def main() -> None:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(json.dumps(candidate(rows[name], config, {"comments": [], "runs": []}, 0.0, args.folded), indent=2) + "\n")
             print(name, config, "no finished review: handed in with no findings", flush=True)
+
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"maps"
 	"slices"
 	"strings"
 
@@ -136,10 +135,6 @@ func invoke[T reply, K task](ctx context.Context, l *ledger, r Run, fn func(cont
 	}
 	l.spend(r)
 	return v, r, nil
-}
-
-func (l *ledger) share(n int) *ledger {
-	return &ledger{budget: Budget{Tokens: l.budget.Tokens / int64(n), MicroUSD: l.budget.MicroUSD / int64(n)}, parent: l}
 }
 
 func New(log *slog.Logger, roster []Expert) (*Workflow, error) {
@@ -298,13 +293,13 @@ func (r Request) executes(setupErr string) bool {
 	return r.Verification == ModeExecution && setupErr == ""
 }
 
-func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string, files map[string]File, res *Result) (suiteState, error) {
+func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string, res *Result) (suiteState, error) {
 	if !req.executes(setupErr) {
 		return suiteState{}, nil
 	}
 	st, err := checkpoint(ctx, s.Archive, l, "suite", func() (suiteState, error) {
 		var st suiteState
-		target := Target{Touched: slices.Sorted(maps.Keys(files))}
+		var target Target
 		var err error
 		if st.Change, err = s.Workspace.Test(ctx, nil, target); err == nil && !st.Change.Passed {
 			target.Base = true
@@ -380,7 +375,8 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 	short := false
 	panel := &ledger{budget: Budget{Tokens: l.budget.Tokens * expertPercent / 100, MicroUSD: l.budget.MicroUSD * expertPercent / 100}, parent: l}
 	for si, sc := range res.Scopes {
-		sl := panel.share(len(res.Scopes))
+		n := int64(len(res.Scopes))
+		sl := &ledger{budget: Budget{Tokens: panel.budget.Tokens / n, MicroUSD: panel.budget.MicroUSD / n}, parent: panel}
 		ps, err := checkpoint(ctx, s.Archive, sl, fmt.Sprintf("plan/%d", si), func() (planState, error) {
 			scoped := Triage{
 				Reviewed: slices.DeleteFunc(slices.Clone(prep.Triage.Reviewed), func(e Entry) bool { return !slices.Contains(sc.Files, e.Path) }),
@@ -457,7 +453,7 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	for _, f := range req.Change.Files {
 		files[f.Path] = f
 	}
-	suite, err := w.tests(ctx, s, l, req, prep.SetupError, files, &res)
+	suite, err := w.tests(ctx, s, l, req, prep.SetupError, &res)
 	if err != nil {
 		return res, err
 	}

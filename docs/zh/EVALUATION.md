@@ -2,7 +2,7 @@
 
 本页定义毕业设计的实验，并记录它的结果。工具在 `eval/` 里，试点已经运行过。完整的数据集、标注和主实验还没有做（见[路线图](ROADMAP.md)）。
 
-**试点目前能支持的结论：** 在公开的 pull request 上，专家组比单个 agent 找到更多已知问题，token 约为三倍。按同样的评论数量计算，它和已发布的审查产品持平，并不领先。基于执行的验证还没有任何有效的测量。
+**试点目前能支持的结论：** 在公开的 pull request 上，专家组比单个 agent 找到更多已知问题，token 约为三倍。在八个注入缺陷上，专家组报出了全部八个，其中五个走完了所有关卡，判定依据规则只让一个成为阻塞。还没有任何标注，所以精确率未知。
 
 ## 研究问题 {#research-question}
 
@@ -108,35 +108,6 @@ ReviewBench 的 25 个测试 pull request 在改 harness 时使用，留出一�
 
 ## 试点 {#pilot}
 
-### SWE-bench，18 个被试
-
-**作为比较是无效的。** 它运行于 2026 年 10 月 11 日，在审查进入沙箱之前，所以审查者能读到每个被试的描述。它只说明流程能跑通。
-
-设置：18 个 SWE-bench Verified 被试，每种配置审查一次，Claude Code 使用 `claude-sonnet-5-5`，revmux 使用 `claude-only` profile。
-
-| 审查者             | 召回率            | 每次审查的发现数  | Token（千）    | 秒          |
-| ------------------ | ----------------- | ----------------- | -------------- | ----------- |
-| eyeful，专家组     | 0.83 [0.67, 1.00] | 0.89 [0.67, 1.11] | 89 [81, 98]    | 39 [33, 46] |
-| eyeful，单 agent   | 0.67 [0.44, 0.89] | 0.67 [0.44, 0.89] | 58 [50, 67]    | 29 [23, 36] |
-| revmux claude-only | 0.94 [0.83, 1.00] | 1.22 [1.00, 1.44] | 326 [291, 368] | 41 [36, 48] |
-
-两处差异都不显著（McNemar p = 0.38 和 0.50）。在 execution 下，28 条发现里有 26 条带复现：
-
-| 指标                                     | 数值                                                   |
-| ---------------------------------------- | ------------------------------------------------------ |
-| 可验证率：通过全部六道关卡               | 0.62 [0.38, 0.82]                                      |
-| 其余的停在哪里                           | `fails_as_claimed` 5、`pass_to_pass` 3、`introduced` 2 |
-| 已确认发现的判定依据                     | `base` 11、`agent` 7、`implicit` 1                     |
-| 使用判定依据规则时的阻塞数，以及不使用时 | 1，以及 19                                             |
-| 已知缺陷上的验证损失                     | 0.32 [0.11, 0.56]                                      |
-| Token（千）：none、read-only、execution  | 80、104、89                                            |
-
-- 判定依据的名字是当时代码里的：`existing` 和 `base` 现在是 `derived`，`spec` 是 `specified`，`agent` 是 `human`。
-- 回退的修复没有 issue 文本，所以判定依据规则把 19 个已确认的复现里的 18 个变成了提问。
-- 三个停在 `pass_to_pass` 的被试是测试套件为空，这是构建脚本的局限。
-- 事后加入的“要求改一次复现”，在同样的发现上把可验证率从 0.62 提到 0.65，把损失从 0.32 降到 0.25。
-- 在 12 个被试上，不带规划器的指定专家和相互依赖的专家各找到 12 个里的 12 个，专家组是 11 个。
-
 ### Code Review Bench，七个 pull request {#crb-pilot}
 
 设置：2026 年 10 月 12 日，七个 pull request（Cal.com 三个、Sentry 两个、Grafana 两个，共 37 条 golden comment），在沙箱里，每种配置运行一次，所有 agent 和匹配裁判都是 pi 上的 `opencode-go/deepseek-v4.1-flash`。每条发现都由裁判阅读。
@@ -162,12 +133,10 @@ ReviewBench 的 25 个测试 pull request 在改 harness 时使用，留出一�
 
 设置：2026 年 10 月 12 日，25 个测试 pull request，每种配置审查一次，所有 agent 都用 `opencode-go/deepseek-v4.1-flash`，由基准的裁判用 `deepseek-v4-flash` 评分，代替 Claude Sonnet 5。两个模型账户都用完了：有十个 pull request 两种配置都有分数。
 
-| 审查者                | Grounded recall | Grounded precision | 每个 pull request 的评论数 | Token（千） |
-| --------------------- | --------------- | ------------------ | -------------------------- | ----------- |
-| eyeful 专家组         | 0.41            | 0.82               | 16.0                       | 590         |
-| eyeful 专家组，前五条 | 0.26            |                    | 4.5                        |             |
-| eyeful 专家组，前三条 | 0.19            |                    | 2.9                        |             |
-| eyeful 单 agent       | 0.25            | 0.79               | 6.2                        | 190         |
+| 审查者          | Grounded recall | Grounded precision | 每个 pull request 的评论数 | Token（千） |
+| --------------- | --------------- | ------------------ | -------------------------- | ----------- |
+| eyeful 专家组   | 0.41            | 0.82               | 16.0                       | 590         |
+| eyeful 单 agent | 0.25            | 0.79               | 6.2                        | 190         |
 
 - 十个里有七个，专家组找到的 golden finding 比单 agent 多，没有一个更少。
 - 这个裁判偏宽松：专家组 104 条没有匹配上的评论里，它把 93 条判成了真问题。
@@ -180,15 +149,6 @@ ReviewBench 的 25 个测试 pull request 在改 harness 时使用，留出一�
 ### ReviewBench，`dbf9e50` 上的测试集 {#reviewbench-dbf9e50}
 
 设置：2026 年 10 月 12 日至 13 日，同样的 25 个 pull request，用提交 `dbf9e50` 构建的二进制，同样的模型。专家组审查了全部 25 个，其中两个是 `partial`，因为最大的两处改动用完了预算。单 agent 在触及服务商上限前审查了 20 个。每次审查在 [`reviewbench-test.csv`](/eval/reviewbench-test.csv) 里占一行，`before` 的行是此前那次试点。
-
-**召回。** 裁判用 `deepseek-v4.1-flash`，给专家组的 17 个审查评了分，单 agent 的一个都没评。没评到的八个里包括那两个 `partial` 审查。
-
-| 专家组，17 个 pull request | Grounded recall    | Grounded precision | 每个 pull request 的评论数 |
-| -------------------------- | ------------------ | ------------------ | -------------------------- |
-| 每条评论                   | 0.393（234 中 92） | 0.788              | 18.6                       |
-| 前五条                     | 0.231              | 0.882              | 4.8                        |
-
-在两次运行都有分数的 15 个 pull request 上，专家组此前找到 196 条 golden finding 里的 76 条，`dbf9e50` 找到 84 条，评论分别是 15.7 条和 19.5 条。每个只审查一次，这和噪声分不开。
 
 **成本。** 在两次运行都审查过的 pull request 上：
 
@@ -208,25 +168,26 @@ ReviewBench 的 25 个测试 pull request 在改 harness 时使用，留出一�
 
 改动大一百倍，专家组的成本大约是十倍。
 
-#### 和排行榜放在一起 {#reviewbench-standing}
+### 注入缺陷，八个被试 {#injected-pilot}
 
-ReviewBench 公布了七个审查产品的[排行榜](https://review-bench.ai)。下图显示 eyeful 的专家组大致在什么位置。**这不是排名：**
+设置：2026 年 10 月 13 日，目前已构建的八个被试，来自四个 Python 仓库：三个边界错误、两个缺少检查、两个条件写错、一个资源泄漏。运行在沙箱里，专家组对每个被试审查一次，二进制由 `790aefb` 构建，所有 agent 都用 `volcengine/deepseek-v4.1-flash`。三种条件共用同一批发现。pi 传了 `--thinking off`，但模型在多数轮次里仍然在推理，本页所有运行都是如此。
 
-- 排行榜在全部 219 个 pull request 上评分，eyeful 是在 25 个测试 pull request 中的 23 个上。基准自己说，这个集合上的分数说明适配器能用，不说明审查者有多好。
-- 这 25 个正是开发 eyeful 时用的 pull request。
-- 排行榜由 Claude Sonnet 5 评判，eyeful 由 `deepseek-v4.1-flash` 评判，后者偏宽松。
-- 每个 pull request 只审查了一次。
+| 已知缺陷的结果                             | 被试数   |
+| ------------------------------------------ | -------- |
+| 被报出                                     | 8 个全部 |
+| 被复现、确认是引入的、修复通过且没弄坏别的 | 5        |
+| 复现停在 `introduced`，由裁判确认          | 1        |
+| 复现停在 `introduced`                      | 1        |
+| 只被报成 `note`，所以没有被验证            | 1        |
+| 显示为 `issue (blocking)`                  | 1        |
 
-![eyeful 与 ReviewBench 排行榜](/eval/reviewbench-standing.svg)
-
-图用的是 `before` 那次运行，它的分数最多：23 个 pull request，其中四个因为模型账户用完而从未被审查。这四个按什么都没找到来算。把它们去掉会得到 0.377 而不是 0.315。
-
-| eyeful 专家组 | 每个 pull request 的评论数 | Grounded recall | Grounded precision |
-| ------------- | -------------------------- | --------------- | ------------------ |
-| 每条评论      | 12.9                       | 0.315           | 0.796              |
-| 前五条        | 3.8                        | 0.181           | 0.807              |
-
-在五条评论这个数量上（大致相当于各产品交出的数量），eyeful 和 Codex 持平，低于 Copilot、Devin 和 Qodo，精确率低于它们的 0.84 到 0.88。排行榜的数据在 [`reviewbench-leaderboard.csv`](/eval/reviewbench-leaderboard.csv) 里，取自 2026 年 10 月 13 日；eyeful 的数据在 [`reviewbench-standing.csv`](/eval/reviewbench-standing.csv) 里。
+- 一共写了十三个复现。全部能运行、五次结果一致、并按声称的方式失败。九个通过了其余关卡，四个停在 `introduced`。每一个要求的修复都通过了验证：九个里九个。
+- 四次停下里有三次在同一个被试上，它的改动新增了被测文件。它的测试在基准提交上也失败，关卡据此判为原本就有，而这个缺陷已知是改动带来的。原因还没有查清。
+- 能不能阻塞由判定依据规则决定。走完全部关卡的五个缺陷里，一个的判定依据是 `specified`，成为阻塞；其余是 `human`（2 个）和来自新测试的 `derived`（2 个），成为 question。
+- 这些审查共产生 27 条评论：13 条 question、13 条 nitpick、1 条 issue。都还没有标注。
+- 执行条件下一次审查用 31.9 万 token、408 秒，不做验证时是 19.9 万和 238 秒。专家占 token 的 58%，复现占 32%。每次审查另外从缓存读了 250 万 token。
+- 八个被试各审查一次，只说明这条链路能走通，不构成估计。
+- `analyze.py` 逐条统计发现，而被合并为同一个问题的发现没有自己的验证结论，所以它在这里给出的可验证率和损失偏低。上表是按已知缺陷从各个 `result.json` 里数出来的。TODO(eval)：按问题统计。
 
 ### Jev，在已存档的审查上 {#jev-pilot}
 

@@ -9,10 +9,8 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 
-from model import Review, Verdict, load_reviews
+from model import MERGE, SEED, Review, Verdict, load_reviews
 
-MERGE = 2
-SEED = 20616304
 FIELDS = ["id", "subject", "path", "line", "title", "body", "label"]
 
 

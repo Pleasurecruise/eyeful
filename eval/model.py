@@ -11,6 +11,8 @@ Condition = Literal["execution", "read_only", "none", "revmux"]
 Verdict = Literal["actionable", "noise"]
 
 NEAR = 3
+MERGE = 2
+SEED = 20616304
 ALL_GATES = "fix_verified"
 
 

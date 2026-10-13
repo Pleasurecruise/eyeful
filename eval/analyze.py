@@ -11,9 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from label import distinct, read_labels
-from model import ALL_GATES, Review, Subject, Verdict, load_reviews, load_subjects
+from model import ALL_GATES, SEED, Review, Subject, Verdict, load_reviews, load_subjects
 
-SEED = 20616304
 RESAMPLES = 10_000
 CONFIRMED = ("reproduced", ALL_GATES)
 

@@ -11,7 +11,7 @@ from match import tally
 from model import Finding, Region, Review, Subject
 from reviewbench import candidate, held, key, scored, standing
 from run import stopped
-from subjects import added, labels, removed
+from subjects import labels, regions
 
 PATCH = """diff --git a/app/session.py b/app/session.py
 --- a/app/session.py
@@ -46,13 +46,18 @@ def review(subject: str, findings: tuple[Finding, ...]) -> Review:
 
 class Regions(unittest.TestCase):
     def test_removed_lines_are_numbered_before_the_patch(self) -> None:
-        self.assertEqual(removed(PATCH), (Region("app/session.py", 12, 12), Region("app/session.py", 33, 33)))
+        self.assertEqual(regions(PATCH, "-"), (Region("app/session.py", 12, 12), Region("app/session.py", 33, 33)))
 
     def test_added_lines_are_numbered_after_the_patch(self) -> None:
-        self.assertEqual(added(PATCH), (Region("app/session.py", 12, 13), Region("app/session.py", 34, 34)))
+        self.assertEqual(regions(PATCH, "+"), (Region("app/session.py", 12, 13), Region("app/session.py", 34, 34)))
+
+    def test_a_change_at_the_end_of_a_file_stays_in_that_file(self) -> None:
+        patch = "--- a/a.py\n+++ b/a.py\n@@ -5,2 +5,2 @@\n keep\n-old\n+new\n--- a/b.py\n+++ b/b.py\n@@ -1,2 +1,2 @@\n-first\n+other\n keep\n"
+        for side in ("-", "+"):
+            self.assertEqual(regions(patch, side), (Region("a.py", 6, 6), Region("b.py", 1, 1)))
 
     def test_a_finding_near_the_defect_hits_it(self) -> None:
-        subject = Subject("s", "swebench", "", "/r", "b", "h", "i", removed(PATCH))
+        subject = Subject("s", "swebench", "", "/r", "b", "h", "i", regions(PATCH, "-"))
         self.assertTrue(subject.hit("app/session.py", 15))
         self.assertFalse(subject.hit("app/session.py", 20))
         self.assertFalse(subject.hit("app/other.py", 12))
@@ -135,7 +140,7 @@ class ReviewBench(unittest.TestCase):
         result = {
             "comments": [
                 {"path": "src/pool.ts", "line": 42, "label": "question", "subject": "conns is read without the mutex.", "discussion": "Two requests can lose a write.", "scenario": ""},
-                {"path": "src/pool.ts", "line": 7, "label": "nitpick", "subject": "Name the constant."},
+                {"path": "src/pool.ts", "line": 7, "label": "nitpick", "subject": "Name the constant.", "discussion": ""},
             ],
             "runs": [{"usage": {"tokens": 900}}, {"usage": {"tokens": 100}}],
         }

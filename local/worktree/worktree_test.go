@@ -111,7 +111,7 @@ func TestWorktree(t *testing.T) {
 	if run, err := ws.Test(ctx, []workflow.Edit{repro, fix}, workflow.Target{Tests: []string{"t"}}); err != nil || !run.Passed {
 		t.Fatalf("repro with the fix: %+v, %v", run, err)
 	}
-	if run, err := ws.Test(ctx, nil, workflow.Target{Touched: []string{"app.txt"}}); err != nil || run.Passed || len(run.Failed) != 0 {
+	if run, err := ws.Test(ctx, nil, workflow.Target{}); err != nil || run.Passed || len(run.Failed) != 0 {
 		t.Fatalf("suite on the change: %+v, %v", run, err)
 	}
 

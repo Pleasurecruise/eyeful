@@ -31,7 +31,7 @@ line against a dataset.
 | The verifier's six gates, the graded oracle, the read-only judge                     | Built                              |
 | The run archive and stage checkpoints; feedback as SARIF and Markdown                | Built                              |
 | `eval/`: subject builders, runners, labelling sheet, analysis                        | Built                              |
-| Pilots on SWE-bench, Code Review Bench and ReviewBench                               | Run ([Pilot](EVALUATION.md#pilot)) |
+| Pilots on Code Review Bench, ReviewBench and the injected defects                    | Run ([Pilot](EVALUATION.md#pilot)) |
 | Agents in pi with keys eyeful controls ([Agents in pi](cloud/CLOUD.md#agents-in-pi)) | To do                              |
 | The injected-defect subjects                                                         | To do                              |
 | Three repetitions of every review, and the labelling                                 | To do                              |

@@ -296,9 +296,8 @@ type Check struct {
 }
 
 type Target struct {
-	Tests   []string `json:"tests"`
-	Touched []string `json:"touched"`
-	Base    bool     `json:"base"`
+	Tests []string `json:"tests"`
+	Base  bool     `json:"base"`
 }
 
 type TestRun struct {

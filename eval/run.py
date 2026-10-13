@@ -12,7 +12,7 @@ from pathlib import Path
 
 from audit import outside
 from confine import environment
-from model import Condition, Finding, Review, Subject, append_review, load_reviews, load_subjects
+from model import MERGE, Condition, Finding, Review, Subject, append_review, load_reviews, load_subjects
 
 CONFIGS: dict[str, list[str]] = {
     "panel": [],
@@ -20,20 +20,18 @@ CONFIGS: dict[str, list[str]] = {
     "fixed": ["correctness", "security"],
 }
 CONDITIONS: tuple[Condition, ...] = ("execution", "read_only", "none")
-MERGE = 2
 ATTEMPTS = 3
 
 
 def review(binary: Path, subject: Subject, config: str, condition: Condition, run: Path, flags: list[str], description: Path) -> float:
-    command = [
-        str(binary), "review", *CONFIGS[config], "--base", subject.base, "--head", subject.head,
-        "--verification", condition, "--yes", *(["--description", str(description)] if description.exists() else []), "--run", str(run),
-    ]
     run.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp())
     if (run / "stages").exists():
         shutil.copytree(run / "stages", work / "stages")
-    command[-1] = str(work)
+    command = [
+        str(binary), "review", *CONFIGS[config], "--base", subject.base, "--head", subject.head,
+        "--verification", condition, "--yes", *(["--description", str(description)] if description.exists() else []), "--run", str(work),
+    ]
     start = time.monotonic()
     with (run / "eyeful.log").open("a") as log:
         subprocess.run(command, cwd=subject.repo, stdout=log, stderr=log, env=environment(Path(subject.repo), (), flags), check=False)
@@ -72,7 +70,7 @@ def read(subject: Subject, config: str, rep: int, condition: Condition, run: Pat
             path=f["path"], line=f["line"], severity=f["severity"], title=f["subject"], body=f["discussion"],
             source=f["expert"], evidence=f["evidence"], cwe=f.get("cwe", ""),
             status=verdicts.get(f["id"], {}).get("status", ""), gate=stopped(verdicts.get(f["id"], {})),
-            oracle=(verdicts.get(f["id"], {}).get("repro") or f.get("repro") or {}).get("oracle", ""),
+            oracle=(verdicts.get(f["id"], {}).get("repro") or {}).get("oracle", ""),
             blocking=any(p == f["path"] and abs(n - f["line"]) <= MERGE for p, n in blocking),
         )
         for f in raw["findings"]
