@@ -20,23 +20,23 @@ var (
 	notCrash     = regexp.MustCompile(`(?i)assert|import|modulenotfound|syntax`)
 )
 
-func corroboration(f Finding, all []Finding) int {
+func corroboration(f Finding, all []Finding, root map[string]string) int {
 	// TODO(workflow): weigh corroboration across model families above agreement within one.
 	experts := map[string]bool{}
 	for _, o := range all {
-		if near(f, o) {
+		if root[o.ID] == root[f.ID] {
 			experts[o.Expert] = true
 		}
 	}
 	return len(experts)
 }
 
-func verificationOrder(findings []Finding) []Finding {
+func verificationOrder(findings []Finding, root map[string]string) []Finding {
 	out := slices.Clone(findings)
 	slices.SortStableFunc(out, func(a, b Finding) int {
 		return cmp.Or(
 			-cmp.Compare(severityRank[a.Severity], severityRank[b.Severity]),
-			-cmp.Compare(corroboration(a, findings), corroboration(b, findings)),
+			-cmp.Compare(corroboration(a, findings, root), corroboration(b, findings, root)),
 		)
 	})
 	return out
@@ -301,11 +301,11 @@ func each[T Finding | []Finding, S verifyState | judgeState](ctx context.Context
 	return states, errors.Join(errs...)
 }
 
-func cluster(findings []Finding) ([]Finding, map[string][]Finding) {
+func cluster(findings []Finding, root map[string]string) ([]Finding, map[string][]Finding) {
 	var leads []Finding
 	beside := map[string][]Finding{}
-	for _, f := range verificationOrder(findings) {
-		if i := slices.IndexFunc(leads, func(lead Finding) bool { return near(lead, f) && lead.Expert != f.Expert }); i >= 0 {
+	for _, f := range verificationOrder(findings, root) {
+		if i := slices.IndexFunc(leads, func(lead Finding) bool { return root[lead.ID] == root[f.ID] }); i >= 0 {
 			beside[leads[i].ID] = append(beside[leads[i].ID], f)
 			continue
 		}
@@ -314,8 +314,8 @@ func cluster(findings []Finding) ([]Finding, map[string][]Finding) {
 	return leads, beside
 }
 
-func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Request, suite suiteState, findings []Finding, files map[string]File) ([]Verification, []Finding, map[string]*Verification, error) {
-	leads, beside := cluster(findings)
+func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Request, suite suiteState, findings []Finding, files map[string]File, root map[string]string) ([]Verification, []Finding, map[string]*Verification, error) {
+	leads, beside := cluster(findings, root)
 	written, err := each(ctx, leads, func(f Finding) (verifyState, error) {
 		return checkpoint(ctx, s.Archive, l, "repro/"+f.ID, func() (verifyState, error) { return w.write(ctx, s, l, f, req.Project.TestOne) })
 	})
@@ -346,7 +346,7 @@ func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Reques
 	return out, unshown, tried, nil
 }
 
-func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request, execution bool, suite suiteState, findings []Finding, files map[string]File) ([]Verification, error) {
+func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request, execution bool, suite suiteState, findings []Finding, files map[string]File, root map[string]string) ([]Verification, error) {
 	if req.Verification == ModeNone {
 		return []Verification{}, nil
 	}
@@ -360,7 +360,7 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 			read = append(read, f)
 		}
 	}
-	out, unshown, tried, err := w.execute(ctx, s, l, req, suite, run, files)
+	out, unshown, tried, err := w.execute(ctx, s, l, req, suite, run, files, root)
 	if err != nil {
 		return nil, err
 	}

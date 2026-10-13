@@ -99,6 +99,10 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 
 不为 agent 配置任何 MCP 服务器（见 [API](API.md#mcp-planned)）。
 
+## 分类器 {#classifier}
+
+`local/classify` 通过 [go-jev](https://github.com/mattn/go-jev) 向 [Jev](ARCHITECTURE.md#jev) 提问，密钥取自 `TYPESAFE_API_KEY`。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
+
 ## 本地风险 {#local-risks}
 
 | 风险                                       | 防护                                                                                                          |

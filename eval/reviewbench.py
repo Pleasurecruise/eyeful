@@ -82,6 +82,26 @@ def candidate(row: dict, config: str, result: dict, seconds: float, folded: bool
     }
 
 
+def scored(handed: list[dict], golden: list[dict], same: dict[int, list[int]]) -> tuple[dict, list[dict]]:
+    claimed: set[int] = set()
+    details = []
+    for i, finding in enumerate(handed):
+        hits = sorted(same.get(i, []))
+        claim = next((g for g in hits if g not in claimed), None)
+        claimed |= {claim} - {None}
+        details.append(finding | {
+            "covered_golden_indices": hits, "matched_to_ground_truth": claim is not None,
+            "matched_truth_label": golden[claim]["tp_fp"] if claim is not None else None,
+        })
+    accepted = {i for i, g in enumerate(golden) if g["tp_fp"] == "tp"}
+    covered = {g for d in details for g in d["covered_golden_indices"]} & accepted
+    right = sum(d["matched_truth_label"] == "tp" for d in details)
+    return {
+        "candidate_count": len(handed), "golden_tp_count": len(accepted), "golden_covered_count": len(covered), "matched_count": len(claimed), "matched_tp_count": right,
+        "grounded_recall": len(covered) / len(accepted) if accepted else None, "grounded_precision": right / len(claimed) if claimed else None,
+    }, details
+
+
 def table(label: str, runs: Path, scores: Path, subjects: Path, rows: dict[str, dict]) -> list[dict]:
     out = []
     for path in sorted(runs.rglob("execution/result.json")):
@@ -105,7 +125,7 @@ def table(label: str, runs: Path, scores: Path, subjects: Path, rows: dict[str, 
             m = score["metrics"]["overall"]
             row |= {
                 "handed_in": m["candidate_count"], "golden": m["golden_tp_count"], "golden_found": m["golden_covered_count"], "matched": m["matched_tp_count"],
-                "unmatched_real": m["unmatched_tp_count"], "unmatched_false": m["unmatched_fp_count"],
+                "unmatched_real": m.get("unmatched_tp_count", ""), "unmatched_false": m.get("unmatched_fp_count", ""),
                 "grounded_recall": m["grounded_recall"], "grounded_precision": m["grounded_precision"],
             }
         out.append(row)

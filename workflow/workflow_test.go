@@ -28,6 +28,7 @@ type agents struct {
 	fix      func(t workflow.FixTask) ([]workflow.Edit, error)
 	retest   func(t workflow.RetestTask) (workflow.Repro, error)
 	judge    func(t workflow.JudgeTask) ([]workflow.Judgement, error)
+	same     func(pairs [][2]workflow.Finding) ([]float64, error)
 }
 
 var usage = workflow.Usage{Model: "test/model", Tokens: 100, MicroUSD: 10}
@@ -84,6 +85,21 @@ func (a *agents) Judge(_ context.Context, t workflow.JudgeTask) ([]workflow.Judg
 	a.count(workflow.RoleJudge)
 	j, err := a.judge(t)
 	return j, usage, err
+}
+
+func (a *agents) Same(_ context.Context, pairs [][2]workflow.Finding) ([]float64, workflow.Usage, error) {
+	a.count(workflow.RoleClassifier)
+	if a.same != nil {
+		same, err := a.same(pairs)
+		return same, usage, err
+	}
+	same := make([]float64, len(pairs))
+	for i, p := range pairs {
+		if p[0].Expert != p[1].Expert {
+			same[i] = 1
+		}
+	}
+	return same, usage, nil
 }
 
 type workspace struct {
@@ -260,7 +276,7 @@ func run(t *testing.T, a *agents, ws *workspace, ar *archive, req workflow.Reque
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: ws, Archive: ar}, req)
+	res, err := w.Run(t.Context(), workflow.Session{Agents: a, Classifier: a, Workspace: ws, Archive: ar}, req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +446,7 @@ func TestRun(t *testing.T) {
 		a := base()
 		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
 			f := finding("app/session.py", map[string]int{"correctness": 10, "skeptic": 12, "security": 14}[t.Expert.Name], workflow.EvidenceTest)
-			f.Subject, f.Severity = "claimed by "+t.Expert.Name, map[string]workflow.Severity{"correctness": workflow.SeverityError}[t.Expert.Name]
+			f.Subject, f.Severity = "claimed by "+t.Expert.Name, map[string]workflow.Severity{"security": workflow.SeverityError}[t.Expert.Name]
 			if f.Severity == "" {
 				f.Severity = workflow.SeverityWarning
 			}
@@ -446,11 +462,11 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, request())
+		res, err := w.Run(t.Context(), workflow.Session{Agents: a, Classifier: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, request())
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c := res.Comments[0]; len(res.Comments) != 1 || len(c.Experts) != 3 || c.Kind != workflow.KindFail || c.Subject != "claimed by security" || c.Severity != workflow.SeverityWarning {
+		if c := res.Comments[0]; len(res.Comments) != 1 || len(c.Experts) != 3 || c.Kind != workflow.KindFail || c.Subject != "claimed by security" || c.Severity != workflow.SeverityError {
 			t.Fatalf("comments %+v", res.Comments)
 		}
 	})
@@ -533,7 +549,7 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, request()); err != nil {
+		if _, err := w.Run(t.Context(), workflow.Session{Agents: a, Classifier: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, request()); err != nil {
 			t.Fatal(err)
 		}
 		if plans["skeptic"] != "" || plans["correctness"] == "" || len(plans) != 3 {
@@ -557,7 +573,7 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: kept}, other); !errors.Is(err, workflow.ErrOtherRequest) {
+		if _, err := w.Run(t.Context(), workflow.Session{Agents: a, Classifier: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: kept}, other); !errors.Is(err, workflow.ErrOtherRequest) {
 			t.Fatalf("another request reused the archive: %v", err)
 		}
 	})
@@ -947,7 +963,7 @@ func TestResume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.Run(ctx, workflow.Session{Agents: cut, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: ar}, request()); !errors.Is(err, context.Canceled) {
+	if _, err := w.Run(ctx, workflow.Session{Agents: cut, Classifier: cut, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: ar}, request()); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err %v", err)
 	}
 	resumed := base()
@@ -1163,7 +1179,7 @@ func TestParallel(t *testing.T) {
 		return a, &peak, w, req
 	}
 	review := func(w *workflow.Workflow, a *agents, req workflow.Request) workflow.Result {
-		res, err := w.Run(t.Context(), workflow.Session{Agents: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, req)
+		res, err := w.Run(t.Context(), workflow.Session{Agents: a, Classifier: a, Workspace: &workspace{ci: workflow.Check{Passed: true}}, Archive: &archive{}}, req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1300,6 +1316,15 @@ func TestNeighbours(t *testing.T) {
 		}
 		return answers(t), nil
 	}
+	a.same = func(pairs [][2]workflow.Finding) ([]float64, error) {
+		same := make([]float64, len(pairs))
+		for i, p := range pairs {
+			if p[0].Line == p[1].Line {
+				same[i] = 0.9
+			}
+		}
+		return same, nil
+	}
 	req := request()
 	req.Verification = workflow.ModeNone
 	res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
@@ -1310,6 +1335,34 @@ func TestNeighbours(t *testing.T) {
 	if len(res.Comments) != 2 || experts != 3 {
 		t.Fatalf("%d comments from %d experts' findings, want 2 from 3: one expert's two findings are two problems, and another expert's beside them is one of the two", len(res.Comments), experts)
 	}
+
+	t.Run("two problems on one line stay apart", func(t *testing.T) {
+		a.same = func(pairs [][2]workflow.Finding) ([]float64, error) { return make([]float64, len(pairs)), nil }
+		if res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Comments) != 3 {
+			t.Fatalf("%d comments, want 3: nothing said the findings are one problem", len(res.Comments))
+		}
+	})
+
+	t.Run("one expert's two findings on one problem are one comment", func(t *testing.T) {
+		a.same = func(pairs [][2]workflow.Finding) ([]float64, error) {
+			same := make([]float64, len(pairs))
+			for i := range same {
+				same[i] = 1
+			}
+			return same, nil
+		}
+		if res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Comments) != 1 || len(res.Comments[0].Experts) != 2 {
+			t.Fatalf("comments %+v, want one from two experts", res.Comments)
+		}
+	})
+
+	t.Run("nothing is merged when the match fails", func(t *testing.T) {
+		a.same = func([][2]workflow.Finding) ([]float64, error) { return nil, errors.New("no key") }
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
+		if len(res.Comments) != 3 || !slices.ContainsFunc(res.Uncertainty.Notes, func(n string) bool { return strings.Contains(n, "not merged: no key") }) {
+			t.Fatalf("%d comments, notes %v", len(res.Comments), res.Uncertainty.Notes)
+		}
+	})
 }
 
 func TestThoroughness(t *testing.T) {

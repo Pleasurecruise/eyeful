@@ -9,7 +9,7 @@ from analyze import bootstrap, difference, mcnemar
 from label import distinct, kappa
 from match import tally
 from model import Finding, Region, Review, Subject
-from reviewbench import candidate, held, key, standing
+from reviewbench import candidate, held, key, scored, standing
 from run import stopped
 from subjects import added, labels, removed
 
@@ -152,6 +152,17 @@ class ReviewBench(unittest.TestCase):
         self.assertEqual(len(part), 2)
         self.assertNotIn("c_d_2-11111111", part)
         self.assertEqual(list(part), list(held(dict(reversed(list(rows.items()))), {"c_d_2-11111111"}, 2)))
+
+    def test_a_golden_finding_is_claimed_once_and_covered_by_every_match(self) -> None:
+        golden = [{"tp_fp": "tp"}, {"tp_fp": "fp"}, {"tp_fp": "tp"}]
+        overall, details = scored([{"file": "a"}, {"file": "a"}, {"file": "a"}], golden, {0: [0, 2], 1: [0], 2: [1]})
+        self.assertEqual([d["matched_truth_label"] for d in details], ["tp", None, "fp"])
+        self.assertEqual([d["matched_to_ground_truth"] for d in details], [True, False, True])
+        self.assertEqual(overall, {
+            "candidate_count": 3, "golden_tp_count": 2, "golden_covered_count": 2, "matched_count": 2, "matched_tp_count": 1,
+            "grounded_recall": 1.0, "grounded_precision": 0.5,
+        })
+        self.assertEqual(scored([], golden, {})[0]["grounded_precision"], None)
 
     def test_a_pull_request_with_nothing_handed_in_still_counts_its_golden_findings(self) -> None:
         hit = {"matched_to_ground_truth": True, "matched_truth_label": "tp", "covered_golden_indices": [0]}

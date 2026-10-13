@@ -107,8 +107,8 @@ and took twice as long ([Code Review Bench](#crb-pilot)).
 
 ## Tooling {#tooling}
 
-The scripts in `eval/` use only Python's standard library, except `plot.py`, which runs with
-`uv run`. `mise run test` runs their tests.
+The scripts in `eval/` use only Python's standard library, except `plot.py` and `score.py`, which
+run with `uv run`. `mise run test` runs their tests.
 
 | Script           | Does                                                                                                                                                                                                                                   |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,6 +120,7 @@ The scripts in `eval/` use only Python's standard library, except `plot.py`, whi
 | `audit.py`       | Lists what a reviewer's agents opened outside the repository; such a review is recorded `leaked`                                                                                                                                       |
 | `match.py`       | Scores Code Review Bench reviews as the benchmark's offline pipeline does                                                                                                                                                              |
 | `reviewbench.py` | Prepares ReviewBench subjects and writes eyeful's comments in the benchmark's input format. `table` writes one row per review; `standing` scores a run over every pull request judged, counting only the first comments of each report |
+| `score.py`       | Matches eyeful's comments to ReviewBench's golden findings with [Jev](ARCHITECTURE.md#jev) and writes the grounded scores in the shape `table` and `standing` read                                                                     |
 | `plot.py`        | Draws eyeful beside ReviewBench's leaderboard                                                                                                                                                                                          |
 | `label.py`       | Writes the blind labelling sheet and computes κ                                                                                                                                                                                        |
 | `analyze.py`     | Computes the measures from the reviews and the labels                                                                                                                                                                                  |
@@ -276,3 +277,23 @@ At five comments, which is about what the products hand in, eyeful is level with
 Copilot, Devin and Qodo, and its precision is below their 0.84 to 0.88. The leaderboard's rows are
 in [`reviewbench-leaderboard.csv`](/eval/reviewbench-leaderboard.csv) as read on 13 October 2026,
 and eyeful's in [`reviewbench-standing.csv`](/eval/reviewbench-standing.csv).
+
+### Jev, on the archived reviews {#jev-pilot}
+
+Setup: 13 October 2026, `jev-1.13.0`, asked over the archived output of the 25 panel reviews at
+`dbf9e50` (748 findings). No review was run again.
+
+| Judgement                                                 | Compared with                | Result                                              | Decided by                                  |
+| --------------------------------------------------------- | ---------------------------- | --------------------------------------------------- | ------------------------------------------- |
+| Two findings within two lines are one problem, 318 pairs  | 35 pairs read by hand        | 204 at 0.9 or more, 80 under 0.2; the sample agrees | Jev                                         |
+| A comment is about a golden finding, 2,498 pairs          | The benchmark's judge        | 98.3% of pairs the same; 115 golden found, not 117  | Jev, while the harness changes              |
+| The judge's three points from a file's diff, 314 findings | The judge's verdicts         | 4 of its 26 rejections; AUC 0.69                    | The judge: the callers are not in a diff    |
+| Severity from a finding's text, 376 comments              | Whether a golden finding hit | AUC 0.73, the expert's 0.71                         | The expert                                  |
+| Area of a comment, 376 comments                           | The areas of its experts     | 299 inside them                                     | The experts' areas                          |
+| Category of a file, 245 files                             | The planner's group          | 72% the same category, 80% the same experts         | The planner: it still groups and summarises |
+
+- Position alone merged 97 pairs that are different problems. With Jev the 748 findings become 589
+  comments, where position gave 569.
+- `score.py` follows the benchmark's judge (r = 0.99 over 19 pull requests) but does not classify
+  the comments that match nothing, so a figure to quote still comes from the benchmark's judge.
+- 0.5 was fixed before looking, and every figure is on the pull requests eyeful is developed on.

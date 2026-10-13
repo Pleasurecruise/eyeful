@@ -36,15 +36,27 @@ flowchart TB
 
 ## 审查工作流 {#workflow}
 
-`workflow` 让一次审查走完各个[阶段](REVIEW.md#stages)。它自己不运行 agent、命令或存储：调用方在 `Session` 里传入三个接口。
+`workflow` 让一次审查走完各个[阶段](REVIEW.md#stages)。它自己不运行 agent、命令或存储：调用方在 `Session` 里传入四个接口。
 
-| 接口        | 提供                                             | 云端（规划中） | 本地             |
-| ----------- | ------------------------------------------------ | -------------- | ---------------- |
-| `Agents`    | 每个角色一次调用，返回带类型的结果和花费的 token | pi 进程        | `local/agents`   |
-| `Workspace` | CI 检查、`setup`、读文件、在全新副本上运行测试   | 该审查的沙箱   | `local/worktree` |
-| `Archive`   | 读取和保存每个阶段的输出                         | 运行存档       | `local/archive`  |
+| 接口         | 提供                                             | 云端（规划中）  | 本地             |
+| ------------ | ------------------------------------------------ | --------------- | ---------------- |
+| `Agents`     | 每个角色一次调用，返回带类型的结果和花费的 token | pi 进程         | `local/agents`   |
+| `Classifier` | 两条发现是同一个问题的概率，以及花费的 token     | TypeSafe 的 API | `local/classify` |
+| `Workspace`  | CI 检查、`setup`、读文件、在全新副本上运行测试   | 该审查的沙箱    | `local/worktree` |
+| `Archive`    | 读取和保存每个阶段的输出                         | 运行存档        | `local/archive`  |
 
 所有循环都由 Go 掌管：`workflow` 检查每份计划和报告、管理预算、决定重试，并在下一阶段开始前保存当前阶段。它不包含 fx、数据库或服务器的类型。
+
+### Jev {#jev}
+
+[Jev](https://docs.typesafe.ai) 是 TypeSafe 的分类模型：它针对给定的 state 回答带类型的问题，返回概率，不生成文字。只有判断所需的信息能全部放进 state 时，eyeful 才把它交给 Jev。
+
+| 位置                 | 问 Jev 的问题                              | 调用方式                     |
+| -------------------- | ------------------------------------------ | ---------------------------- |
+| `workflow`，验证之前 | 同样几行上的两条发现是不是同一个问题       | `Classifier.Same`，用 go-jev |
+| `eval/score.py`      | 一条评论和一条 golden 发现是不是同一个问题 | TypeSafe 的 Python SDK       |
+
+测过之后仍留给 agent 的判断见[评估](EVALUATION.md#jev-pilot)。
 
 ## 语言
 
@@ -90,6 +102,7 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `local/worktree`          | 快照的一次性检出；`workflow.Workspace`                      |
 | `local/store`             | `.eyeful/runs/` 和已确认的命令                              |
 | `local/settings`          | 已连接的 agent 和桌面端上次打开的仓库                       |
+| `local/classify`          | 基于 Jev 实现的 `workflow.Classifier`，通过 go-jev 调用     |
 | `local/archive`           | 以文件保存的阶段检查点                                      |
 | `local/git`、`local/tail` | 用固定环境运行 git；保留输出的末尾                          |
 | `internal/app`            | 云端的组合根：fx 装配和生命周期                             |

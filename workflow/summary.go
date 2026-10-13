@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"cmp"
+	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -26,26 +28,67 @@ func kind(v Verification) Kind {
 	return KindReview
 }
 
-func near(a, b Finding) bool {
-	return a.Path == b.Path && a.Line-b.Line <= mergeDistance && b.Line-a.Line <= mergeDistance
-}
-
 var labelOrder = []Label{
 	LabelIssue, LabelQuestion, LabelSuggestion, LabelNitpick,
 }
 
-func merge(findings []Finding, verdicts map[string]Verification) []Merged {
+func (w *Workflow) match(ctx context.Context, s Session, l *ledger, findings []Finding) (matchState, error) {
+	st := matchState{Root: map[string]string{}, Notes: []string{}, Runs: []Run{}}
+	var pairs [][2]Finding
+	for i, a := range findings {
+		st.Root[a.ID] = a.ID
+		for _, b := range findings[i+1:] {
+			if a.Path != b.Path || max(a.Line-b.Line, b.Line-a.Line) > mergeDistance {
+				continue
+			}
+			pairs = append(pairs, [2]Finding{a, b})
+		}
+	}
+	if len(pairs) == 0 {
+		return st, nil
+	}
+	same, r, err := invoke(ctx, l, Run{Role: RoleClassifier}, s.Classifier.Same, pairs)
+	if err != nil {
+		return st, err
+	}
+	st.Runs = append(st.Runs, r)
+	switch {
+	case r.Error != "":
+		st.Notes = append(st.Notes, "findings on the same lines were not merged: "+r.Error)
+	case len(same) != len(pairs):
+		st.Notes = append(st.Notes, fmt.Sprintf("findings on the same lines were not merged: %d answers for %d pairs", len(same), len(pairs)))
+	default:
+		for i, p := range pairs {
+			if same[i] < sameProblem {
+				continue
+			}
+			to, from := st.Root[p[0].ID], st.Root[p[1].ID]
+			for id, root := range st.Root {
+				if root == from {
+					st.Root[id] = to
+				}
+			}
+		}
+	}
+	return st, nil
+}
+
+func merge(findings []Finding, verdicts map[string]Verification, root map[string]string) []Merged {
 	kept := slices.Clone(findings)
 	slices.SortStableFunc(kept, func(a, b Finding) int { return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line)) })
 	var out []Merged
+	at := map[string]int{}
 	for _, f := range kept {
 		v := verdicts[f.ID]
 		if v.Status == StatusResolved {
 			continue
 		}
-		if n := len(out); n > 0 && near(out[n-1].Findings[len(out[n-1].Findings)-1], f) && !slices.Contains(out[n-1].Experts, f.Expert) {
-			m := &out[n-1]
-			m.Findings, m.Experts = append(m.Findings, f), append(m.Experts, f.Expert)
+		if i, ok := at[root[f.ID]]; ok {
+			m := &out[i]
+			m.Findings = append(m.Findings, f)
+			if !slices.Contains(m.Experts, f.Expert) {
+				m.Experts = append(m.Experts, f.Expert)
+			}
 			if k := kind(v); kindRank[k] > kindRank[m.Kind] {
 				m.Kind = k
 			}
@@ -55,6 +98,7 @@ func merge(findings []Finding, verdicts map[string]Verification) []Merged {
 			}
 			continue
 		}
+		at[root[f.ID]] = len(out)
 		m := Merged{ID: f.ID, Path: f.Path, Line: f.Line, Findings: []Finding{f}, Experts: []string{f.Expert}, Kind: kind(v), Group: f.Group}
 		if v.Status == StatusRejected {
 			m.Objection = v.Reason

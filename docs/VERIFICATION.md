@@ -108,11 +108,19 @@ finding that explains one names that test as its reproduction, with a `derived` 
 lists the broken tests whether or not an expert explained them. Locally it says only that the suite
 broke, because the workspace cannot tell one test of a command from another.
 
+## One problem {#one-problem}
+
+Experts work apart, so several report one problem and others report different problems on the same
+lines. Before anything is verified, eyeful asks [Jev](ARCHITECTURE.md#jev) about every two findings
+in the same file within two lines whether one fix would resolve both. Findings joined by a
+probability of 0.5 or more are one problem: they are verified together and become one comment. When
+the request fails, no findings are merged and the uncertainty checklist says so.
+
 ## The verifier {#the-verifier}
 
 The verifier is the only part of eyeful that runs the project's code, and it runs only the commands
 in [`.eyeful/config.yml`](CONFIGURATION.md#project). It takes findings by severity, then by how many
-experts reported the same lines. `note` findings are not verified.
+experts reported the same [problem](#one-problem). `note` findings are not verified.
 
 For each `test` finding a reproduction agent writes a test, always as a new file. The test must pass
 these gates in order:
@@ -137,8 +145,8 @@ are eyeful's.
   test.
 - The fix is written by a separate agent that sees the finding and the test, not the expert's
   reasoning. A fix that edits the test is not verified.
-- Findings of different experts on the same file within two lines are verified together, with one
-  reproduction for the most severe. The comment takes its words from the finding whose reproduction
+- Findings that are [one problem](#one-problem) are verified together, with one reproduction for
+  the most severe. The comment takes its words from the finding whose reproduction
   held.
 - When the test command does not name the tests that fail, as locally, a fix is verified only if
   the whole suite passes with it.

@@ -1,6 +1,6 @@
 # 审查反馈
 
-最后一个阶段把发现和验证结果变成评论。这里没有 agent：`workflow` 按规则合并、打标签、排序，`workflow/report` 把它们渲染成 Markdown 和 SARIF。
+最后一个阶段把发现和验证结果变成评论。这里没有 agent：`workflow` 合并属于[同一个问题](VERIFICATION.md#one-problem)的发现，按规则打标签、排序，`workflow/report` 把它们渲染成 Markdown 和 SARIF。
 
 ## 评论格式 {#comment-format}
 
@@ -36,7 +36,7 @@ test below fails on this change and passes with the suggested fix.
 
 ## 排序报告 {#ranked-report}
 
-其余内容都进入一份报告。不同专家在同一文件两行以内的发现会合并，评论记录有几个专家报告了它。同一个专家的两条发现保持分开。评论按以下顺序排列：
+其余内容都进入一份报告。属于[同一个问题](VERIFICATION.md#one-problem)的发现会合并，评论记录有几个专家报告了它。评论按以下顺序排列：
 
 1. 是否站得住：裁判没有异议的，然后是有异议的，最后是 nitpick；
 2. 类别：`fail`、`review`、`open`（见[类别与严重度](VERIFICATION.md#kind-and-severity)）；

@@ -22,6 +22,7 @@ func (s planState) spent() []Run    { return s.Runs }
 func (s expertState) spent() []Run  { return s.Runs }
 func (s verifyState) spent() []Run  { return s.Runs }
 func (s judgeState) spent() []Run   { return s.Runs }
+func (s matchState) spent() []Run   { return s.Runs }
 func (suiteState) spent() []Run     { return nil }
 
 func (s ciState) open() bool     { return failed(s.Runs) }
@@ -30,6 +31,7 @@ func (planState) open() bool     { return false }
 func (s expertState) open() bool { return s.Absent != "" }
 func (s verifyState) open() bool { return failed(s.Runs) }
 func (s judgeState) open() bool  { return failed(s.Runs) }
+func (s matchState) open() bool  { return failed(s.Runs) }
 func (suiteState) open() bool    { return false }
 
 func failed(runs []Run) bool {
@@ -469,7 +471,12 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 		return res, err
 	}
 
-	verdicts, err := w.verify(ctx, s, l, req, req.executes(prep.SetupError), suite, res.Findings, files)
+	matched, err := checkpoint(ctx, s.Archive, l, "match", func() (matchState, error) { return w.match(ctx, s, l, slices.Concat(res.Findings, carried)) })
+	if err != nil {
+		return res, err
+	}
+	res.Uncertainty.Notes = append(res.Uncertainty.Notes, matched.Notes...)
+	verdicts, err := w.verify(ctx, s, l, req, req.executes(prep.SetupError), suite, res.Findings, files, matched.Root)
 	if err != nil {
 		return res, err
 	}
@@ -479,7 +486,7 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "verification was off for this review")
 	}
 
-	merged := merge(res.Findings, byFinding)
+	merged := merge(res.Findings, byFinding, matched.Root)
 	res.Comments = w.comments(merged, byFinding)
 
 	res.Runs = l.runs

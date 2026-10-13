@@ -1,8 +1,8 @@
 # Review feedback
 
 The last stage turns findings and verification results into comments. No agent is involved:
-`workflow` merges, labels and ranks the findings by rule, and `workflow/report` renders them as
-Markdown and SARIF.
+`workflow` merges the findings that are [one problem](VERIFICATION.md#one-problem), labels and ranks
+them by rule, and `workflow/report` renders them as Markdown and SARIF.
 
 ## Comment format {#comment-format}
 
@@ -44,9 +44,8 @@ which fails while any `issue (blocking)` remains.
 
 ## The ranked report {#ranked-report}
 
-Everything else goes into one report. Findings of different experts in the same file within two
-lines are merged, and the comment records how many experts reported it. Two findings of one expert
-stay separate. Comments are sorted by:
+Everything else goes into one report. Findings that are [one problem](VERIFICATION.md#one-problem)
+are merged, and the comment records how many experts reported it. Comments are sorted by:
 
 1. standing: not disputed by the judge, then disputed, then nitpicks;
 2. kind: `fail`, `review`, `open` ([Kind and severity](VERIFICATION.md#kind-and-severity));

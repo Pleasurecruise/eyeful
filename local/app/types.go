@@ -20,6 +20,7 @@ type Options struct {
 	Description  string
 	Verification workflow.Mode
 	Run          string
+	TypesafeKey  string
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)
 	Out          io.Writer
 	Err          io.Writer

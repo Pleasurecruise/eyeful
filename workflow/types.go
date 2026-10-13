@@ -16,6 +16,7 @@ const (
 	expertPercent = 75
 	judgeBatch    = 8
 	quoteWords    = 3
+	sameProblem   = 0.5
 )
 
 type Tier string
@@ -123,12 +124,13 @@ const (
 type Role string
 
 const (
-	RoleCI      Role = "ci"
-	RolePlanner Role = "planner"
-	RoleExpert  Role = "expert"
-	RoleFix     Role = "fix"
-	RoleRepro   Role = "repro"
-	RoleJudge   Role = "judge"
+	RoleCI         Role = "ci"
+	RolePlanner    Role = "planner"
+	RoleExpert     Role = "expert"
+	RoleFix        Role = "fix"
+	RoleRepro      Role = "repro"
+	RoleJudge      Role = "judge"
+	RoleClassifier Role = "classifier"
 )
 
 type PlanSource string
@@ -461,6 +463,10 @@ type Agents interface {
 	Judge(ctx context.Context, t JudgeTask) ([]Judgement, Usage, error)
 }
 
+type Classifier interface {
+	Same(ctx context.Context, pairs [][2]Finding) ([]float64, Usage, error)
+}
+
 type Workspace interface {
 	CI(ctx context.Context) (Check, error)
 	Setup(ctx context.Context) error
@@ -474,9 +480,10 @@ type Archive interface {
 }
 
 type Session struct {
-	Agents    Agents
-	Workspace Workspace
-	Archive   Archive
+	Agents     Agents
+	Classifier Classifier
+	Workspace  Workspace
+	Archive    Archive
 }
 
 type Workflow struct {
@@ -530,6 +537,12 @@ type judgeState struct {
 	Runs          []Run          `json:"runs"`
 }
 
+type matchState struct {
+	Root  map[string]string `json:"root"`
+	Notes []string          `json:"notes"`
+	Runs  []Run             `json:"runs"`
+}
+
 type suiteState struct {
 	Change TestRun `json:"change"`
 	Base   TestRun `json:"base"`
@@ -537,17 +550,17 @@ type suiteState struct {
 }
 
 type stored interface {
-	ciState | prepareState | planState | expertState | verifyState | judgeState | suiteState
+	ciState | prepareState | planState | expertState | verifyState | judgeState | matchState | suiteState
 	spent() []Run
 	open() bool
 }
 
 type reply interface {
-	Diagnosis | pulls.Analysis | Report | []Edit | Repro | []Judgement
+	Diagnosis | pulls.Analysis | Report | []Edit | Repro | []Judgement | []float64
 }
 
 type task interface {
-	DiagnoseTask | PlanTask | ReviewTask | FixTask | RetestTask | JudgeTask
+	DiagnoseTask | PlanTask | ReviewTask | FixTask | RetestTask | JudgeTask | [][2]Finding
 }
 
 type ledger struct {

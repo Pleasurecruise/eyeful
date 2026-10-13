@@ -129,6 +129,12 @@ block matching the role's schema; a missing or invalid block is retried once.
 
 No MCP server is configured for the agent ([API](API.md#mcp-planned)).
 
+## The classifier {#classifier}
+
+`local/classify` asks [Jev](ARCHITECTURE.md#jev) through [go-jev](https://github.com/mattn/go-jev),
+with the key in `TYPESAFE_API_KEY`. A request carries each finding's file, line, subject and
+discussion, and no code.
+
 ## Local risks {#local-risks}
 
 | Risk                                              | Guard                                                                                                                                                           |

@@ -5,6 +5,7 @@ go 1.27.1
 require (
 	github.com/Pleasurecruise/eyeful/workflow v0.0.0-00010101000000-000000000000
 	github.com/google/jsonschema-go v0.4.3
+	github.com/mattn/go-jev v0.0.3
 )
 
 require (
