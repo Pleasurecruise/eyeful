@@ -3,13 +3,13 @@ module github.com/Pleasurecruise/eyeful/local
 go 1.27.1
 
 require (
-	github.com/Pleasurecruise/eyeful/workflow v0.0.0-00010101000000-000000000000
+	github.com/Pleasurecruise/eyeful/workflow v0.0.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/mattn/go-jev v0.0.3
 )
 
 require (
-	github.com/Calcium-Ion/moejs v0.1.0-alpha.6 // indirect
+	github.com/Calcium-Ion/moejs v0.1.0-alpha.7 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.3 // indirect
 	github.com/owenrumney/go-sarif/v3 v3.3.1 // indirect
 	github.com/sourcegraph/go-diff v0.9.0 // indirect

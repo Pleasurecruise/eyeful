@@ -2,8 +2,6 @@
 /bin/
 /.tools/
 /dist/
-/cloud/web/dist/*
-!/cloud/web/dist/.gitkeep
 /apps/desktop/frontend/dist/*
 !/apps/desktop/frontend/dist/.gitkeep
 /apps/desktop/frontend/bindings/

@@ -1,14 +1,14 @@
 # 云端运行
 
-云端审查在 eyeful 服务器上针对 GitHub pull request 运行。服务器、登录和审查队列已经有了，审查本身还在规划中。
+云端审查在自行部署的 eyeful 服务器上针对 GitHub pull request 运行。一个部署对应一个 GitHub App，没有用户账号。服务器和审查队列已经有了，webhook 和审查本身还在规划中。
 
 ## 可以审查什么 {#what-can-be-reviewed}
 
-用户已授权 eyeful 的 GitHub App 访问的仓库里的 pull request，仅此而已。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
+安装了 eyeful 的 GitHub App 的仓库里的 pull request，仅此而已。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
 
 ## 云端审查怎样运行
 
-1. 用户在控制台确认审查（见[一次审查](../REVIEW.md#before-it-starts)）。
+1. pull request 事件到达 `POST /webhook`，带有 App 的 webhook secret 签名，每个 head 提交排入一次审查。项目命令取自 base 分支上的 `.eyeful/config.yml`，所以 pull request 改不了在它身上运行什么。
 2. eyeful 读取 head 提交的 GitHub Actions 运行。有失败的就以诊断结束审查（见[规划与分拣](../PLANNER.md#ci-check)）。
 3. 工作进程克隆仓库并记录快照：base 和 head 提交，以及相对于它们 merge base 的 diff。新的推送是新的快照和新的审查。
 4. 分拣在沙箱里运行，规划器制定计划。
@@ -41,6 +41,15 @@ pi --print --mode json --no-session \
 
 这些限制是 `.agents/POLARIS.md` 里的硬性指标。
 
-## 账号与费用
+## 凭据 {#credentials}
 
-云端审查属于创建它的用户（见[登录与凭据](AUTH.md)）。模型用量由服务器的密钥支付，每次审查记录它的 token、费用和分钟数。
+随 webhook 一起规划：
+
+| 凭据                     | 由谁持有           | 用途                              |
+| ------------------------ | ------------------ | --------------------------------- |
+| App ID、私钥             | 服务器的环境变量   | 为每次审查签发 installation token |
+| webhook secret           | 服务器的环境变量   | 校验 `X-Hub-Signature-256`        |
+| installation token，短期 | 工作进程，仅在内存 | 克隆、读取 CI、发布审查           |
+| 模型密钥                 | pi 进程            | 运行 agent，费用由部署者承担      |
+
+这些凭据都不存进数据库、不写进日志，也不传进沙箱。每次审查记录它的 token、费用和分钟数。

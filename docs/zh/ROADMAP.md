@@ -12,10 +12,8 @@ flowchart TB
 
 ## v0：基础（已完成）
 
-- GitHub App 和 Gitee 登录、API 密钥、加密保存的提供商 token（见[登录](cloud/AUTH.md)）。
-- CRUD API、它的 OpenAPI 文档和 TypeScript SDK（见 [API](cloud/API.md)）。
 - 带租约、fencing 和回收器的 PostgreSQL 队列；提供商路由已写好但未接入（见[调度](cloud/SCHEDULING.md)）。
-- 控制台的仓库浏览器、桌面窗口，以及运行 `mise run check` 的 CI。
+- 桌面窗口，以及运行 `mise run check` 的 CI。
 
 ## v1.0：研究核心与评估（进行中）
 
@@ -40,7 +38,7 @@ flowchart TB
 - 预算用完的审查返回它已验证的部分，并标为 partial。审查中途被杀掉的工作进程从最后完成的阶段继续。
 - 论文能够报告专家组相对单 agent 多了什么、花了多少。
 
-在 v1.0 发布之前，控制台、桌面应用、Gitee 登录、CORS、限流和 MCP 都不加新功能。
+在 v1.0 发布之前，桌面应用和云端服务器都不加新功能。
 
 ## v1.1：本地审查（基本完成）
 
@@ -56,10 +54,10 @@ flowchart TB
 
 ## v2.0：云端审查（规划中）
 
-工作流跑在 pull request 上（见[云端运行](cloud/CLOUD.md)）：针对 GitHub Actions 的 CI 检查、`cloud/internal/checkout` 和 `cloud/internal/sandbox`、来源、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行、SSE 进度和 `runner` 命令。
+工作流跑在 pull request 上（见[云端运行](cloud/CLOUD.md)）：GitHub App 的 webhook 作为唯一来源、针对 GitHub Actions 的 CI 检查、`internal/checkout` 和 `internal/sandbox`、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行和 `runner` 命令。
 
 退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途被杀掉的工作进程不丢任何东西，也不重复运行任何东西。
 
 ## 之后（规划中）
 
-`POST /mcp` 上的 MCP（见 [API](cloud/API.md#mcp-planned)）、webhook 和定时来源、性能专家，以及团队共有的审查。
+定时来源和性能专家。

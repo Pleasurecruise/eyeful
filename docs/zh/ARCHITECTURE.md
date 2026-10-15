@@ -1,6 +1,6 @@
 # 架构
 
-eyeful 是一套审查工作流，加上在用户机器上运行它的两个程序：`eyeful` 命令和桌面应用。它们都不需要服务器。[云端服务器](cloud/SERVER.md)是 `cloud/` 里的另一个程序，只共用 `workflow` 模块，不和本地交换任何数据。
+eyeful 是一套审查工作流，加上在用户机器上运行它的两个程序：`eyeful` 命令和桌面应用。它们都不需要服务器。[云端服务器](cloud/SERVER.md)是另一个程序：`cmd/eyeful-server`，它的包在 `internal/`。它只共用 `workflow` 模块，不和本地交换任何数据。
 
 ## 组件
 
@@ -43,7 +43,7 @@ flowchart TB
 ## 语言
 
 - Go：服务器、CLI、工作流、调度和 REST API。
-- TypeScript：控制台、桌面前端和 pi 扩展，HTTP 类型由 spec 生成。
+- TypeScript：桌面前端和 pi 扩展。
 - Python：只用于评估。
 
 eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地跑在用户的编码 agent CLI 里。
@@ -52,45 +52,45 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 
 ### 模块
 
-每一块是一个独立的 Go 模块，边界由编译器保证：
+每一块是一个独立的 Go 模块，边界由编译器保证。根模块里有两个程序；`.golangci.yml` 里的一条 depguard 规则不让 `cmd/eyeful` 导入 `internal/`。
 
-| 模块           | 内容                            | 可以导入            |
-| -------------- | ------------------------------- | ------------------- |
-| `workflow`     | 编排及其接口                    | 无                  |
-| `local`        | CLI 和桌面端共用的部分          | `workflow`          |
-| 根模块         | `cmd/eyeful`，本地 CLI          | `workflow`、`local` |
-| `apps/desktop` | 桌面应用，Wails 和 cgo 留在这里 | `workflow`、`local` |
-| `cloud`        | 云端服务器、控制台和 SDK        | `workflow`          |
+| 模块           | 内容                             | 可以导入            |
+| -------------- | -------------------------------- | ------------------- |
+| `workflow`     | 编排及其接口                     | 无                  |
+| `local`        | CLI 和桌面端共用的部分           | `workflow`          |
+| 根模块         | `cmd/eyeful`，本地 CLI           | `workflow`、`local` |
+|                | `cmd/eyeful-server`、`internal/` | `workflow`          |
+| `apps/desktop` | 桌面应用，Wails 和 cgo 留在这里  | `workflow`、`local` |
 
 ### 目录
 
-| 路径                      | 负责                                                        |
-| ------------------------- | ----------------------------------------------------------- |
-| `cmd/eyeful`              | 本地 CLI（kong）：`review`、`provider`、`connect`、`commit` |
-| `apps/desktop`            | 本地 GUI：Wails v3，独立的 Go 模块                          |
-| `apps/desktop/frontend`   | 桌面端的 SvelteKit 前端及其 Wails 绑定                      |
-| `packages/ui`             | 共用组件：diff 视图、文件树、主题                           |
-| `packages/pulls`          | 从 `@pulls.review/core` 构建 `workflow/pulls/core.js`       |
-| `workflow`                | 审查编排：分拣、计划检查、专家、验证器、汇总、预算、检查点  |
-| `workflow/prompts`        | 专家和角色的提示词、工具定义、vendored 的 skill             |
-| `workflow/pulls`          | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行     |
-| `workflow/project`        | `.eyeful/config.yml`：命令、`skip`、`risk`                  |
-| `workflow/report`         | 把结果渲染成 Markdown 和 SARIF 2.1.0                        |
-| `local/subject`           | 本地分支、提交或未提交改动的快照                            |
-| `local/app`               | 本地的组合根；CLI 和桌面端唯一调用的包                      |
-| `local/agents`            | 基于 claude、codex、pi CLI 实现的 `workflow.Agents`         |
-| `local/worktree`          | 快照的一次性检出；`workflow.Workspace`                      |
-| `local/store`             | `.eyeful/runs/` 和已确认的命令                              |
-| `local/settings`          | 已连接的 agent 和桌面端上次打开的仓库                       |
-| `local/classify`          | 基于 Jev 实现的 `workflow.Classifier`，通过 go-jev 调用     |
-| `local/archive`           | 以文件保存的阶段检查点                                      |
-| `local/git`、`local/tail` | 用固定环境运行 git；保留输出的末尾                          |
-| `eval/`                   | [评估](EVALUATION.md#tooling)脚本，Python                   |
-| `cloud/`                  | [云端服务器](cloud/SERVER.md#layout)                        |
+| 路径                             | 负责                                                        |
+| -------------------------------- | ----------------------------------------------------------- |
+| `cmd/eyeful`                     | 本地 CLI（kong）：`review`、`provider`、`connect`、`commit` |
+| `apps/desktop`                   | 本地 GUI：Wails v3，独立的 Go 模块                          |
+| `apps/desktop/frontend`          | 桌面端的 SvelteKit 前端及其 Wails 绑定                      |
+| `packages/ui`                    | 桌面端的组件：diff 视图、文件树、主题                       |
+| `packages/pulls`                 | 从 `@pulls.review/core` 构建 `workflow/pulls/core.js`       |
+| `workflow`                       | 审查编排：分拣、计划检查、专家、验证器、汇总、预算、检查点  |
+| `workflow/prompts`               | 专家和角色的提示词、工具定义、vendored 的 skill             |
+| `workflow/pulls`                 | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行     |
+| `workflow/project`               | `.eyeful/config.yml`：命令、`skip`、`risk`                  |
+| `workflow/report`                | 把结果渲染成 Markdown 和 SARIF 2.1.0                        |
+| `local/subject`                  | 本地分支、提交或未提交改动的快照                            |
+| `local/app`                      | 本地的组合根；CLI 和桌面端唯一调用的包                      |
+| `local/agents`                   | 基于 claude、codex、pi CLI 实现的 `workflow.Agents`         |
+| `local/worktree`                 | 快照的一次性检出；`workflow.Workspace`                      |
+| `local/store`                    | `.eyeful/runs/` 和已确认的命令                              |
+| `local/settings`                 | 已连接的 agent 和桌面端上次打开的仓库                       |
+| `local/classify`                 | 基于 Jev 实现的 `workflow.Classifier`，通过 go-jev 调用     |
+| `local/archive`                  | 以文件保存的阶段检查点                                      |
+| `local/git`、`local/tail`        | 用固定环境运行 git；保留输出的末尾                          |
+| `eval/`                          | [评估](EVALUATION.md#tooling)脚本，Python                   |
+| `cmd/eyeful-server`、`internal/` | [云端服务器](cloud/SERVER.md#layout)                        |
 
 ### 前端
 
-桌面前端只通过 Wails 绑定调用自己的 Go 服务。它和控制台通过 `packages/ui` 共用组件，不共用页面和状态。
+桌面前端只通过 Wails 绑定调用自己的 Go 服务。它的组件放在 `packages/ui`。
 
 ## 数据流 {#data-flow}
 

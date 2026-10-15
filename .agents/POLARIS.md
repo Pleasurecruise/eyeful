@@ -28,10 +28,10 @@ review, because each one comes with evidence that runs.
 
 ## The cloud server
 
-The server in `cloud/` is a separate program with one more outcome and its own hard measures.
+The server, `cmd/eyeful-server`, is a separate program with one more outcome and its own hard measures.
 
 - Safety: reviewing an untrusted pull request is as safe as not reviewing it.
-- No credential enters a sandbox or the console bundle.
+- No credential enters a sandbox.
 - Code under review runs only inside its review's sandbox, which reaches only package registries;
   agents read the code with read-only tools outside it.
 - A result from a superseded lease is never written; a review is never lost or run twice to

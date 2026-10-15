@@ -4,8 +4,8 @@ go 1.27.1
 
 require (
 	github.com/Pleasurecruise/eyeful/local v0.0.0
-	github.com/Pleasurecruise/eyeful/workflow v0.0.0-00010101000000-000000000000
-	github.com/wailsapp/wails/v3 v3.0.0-beta.28
+	github.com/Pleasurecruise/eyeful/workflow v0.0.0
+	github.com/wailsapp/wails/v3 v3.0.0-beta.29
 )
 
 require (
@@ -16,7 +16,7 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/AlekSi/pointer v1.2.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/Calcium-Ion/moejs v0.1.0-alpha.6 // indirect
+	github.com/Calcium-Ion/moejs v0.1.0-alpha.7 // indirect
 	github.com/Ladicle/tabwriter v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
@@ -67,7 +67,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-task/template v0.2.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/godbus/dbus/v5 v5.2.3 // indirect
+	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/rpmpack v0.7.1 // indirect

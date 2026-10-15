@@ -1,8 +1,9 @@
 # Overview
 
 eyeful reviews code changes with a group of agents. A planner groups the change, the experts each
-group needs review it in parallel, and eyeful then has a test written for each reported bug and
-runs it. The result reaches a person as review comments.
+group needs review it in parallel. With the project's test commands and `--verification execution`,
+eyeful then has a test written for each reported bug and runs it; by default a judge reads the
+findings instead. The result reaches a person as review comments.
 
 ```mermaid
 flowchart LR
@@ -64,15 +65,13 @@ How the code is built:
 
 The cloud server, which is separate and whose reviews are planned:
 
-| Document                                        | Covers                                         |
-| ----------------------------------------------- | ---------------------------------------------- |
-| [Running in the cloud](cloud/CLOUD.md)          | Pull requests, agents in pi, the sandbox       |
-| [The server](cloud/SERVER.md)                   | Components, layout, lifecycle                  |
-| [Scheduling and leases](cloud/SCHEDULING.md)    | Leases, retries, provider routing, rate limits |
-| [Sign-in and credentials](cloud/AUTH.md)        | Credentials and how they are protected         |
-| [Database and migrations](cloud/PERSISTENCE.md) | Schema, migrations, queries                    |
-| [API](cloud/API.md)                             | HTTP conventions, errors, routes               |
-| [Deployment](cloud/DEPLOYMENT.md)               | Running the server                             |
+| Document                                        | Covers                                   |
+| ----------------------------------------------- | ---------------------------------------- |
+| [Running in the cloud](cloud/CLOUD.md)          | Pull requests, agents in pi, the sandbox |
+| [The server](cloud/SERVER.md)                   | Components, layout, lifecycle            |
+| [Scheduling and leases](cloud/SCHEDULING.md)    | Leases, retries, provider routing        |
+| [Database and migrations](cloud/PERSISTENCE.md) | Schema, migrations, queries              |
+| [Deployment](cloud/DEPLOYMENT.md)               | Running the server                       |
 
 Every setting is in [Configuration](CONFIGURATION.md). What comes next: the [Roadmap](ROADMAP.md).
 

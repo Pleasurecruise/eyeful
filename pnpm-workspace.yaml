@@ -1,9 +1,6 @@
 packages:
-  - 'apps/*'
   - apps/desktop/frontend
   - 'packages/*'
-  - cloud/web
-  - cloud/sdk
   - docs
 
 saveExact: true

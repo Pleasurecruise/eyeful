@@ -13,11 +13,9 @@ flowchart TB
 
 ## v0: Foundation (done)
 
-- GitHub App and Gitee sign-in, API keys and sealed provider tokens ([Auth](cloud/AUTH.md)).
-- The CRUD API, its OpenAPI document and the TypeScript SDK ([API](cloud/API.md)).
 - The PostgreSQL queue with leases, fencing and a reaper; provider routing, built but not wired in
   ([Scheduling](cloud/SCHEDULING.md)).
-- The console's repository browser, the desktop window, and CI running `mise run check`.
+- The desktop window, and CI running `mise run check`.
 
 ## v1.0: Research core and evaluation (in progress)
 
@@ -46,8 +44,7 @@ Exit criteria:
   mid-review resumes from its last finished stage.
 - The thesis can report what the panel adds over the single agent and what it costs.
 
-Until v1.0 is released, the console, the desktop app, Gitee sign-in, CORS, rate limits and MCP get
-no new features.
+Until v1.0 is released, the desktop app and the cloud server get no new features.
 
 ## v1.1: Local review (mostly built)
 
@@ -66,14 +63,13 @@ server, and no credential or model key leaves the machine.
 
 ## v2.0: Cloud review (planned)
 
-The workflow on pull requests ([Running in the cloud](cloud/CLOUD.md)): the CI check against GitHub
-Actions, `cloud/internal/checkout` and `cloud/internal/sandbox`, sources, the outbox and sinks, comments posted
-as a `COMMENT` review, E2E runs, SSE progress and a `runner` command.
+The workflow on pull requests ([Running in the cloud](cloud/CLOUD.md)): the GitHub App webhook as the
+only source, the CI check against GitHub Actions, `internal/checkout` and `internal/sandbox`, the outbox and sinks, comments posted
+as a `COMMENT` review, E2E runs and a `runner` command.
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
 its sandbox, and a worker killed mid-review loses nothing and runs nothing twice.
 
 ## Later (planned)
 
-MCP on `POST /mcp` ([API](cloud/API.md#mcp-planned)), webhook and scheduled sources, a performance expert,
-and team ownership of reviews.
+Scheduled sources and a performance expert.

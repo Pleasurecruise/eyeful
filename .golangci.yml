@@ -7,6 +7,7 @@ linters:
     - bidichk
     - bodyclose
     - copyloopvar
+    - depguard
     - durationcheck
     - errcheck
     - errname
@@ -45,6 +46,13 @@ linters:
     - whitespace
     - wrapcheck
   settings:
+    depguard:
+      rules:
+        cli:
+          files: ['**/cmd/eyeful/**']
+          deny:
+            - pkg: github.com/Pleasurecruise/eyeful/internal
+              desc: local and cloud never mix; the CLI shares a module with the server but not its packages
     exhaustive:
       default-signifies-exhaustive: true
     forbidigo:
@@ -78,18 +86,6 @@ linters:
         - github.com/Pleasurecruise/eyeful/*
   exclusions:
     rules:
-      # cipher.NewGCMWithRandomNonce takes a nil nonce and draws a random one itself.
-      - path: cloud/internal/auth/seal\.go
-        linters: [gosec]
-        text: G407
-      # Error code names such as api_key_not_found and provider token URLs are not secrets.
-      - path: cloud/internal/(apperror/|auth/types\.go)
-        linters: [gosec]
-        text: G101
-      # Secure follows --insecure-cookies, which exists for plain-http local development.
-      - path: cloud/internal/handlers/(sessions|oauth)\.go
-        linters: [gosec]
-        text: G124
       # git runs fixed subcommands in the repository the caller chose.
       - path: local/git/git\.go
         linters: [gosec]
@@ -115,7 +111,7 @@ linters:
         linters: [nilerr]
       - path: _test\.go
         linters: [gosec, wrapcheck, gocyclo]
-      - path: cloud/internal/db/sqlc/
+      - path: internal/db/sqlc/
         linters: [forbidigo]
 
 formatters:

@@ -1,8 +1,8 @@
 # Database and migrations
 
-PostgreSQL 18 is the only data store. eyeful connects with pgx v5 (`cloud/internal/db`), applies
-migrations with golang-migrate from the embedded `cloud/db/migrations`, and generates
-`cloud/internal/db/sqlc` from `cloud/db/queries` with sqlc. To change a query, edit the SQL and run
+PostgreSQL 18 is the only data store. eyeful connects with pgx v5 (`internal/db`), applies
+migrations with golang-migrate from the embedded `internal/db/migrations`, and generates
+`internal/db/sqlc` from `internal/db/queries` with sqlc. To change a query, edit the SQL and run
 `mise run generate:db`; generated code is not edited by hand.
 
 ## Migrations
@@ -17,19 +17,14 @@ at start-up unless `--no-migrate` is set.
 
 ## Tables
 
-| Table      | Holds                                                        |
-| ---------- | ------------------------------------------------------------ |
-| `users`    | Verified email and name                                      |
-| `accounts` | Linked `github` or `gitee` identities, scopes, sealed tokens |
-| `sessions` | Browser sessions by token hash, with expiry                  |
-| `api_keys` | Keys by hash, with prefix and last use                       |
-| `reviews`  | Review records, owner, lease and fencing token               |
+| Table     | Holds                                                    |
+| --------- | -------------------------------------------------------- |
+| `reviews` | Review records, idempotency key, lease and fencing token |
 
 Report storage will be added once the report schema is designed.
 
-Table names are plural `snake_case`. IDs are `text` values generated in Go with a prefix (`usr_`,
-`ses_`, `key_`, `r_`). Every time column is `timestamptz`, every row has `created_at`, and secrets
-are stored only as hashes.
+Table names are plural `snake_case`. IDs are `text` values generated in Go with a prefix (`r_`).
+Every time column is `timestamptz`, every row has `created_at`, and no credential is stored.
 
 ## Tests {#tests}
 

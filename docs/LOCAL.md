@@ -127,7 +127,7 @@ block matching the role's schema; a missing or invalid block is retried once.
   silence or a tool error runs once more.
 - **Concurrency.** At most four experts run at once.
 
-No MCP server is configured for the agent ([API](cloud/API.md#mcp-planned)).
+No MCP server is configured for the agent.
 
 ## The classifier {#classifier}
 

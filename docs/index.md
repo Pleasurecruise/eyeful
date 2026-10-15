@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: Tests as evidence
-    details: An expert that claims a bug writes a test for it, and eyeful runs the test. The strongest findings fail on the change and pass with the fix.
+    details: With the project's test commands configured, an expert that claims a bug writes a test for it, and eyeful runs the test. The strongest findings fail on the change and pass with the fix.
     link: /VERIFICATION
   - title: Understand first, then review
     details: pulls.review core reads what the change does, groups it by intent and marks the core parts. Go picks the experts for each group, and each reviews its groups once, against the public standards for its area.

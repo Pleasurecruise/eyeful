@@ -2,8 +2,8 @@
 
 A review goes through four stages, implemented in the `workflow` module
 ([Architecture](ARCHITECTURE.md#workflow)). A local review runs all of them
-([Running locally](LOCAL.md)). A cloud review is accepted and claimed, then ends with result `none`:
-the cloud's agents and sandbox are not built.
+([Running locally](LOCAL.md)). A cloud review cannot start yet: the webhook, the cloud's agents and
+the sandbox are not built ([Running in the cloud](cloud/CLOUD.md)).
 
 ```mermaid
 flowchart TB
@@ -17,12 +17,13 @@ flowchart TB
 
 ## Before it starts {#before-it-starts}
 
-The client shows what will be reviewed, the budget, and the project commands that will run. The
-review is created when the user confirms. A queued review can be deleted; a started one cannot be
-cancelled.
+Locally, the client shows what will be reviewed, the budget, and the project commands that will
+run, and the review starts when the user confirms. The user confirms the commands again when they
+change. In the cloud, installing the GitHub App on a repository is that consent, and the commands
+come from the base branch. A started review cannot be cancelled.
 
-The commands come from `.eyeful/config.yml`, and locally the user confirms them again when they
-change. Without that file nothing runs and every finding stays unverified.
+The commands come from `.eyeful/config.yml`. Without that file nothing runs and every finding stays
+unverified.
 
 ## Stages {#stages}
 
@@ -76,14 +77,17 @@ How workers claim and finish reviews is in
 3. Every run is recorded: who ran, what ran and what it cost.
 4. A re-review starts by running the last review's reproductions again
    ([Rounds](REPORT.md#rounds)).
-5. The user confirms before a review starts, and a started review runs to the end.
+5. A review starts only with consent: the user's confirmation locally, the App's installation in the
+   cloud. A started review runs to the end.
 6. If CI fails, the change gets a diagnosis instead of a review.
 
 ## Known gaps {#known-gaps}
 
-- The panel finds no more high-severity problems than one agent, at three times the tokens. What it
-  adds is in medium and low findings ([Evaluation](EVALUATION.md#reviewbench-pilot)). The cause is
-  not known.
+- What the panel adds over one agent is not known. Each pilot ran once, at an earlier commit, on
+  DeepSeek with a substitute judge; the first found the panel's gain in medium and low findings, not
+  high, and none has been repeated since ([Evaluation](EVALUATION.md#pilot)). No run has used Claude
+  Sonnet 5, the model the benchmarks judge with, so eyeful is not yet comparable with other
+  reviewers.
 - No tool runs. The checks planned to run before and beside the experts are not built
   ([Levels](LEVELS.md#planned)).
 - The skills are unmeasured. About a third of the correctness and skeptic experts opened one in the

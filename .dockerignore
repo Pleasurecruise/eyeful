@@ -2,8 +2,6 @@
 bin
 node_modules
 **/node_modules
-cloud/web/dist
-cloud/web/.svelte-kit
 apps/desktop
 .env
 .env.*

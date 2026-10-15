@@ -8,7 +8,7 @@ section, and the review steps at the end are how a change is checked before it i
 - Packages are named after the capability they own; no `utils`, `helpers`, `common`, `manager`,
   `service`. Dependency direction is in [Architecture](cloud/SERVER.md#dependency-direction).
 - Each package keeps its types, enums, sentinel errors and consumer interfaces in `types.go`.
-- Constructors are plain functions with typed parameters. Only a composition root (`cloud/internal/app`,
+- Constructors are plain functions with typed parameters. Only a composition root (`internal/app`,
   `local/app`) imports fx. There is no package-level state.
 - Interfaces belong to their consumer and list only what it calls.
 - HTTP handlers are CRUD, one file per resource, in the order create, list, get, update, delete.
@@ -19,18 +19,17 @@ section, and the review steps at the end are how a change is checked before it i
 | -------------------------------- | ---------------------------------------------------- | ------------------------------- |
 | Go packages, directories         | lowercase, one word                                  | `review`, `apperror`            |
 | Go files                         | lowercase, `snake_case` only when needed             | `memory_test.go`                |
-| Go exported / unexported         | `PascalCase` / `camelCase`                           | `NewWorkerPool`, `consoleRoute` |
+| Go exported / unexported         | `PascalCase` / `camelCase`                           | `NewWorkerPool`, `errorHandler` |
 | Go initialisms                   | one case                                             | `ID`, `URL`, `reviewID`         |
 | Go receivers                     | one or two letters, consistent per type              | `s *MemoryStore`                |
 | Go tests                         | `TestXxx`, one to three words; scenarios in subtests | `TestFencing`                   |
 | JSON fields, query parameters    | `snake_case`                                         | `created_at`                    |
-| URL paths                        | lowercase plural nouns, `kebab-case`                 | `/api-keys/{id}`                |
-| Operation IDs, SDK functions     | `camelCase` verb + noun                              | `updateReview`                  |
+| URL paths                        | lowercase nouns, `kebab-case`                        | `/webhook`                      |
 | Schemas, TS types, components    | `PascalCase`                                         | `Review`, `ReviewTable.svelte`  |
 | TS variables, functions          | `camelCase`                                          | `tokenKey`                      |
-| Error codes, SQL                 | `snake_case`                                         | `review_not_found`              |
+| Error codes, SQL                 | `snake_case`                                         | `method_not_allowed`            |
 | Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_DATABASE_URL`           |
-| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--critical-rate-limit`         |
+| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--max-attempts`                |
 | Docs                             | `UPPERCASE.md`                                       | `SCHEDULING.md`                 |
 
 Names are short and unambiguous, and let the package carry context (`review.Store`, not
@@ -53,8 +52,7 @@ recorded in [Development](DEVELOPMENT.md#toolchain-notes). Upgrades are their ow
 ## Go
 
 - gofmt, goimports and golangci-lint clean; exceptions go in `.golangci.yml`, never `//nolint`.
-- No comments except `TODO(area): what` (one line, removed with the work), swag annotations and
-  `//go:` directives. `grep -rn "TODO(" cmd internal workflow local apps` is the backlog.
+- No comments except `TODO(area): what` (one line, removed with the work) and `//go:` directives. `grep -rn "TODO(" cmd internal workflow local apps` is the backlog.
 - Errors wrap with `%w` and are checked with `errors.Is`/`As`; never turned into a plausible
   default. Client-facing errors are `apperror` codes; anything else is a logged 500.
 - `context.Context` comes first on anything doing I/O, is never stored, and bounds every external
@@ -78,14 +76,14 @@ Unsafe patterns, from [Effective Go](https://go.dev/doc/effective_go),
 - Start from the official scaffold and change only what eyeful needs.
 - Vite+ runs everything: `vp dev`, `vp build`, `vp fmt` (Oxfmt), `vp lint` (type-aware Oxlint),
   `vp check`. Settings live in the root `vite.config.ts`.
-- Types are checked with TypeScript 7. Wire types come from `@eyeful/sdk`, never hand-written.
+- Types are checked with TypeScript 7. Types for Go services come from the Wails bindings, never
+  hand-written.
 - No `any`, non-null assertions or casts that skip validation.
 
 ## Security
 
-Authentication, sessions and credentials follow current OWASP ASVS. Compare secrets in constant
-time or store only their hash. Secrets do not enter sandboxes, logs, error responses or the
-console bundle. Configuration and secrets live only at the repository root: secrets in `.env`, shared settings in
+Credentials follow current OWASP ASVS. Compare secrets, such as a webhook signature, in constant
+time. Secrets do not enter sandboxes, logs, error responses or the desktop bundle. Configuration and secrets live only at the repository root: secrets in `.env`, shared settings in
 `mise.toml`; no app or package keeps its own env file, and code never falls back to a built-in value.
 
 ## Tests

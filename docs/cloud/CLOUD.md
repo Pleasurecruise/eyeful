@@ -1,16 +1,19 @@
 # Running in the cloud
 
-A cloud review runs on the eyeful server against a GitHub pull request. The server, sign-in and the
-review queue exist. The review itself is planned.
+A cloud review runs on a self-hosted eyeful server against a GitHub pull request. One deployment
+serves one GitHub App and has no user accounts. The server and the review queue exist; the webhook
+and the review itself are planned.
 
 ## What can be reviewed {#what-can-be-reviewed}
 
-A pull request in a repository the user has given eyeful's GitHub App access to, and nothing else.
+A pull request in a repository where eyeful's GitHub App is installed, and nothing else.
 Branches, commits and uncommitted changes are reviewed locally ([Running locally](../LOCAL.md)).
 
 ## How a cloud review runs
 
-1. The user confirms the review in the console ([A review](../REVIEW.md#before-it-starts)).
+1. A pull request event reaches `POST /webhook`, signed with the App's webhook secret, and queues one
+   review per head commit. The project commands come from `.eyeful/config.yml` on the base branch, so
+   a pull request cannot change what runs on it.
 2. eyeful reads the GitHub Actions runs of the head commit. If one failed, the review ends with a
    diagnosis ([Planning and triage](../PLANNER.md#ci-check)).
 3. A worker clones the repository and records the snapshot: the base and head commits and the diff
@@ -50,7 +53,16 @@ call runs a fixed command in the sandbox. The model comes from
 
 These limits are hard measures in `.agents/POLARIS.md`.
 
-## Accounts and cost
+## Credentials {#credentials}
 
-A cloud review belongs to the user who created it ([Sign-in and credentials](AUTH.md)). Model usage
-is paid with the server's keys, and each review records its tokens, cost and minutes.
+Planned with the webhook:
+
+| Credential                      | Held by                  | Used for                                 |
+| ------------------------------- | ------------------------ | ---------------------------------------- |
+| App ID, private key             | The server's environment | Minting an installation token per review |
+| Webhook secret                  | The server's environment | Checking `X-Hub-Signature-256`           |
+| Installation token, short-lived | The worker, in memory    | Cloning, reading CI, posting the review  |
+| Model keys                      | The pi process           | Agent runs, paid by the operator         |
+
+None is stored in the database, written to a log or passed into a sandbox. Each review records its
+tokens, cost and minutes.

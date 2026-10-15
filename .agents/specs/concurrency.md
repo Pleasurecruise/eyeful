@@ -1,10 +1,9 @@
 # Concurrency verification
 
-Use for changes to leases, fencing, the worker pool, deleting reviews, rate limits, or the start and
-stop lifecycle.
+Use for changes to leases, fencing, the worker pool, or the start and stop lifecycle.
 
-1. Name the orderings the change must survive before editing: a stale lease writing late, a delete
-   racing a claim, a shutdown mid-review, a reaper racing a renewal.
+1. Name the orderings the change must survive before editing: a stale lease writing late, a duplicate
+   admission racing another, a shutdown mid-review, a reaper racing a renewal.
 2. Write a test per ordering that fails on the code before the change, then passes after it.
 3. Run it with `-race`, and run store tests against PostgreSQL (`EYEFUL_TEST_DATABASE_URL`), not
    only the memory store.

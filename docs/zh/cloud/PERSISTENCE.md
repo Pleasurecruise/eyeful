@@ -1,6 +1,6 @@
 # 数据库与迁移
 
-PostgreSQL 18 是唯一的数据存储。eyeful 用 pgx v5 连接数据库（`cloud/internal/db`），用 golang-migrate 执行内嵌的 `cloud/db/migrations`，用 sqlc 从 `cloud/db/queries` 生成 `cloud/internal/db/sqlc`。要改查询就改 SQL，然后运行 `mise run generate:db`；生成的代码不要手动修改。
+PostgreSQL 18 是唯一的数据存储。eyeful 用 pgx v5 连接数据库（`internal/db`），用 golang-migrate 执行内嵌的 `internal/db/migrations`，用 sqlc 从 `internal/db/queries` 生成 `internal/db/sqlc`。要改查询就改 SQL，然后运行 `mise run generate:db`；生成的代码不要手动修改。
 
 ## 迁移
 
@@ -10,17 +10,13 @@ PostgreSQL 18 是唯一的数据存储。eyeful 用 pgx v5 连接数据库（`cl
 
 ## 数据表
 
-| 表         | 内容                                                    |
-| ---------- | ------------------------------------------------------- |
-| `users`    | 已验证的邮箱和名字                                      |
-| `accounts` | 关联的 `github` 或 `gitee` 身份、授权范围、加密的 token |
-| `sessions` | 浏览器会话，按 token 哈希保存，带过期时间               |
-| `api_keys` | API key，按哈希保存，带前缀和最近使用时间               |
-| `reviews`  | 审查记录、所有者、租约和 fencing 令牌                   |
+| 表        | 内容                                  |
+| --------- | ------------------------------------- |
+| `reviews` | 审查记录、幂等键、租约和 fencing 令牌 |
 
 审查报告的存储要等报告结构定下来之后再加。
 
-表名用复数的 `snake_case`。ID 是 Go 生成的带前缀的 `text`（`usr_`、`ses_`、`key_`、`r_`）。时间字段一律用 `timestamptz`，每行都有 `created_at`，密钥只保存哈希。
+表名用复数的 `snake_case`。ID 是 Go 生成的带前缀的 `text`（`r_`）。时间字段一律用 `timestamptz`，每行都有 `created_at`，不保存任何凭据。
 
 ## 测试 {#tests}
 

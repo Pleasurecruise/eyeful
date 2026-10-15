@@ -1,6 +1,6 @@
 # 一次审查的全过程
 
-一次审查经过四个阶段，都在 `workflow` 模块里实现（见[架构](ARCHITECTURE.md#workflow)）。本地审查会运行全部阶段（见[本地运行](LOCAL.md)）。云端审查会被接受和领取，然后以结果 `none` 结束：云端的 agent 和沙箱还没有实现。
+一次审查经过四个阶段，都在 `workflow` 模块里实现（见[架构](ARCHITECTURE.md#workflow)）。本地审查会运行全部阶段（见[本地运行](LOCAL.md)）。云端审查还不能开始：webhook、云端的 agent 和沙箱都还没有实现（见[云端运行](cloud/CLOUD.md)）。
 
 ```mermaid
 flowchart TB
@@ -14,9 +14,9 @@ flowchart TB
 
 ## 开始之前 {#before-it-starts}
 
-客户端展示要审查什么、预算是多少、会运行哪些项目命令。用户确认后审查才创建。排队中的审查可以删除，已开始的不能取消。
+在本地，客户端展示要审查什么、预算是多少、会运行哪些项目命令，用户确认后审查才开始；命令一有变化就要用户重新确认。在云端，把 GitHub App 安装到仓库上就是这份同意，命令取自 base 分支。已开始的审查不能取消。
 
-命令来自 `.eyeful/config.yml`，在本地它们一有变化就要用户重新确认。没有这个文件时什么都不运行，所有发现都是未验证的。
+命令来自 `.eyeful/config.yml`。没有这个文件时什么都不运行，所有发现都是未验证的。
 
 ## 各个阶段 {#stages}
 
@@ -61,12 +61,12 @@ eyeful 遵循 Google [Standard of Code Review](https://google.github.io/eng-prac
 2. eyeful 不批准改动，也不阻止合并。合并由人来做。
 3. 每次运行都有记录：谁运行的、运行了什么、花了多少。
 4. 再次审查时先重新运行上一次审查的复现（见[多轮审查](REPORT.md#rounds)）。
-5. 审查开始前由用户确认，开始后运行到结束。
+5. 审查只在得到同意后开始：本地是用户的确认，云端是 App 的安装。开始后运行到结束。
 6. CI 失败时，改动得到的是诊断而不是审查。
 
 ## 已知的缺口 {#known-gaps}
 
-- 专家组找到的高严重度问题并不比单个 agent 多，token 却是三倍。它多出来的部分在中、低严重度的发现上（见[评估](EVALUATION.md#reviewbench-pilot)）。原因还不清楚。
+- 专家组比单个 agent 多带来什么，目前还不知道。每次 pilot 只跑了一次，用的是更早的提交、DeepSeek 和替代的 judge；第一次 pilot 发现专家组多出来的部分在中、低严重度而不在高严重度，之后没有重复验证过（见[评估](EVALUATION.md#pilot)）。还没有用 benchmark 判分所用的 Claude Sonnet 5 跑过，所以 eyeful 暂时无法和其他审查工具比较。
 - 没有工具在运行。计划在专家之前和专家身边运行的检查都还没有实现（见[层级](LEVELS.md#planned)）。
 - skill 的效果没有测量过。在检查过的运行里，约三分之一的 correctness 和 skeptic 专家打开过 skill，也没有做过不带 skill 的运行。
 - 每个专家是否该给出整体结论、“覆盖率不下降”是否该成为硬性规则，都还没有决定。

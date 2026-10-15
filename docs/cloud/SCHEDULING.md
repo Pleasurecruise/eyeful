@@ -1,31 +1,28 @@
 # Scheduling and leases
 
-Reviews are assigned to workers by `cloud/internal/scheduler`, which runs today. Agent runs are assigned
-to model providers by `cloud/internal/dispatch`, which is built and tested but not wired in.
+Reviews are assigned to workers by `internal/scheduler`, which runs today. Agent runs are assigned
+to model providers by `internal/dispatch`, which is built and tested but not wired in.
 
 ## Reviews over workers {#reviews-over-workers}
 
 ```mermaid
 stateDiagram-v2
-    [*] --> queued: POST /reviews
+    [*] --> queued: webhook (planned)
     queued --> running: claim, lease and fencing token
     running --> queued: lease expired, or shutdown
     running --> done: finished, or attempts used up
-    queued --> [*]: DELETE
-    done --> [*]: DELETE
 ```
 
-| Mechanism | Behavior                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------- |
-| Admission | A request repeated with the same `Idempotency-Key` returns the first review; a different body gets `409`. |
-| Claim     | `SELECT … FOR UPDATE SKIP LOCKED` on the oldest queued review; the token comes from a sequence.           |
-| Renewal   | Every third of `--lease-ttl`; a transient error is retried on the next tick.                              |
-| Fencing   | `Renew`, `Finish` and `Release` with an outdated token fail with `ErrFenced`.                             |
-| Finish    | An executor error becomes result `none` with the error as reason; no error gives `complete`.              |
-| Reaper    | Expired leases go back to the queue; after `--max-attempts` the review is `done` with result `none`.      |
-| Delete    | Only queued or done reviews, in one statement, so a delete and a claim cannot both succeed.               |
-| Shutdown  | Running reviews are released back to the queue without counting an attempt.                               |
-| Capacity  | `--workers` per process; more capacity means more processes on the same database.                         |
+| Mechanism | Behavior                                                                                               |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| Admission | A review created again with the same idempotency key returns the first; different input is a conflict. |
+| Claim     | `SELECT … FOR UPDATE SKIP LOCKED` on the oldest queued review; the token comes from a sequence.        |
+| Renewal   | Every third of `--lease-ttl`; a transient error is retried on the next tick.                           |
+| Fencing   | `Renew`, `Finish` and `Release` with an outdated token fail with `ErrFenced`.                          |
+| Finish    | An executor error becomes result `none` with the error as reason; no error gives `complete`.           |
+| Reaper    | Expired leases go back to the queue; after `--max-attempts` the review is `done` with result `none`.   |
+| Shutdown  | Running reviews are released back to the queue without counting an attempt.                            |
+| Capacity  | `--workers` per process; more capacity means more processes on the same database.                      |
 
 The server uses `review.PostgresStore`. `reviewtest.MemoryStore` implements the same contract for tests
 ([Persistence](PERSISTENCE.md#tests)).
@@ -52,13 +49,6 @@ strong:
 Planned: per-review affinity (one candidate per role) and classification of provider errors. Review
 budgets are kept by `workflow` ([Levels](../LEVELS.md#budget)).
 
-## Rate limits {#rate-limits}
-
-A fixed window per client IP answers `429 rate_limited` with `Retry-After`. `--rate-limit` applies to
-every API route (default 600 per minute) and `--critical-rate-limit` to sign-up, sign-in and new
-reviews (default 30 per minute). The window is kept in memory. A Redis window shared by several
-servers is planned.
-
 ## Not done yet
 
 - A `runner` command that only claims and executes reviews.
@@ -66,4 +56,4 @@ servers is planned.
   discards the result of a worker that lost its connection, but not its model spend.
 - The run archive, so a reclaimed review can resume from its last finished stage
   ([Architecture](../ARCHITECTURE.md#workflow)).
-- Retrying a failed `Finish`, and SSE progress.
+- Retrying a failed `Finish`.

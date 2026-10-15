@@ -45,8 +45,7 @@ The standards eyeful reviews against, and the two projects it builds on.
 - [CWE](https://cwe.mitre.org) and the [CWE Top 25](https://cwe.mitre.org/top25/). The weakness class
   of each correctness and security finding.
 - [OWASP Top 10](https://owasp.org/Top10/) and
-  [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/). eyeful's
-  own sign-in also follows ASVS ([Auth](cloud/AUTH.md)).
+  [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/).
 - [OSV](https://osv.dev) and [CVE](https://www.cve.org). Known vulnerabilities in dependencies.
 
 ## Testing {#testing}

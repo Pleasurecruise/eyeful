@@ -62,7 +62,7 @@ test below fails on this change and passes with the suggested fix.
 
 | 输出           | 给谁                                         |
 | -------------- | -------------------------------------------- |
-| Markdown       | 终端和控制台                                 |
+| Markdown       | 终端                                         |
 | Findings JSON  | 桌面应用，显示在 diff 旁边                   |
 | SARIF          | 其他 agent、脚本、GitHub code scanning、评估 |
 | GitHub review  | 行内评论（规划中）                           |

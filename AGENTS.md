@@ -13,8 +13,6 @@ then implement. Do not write a plan, in chat or in files, unless asked.
 Follow [Code style](docs/STYLEGUIDE.md). The rules broken most often:
 
 - Run everything through mise: `dev`, `test`, `format`, `lint`, `generate`, `check`.
-- API changes follow [Changing the API](docs/cloud/API.md#changing-the-api) and land with `cloud/spec/` and
-  `cloud/sdk` in one commit.
 - No comments except `TODO(area): …`; no single-caller helpers; no `any`.
 - Libraries are pinned exactly at their latest release; toolchains follow `latest`.
 - Frontend commands go through Vite+ (`vp`); Go lint exceptions go in `.golangci.yml`, never inline.
@@ -26,10 +24,10 @@ than append; never duplicate a fact.
 
 Run `mise run check`. For feedback-sensitive work, follow the matching spec before implementing:
 
-| Change                                                     | Spec                           |
-| ---------------------------------------------------------- | ------------------------------ |
-| Console or desktop                                         | `.agents/specs/frontend.md`    |
-| Leases, fencing, workers, deletion, rate limits, lifecycle | `.agents/specs/concurrency.md` |
+| Change                              | Spec                           |
+| ----------------------------------- | ------------------------------ |
+| Desktop                             | `.agents/specs/frontend.md`    |
+| Leases, fencing, workers, lifecycle | `.agents/specs/concurrency.md` |
 
 Prove the problem first, break the change as the [five adversaries](docs/STYLEGUIDE.md#review), and
 end every handoff with the uncertainty checklist.

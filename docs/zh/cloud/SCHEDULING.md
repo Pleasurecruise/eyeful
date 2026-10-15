@@ -1,30 +1,27 @@
 # 任务调度与租约
 
-审查由 `cloud/internal/scheduler` 分配给工作进程，已经在运行。agent 的每次运行由 `cloud/internal/dispatch` 分配给模型提供商，已经写好并测试过，但还没有接入。
+审查由 `internal/scheduler` 分配给工作进程，已经在运行。agent 的每次运行由 `internal/dispatch` 分配给模型提供商，已经写好并测试过，但还没有接入。
 
 ## 审查分配给工作进程 {#reviews-over-workers}
 
 ```mermaid
 stateDiagram-v2
-    [*] --> queued: POST /reviews
+    [*] --> queued: webhook（规划中）
     queued --> running: 领取，获得租约和 fencing 令牌
     running --> queued: 租约过期，或进程关闭
     running --> done: 完成，或重试次数用尽
-    queued --> [*]: DELETE
-    done --> [*]: DELETE
 ```
 
-| 机制 | 行为                                                                              |
-| ---- | --------------------------------------------------------------------------------- |
-| 准入 | 用同一个 `Idempotency-Key` 重复请求时返回第一次创建的审查；请求体不同则返回 `409` |
-| 领取 | 对最早排队的审查执行 `SELECT … FOR UPDATE SKIP LOCKED`；令牌取自一个数据库序列    |
-| 续约 | 每隔 `--lease-ttl` 的三分之一续约一次；临时错误在下一次续约时重试                 |
-| 隔离 | 用过期令牌调用 `Renew`、`Finish`、`Release` 会返回 `ErrFenced`                    |
-| 完成 | 执行器返回错误时，结果为 `none`，错误信息写入原因；没有错误则为 `complete`        |
-| 回收 | 租约过期的审查回到队列；超过 `--max-attempts` 次后设为 `done`，结果为 `none`      |
-| 删除 | 只能删除排队中或已完成的审查，用一条语句完成，删除和领取不可能同时成功            |
-| 关闭 | 运行中的审查释放回队列，不计入重试次数                                            |
-| 容量 | 每个进程运行 `--workers` 个工作进程；要扩容就在同一个数据库上多开进程             |
+| 机制 | 行为                                                                           |
+| ---- | ------------------------------------------------------------------------------ |
+| 准入 | 用同一个幂等键再次创建时返回第一次创建的审查；输入不同则视为冲突               |
+| 领取 | 对最早排队的审查执行 `SELECT … FOR UPDATE SKIP LOCKED`；令牌取自一个数据库序列 |
+| 续约 | 每隔 `--lease-ttl` 的三分之一续约一次；临时错误在下一次续约时重试              |
+| 隔离 | 用过期令牌调用 `Renew`、`Finish`、`Release` 会返回 `ErrFenced`                 |
+| 完成 | 执行器返回错误时，结果为 `none`，错误信息写入原因；没有错误则为 `complete`     |
+| 回收 | 租约过期的审查回到队列；超过 `--max-attempts` 次后设为 `done`，结果为 `none`   |
+| 关闭 | 运行中的审查释放回队列，不计入重试次数                                         |
+| 容量 | 每个进程运行 `--workers` 个工作进程；要扩容就在同一个数据库上多开进程          |
 
 服务端使用 `review.PostgresStore`；`reviewtest.MemoryStore` 实现同样的接口约定，供测试使用（见[数据库与迁移](PERSISTENCE.md#tests)）。
 
@@ -49,13 +46,9 @@ strong:
 
 计划中：同一次审查中每个角色固定使用同一个候选、模型提供商错误的分类。审查的预算由 `workflow` 管理（见[档位](../LEVELS.md#budget)）。
 
-## 限流 {#rate-limits}
-
-按客户端 IP 使用固定时间窗口计数，超出时返回 `429 rate_limited` 和 `Retry-After`。`--rate-limit` 作用于所有 API 路由（默认每分钟 600 次），`--critical-rate-limit` 作用于注册、登录和创建审查（默认每分钟 30 次）。计数保存在内存中；多台服务器共享的 Redis 计数窗口计划中。
-
 ## 尚未完成
 
 - 只负责领取和执行审查的 `runner` 命令。
 - 续约失败超过 TTL 后自行停止的工作进程。在那之前，fencing 会丢弃失去连接的工作进程的结果，但它花掉的模型费用收不回来。
 - 运行存档，让被重新领取的审查能从最后完成的阶段继续（见[架构](../ARCHITECTURE.md#workflow)）。
-- 重试失败的 `Finish`，以及 SSE 进度推送。
+- 重试失败的 `Finish`。

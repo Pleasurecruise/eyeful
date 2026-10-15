@@ -25,7 +25,7 @@ eyeful 审查时依据的标准，以及它借鉴的两个项目。
 
 - [SEI CERT Coding Standards](https://wiki.sei.cmu.edu/confluence/display/seccode)。
 - [CWE](https://cwe.mitre.org) 和 [CWE Top 25](https://cwe.mitre.org/top25/)。每条正确性和安全发现的弱点类别。
-- [OWASP Top 10](https://owasp.org/Top10/) 和 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)。eyeful 自己的登录也遵循 ASVS（见[登录](cloud/AUTH.md)）。
+- [OWASP Top 10](https://owasp.org/Top10/) 和 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)。
 - [OSV](https://osv.dev) 和 [CVE](https://www.cve.org)。依赖里的已知漏洞。
 
 ## 测试 {#testing}

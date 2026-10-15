@@ -28,15 +28,7 @@ const groups = [
 		'REFERENCES'
 	],
 	['ARCHITECTURE', 'DEVELOPMENT', 'STYLEGUIDE', 'CONFIGURATION'],
-	[
-		'cloud/CLOUD',
-		'cloud/SERVER',
-		'cloud/SCHEDULING',
-		'cloud/AUTH',
-		'cloud/PERSISTENCE',
-		'cloud/API',
-		'cloud/DEPLOYMENT'
-	],
+	['cloud/CLOUD', 'cloud/SERVER', 'cloud/SCHEDULING', 'cloud/PERSISTENCE', 'cloud/DEPLOYMENT'],
 	['ROADMAP'],
 	['EVALUATION']
 ];
@@ -114,9 +106,7 @@ export default defineConfig({
 							'Running in the cloud',
 							'The server',
 							'Scheduling and leases',
-							'Sign-in and credentials',
 							'Database and migrations',
-							'API',
 							'Deployment'
 						],
 						['Roadmap'],
@@ -149,15 +139,7 @@ export default defineConfig({
 							'参考文献'
 						],
 						['整体架构', '本地开发', '代码规范与评审', '配置项参考'],
-						[
-							'云端运行',
-							'服务器',
-							'任务调度与租约',
-							'登录与凭据',
-							'数据库与迁移',
-							'API 约定',
-							'部署上线'
-						],
+						['云端运行', '服务器', '任务调度与租约', '数据库与迁移', '部署上线'],
 						['版本路线图'],
 						['效果评测']
 					]

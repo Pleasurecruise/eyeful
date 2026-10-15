@@ -1,6 +1,6 @@
 # 概览
 
-eyeful 用一组 agent 审查代码改动。规划器给改动分组，每个组需要的专家并行审查，然后 eyeful 让 agent 为每个报告的 bug 写一个测试并运行它。结果以审查评论的形式交给人。
+eyeful 用一组 agent 审查代码改动。规划器给改动分组，每个组需要的专家并行审查。配置了项目的测试命令并使用 `--verification execution` 时，eyeful 会让 agent 为每个报告的 bug 写一个测试并运行它；默认情况下由 judge 阅读这些发现。结果以审查评论的形式交给人。
 
 ```mermaid
 flowchart LR
@@ -59,10 +59,8 @@ flowchart LR
 | ------------------------------------ | --------------------------------- |
 | [云端运行](cloud/CLOUD.md)           | pull request、pi 里的 agent、沙箱 |
 | [服务器](cloud/SERVER.md)            | 组件、布局、生命周期              |
-| [调度与租约](cloud/SCHEDULING.md)    | 租约、重试、提供商路由、限流      |
-| [登录与凭据](cloud/AUTH.md)          | 凭据及其保护方式                  |
+| [调度与租约](cloud/SCHEDULING.md)    | 租约、重试、提供商路由            |
 | [数据库与迁移](cloud/PERSISTENCE.md) | 表结构、迁移、查询                |
-| [API](cloud/API.md)                  | HTTP 约定、错误、路由             |
 | [部署](cloud/DEPLOYMENT.md)          | 怎样运行服务器                    |
 
 所有配置项见[配置](CONFIGURATION.md)。接下来做什么：[路线图](ROADMAP.md)。

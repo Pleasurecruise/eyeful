@@ -2,7 +2,8 @@
 
 eyeful is a review workflow and the two programs that run it on a user's machine: the `eyeful`
 command and the desktop app. Neither needs a server. The [cloud server](cloud/SERVER.md) is another
-program, in `cloud/`. It shares the `workflow` module and exchanges no data with the local side.
+program, `cmd/eyeful-server` with its packages in `internal/`. It shares the `workflow` module and
+exchanges no data with the local side.
 
 ## Components
 
@@ -50,9 +51,8 @@ What was measured and left with the agents is in [Evaluation](EVALUATION.md#jev-
 
 ## Languages
 
-- Go: the server, the CLI, the workflow, scheduling and the REST API.
-- TypeScript: the console, the desktop frontend and the pi extension, with HTTP types generated
-  from the spec.
+- Go: the server, the CLI, the workflow and scheduling.
+- TypeScript: the desktop frontend and the pi extension.
 - Python: the evaluation only.
 
 eyeful has no agent loop of its own. Agents run in pi in the cloud and in the user's coding agent
@@ -62,46 +62,47 @@ CLIs locally.
 
 ### Modules
 
-Each part is its own Go module, so the compiler enforces the boundary:
+Each part is its own Go module, so the compiler enforces the boundary. The root module holds both
+programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 
-| Module         | Holds                                     | May import          |
-| -------------- | ----------------------------------------- | ------------------- |
-| `workflow`     | Orchestration and its interfaces          | nothing here        |
-| `local`        | What the CLI and the desktop share        | `workflow`          |
-| root           | `cmd/eyeful`, the local CLI               | `workflow`, `local` |
-| `apps/desktop` | The desktop app; Wails and cgo stay here  | `workflow`, `local` |
-| `cloud`        | The cloud server, its console and its SDK | `workflow`          |
+| Module         | Holds                                    | May import          |
+| -------------- | ---------------------------------------- | ------------------- |
+| `workflow`     | Orchestration and its interfaces         | nothing here        |
+| `local`        | What the CLI and the desktop share       | `workflow`          |
+| root           | `cmd/eyeful`, the local CLI              | `workflow`, `local` |
+|                | `cmd/eyeful-server`, `internal/`         | `workflow`          |
+| `apps/desktop` | The desktop app; Wails and cgo stay here | `workflow`, `local` |
 
 ### Directories
 
-| Path                      | Owns                                                                                      |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| `cmd/eyeful`              | The local CLI (kong): `review`, `provider`, `connect`, `commit`                           |
-| `apps/desktop`            | The local GUI: Wails v3, its own Go module                                                |
-| `apps/desktop/frontend`   | The desktop's SvelteKit frontend and its Wails bindings                                   |
-| `packages/ui`             | Shared components: diff view, file tree, theme                                            |
-| `packages/pulls`          | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                 |
-| `workflow`                | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints |
-| `workflow/prompts`        | Expert and role prompts, tool definitions, vendored skills                                |
-| `workflow/pulls`          | `@pulls.review/core` as `core.js`, run with moejs                                         |
-| `workflow/project`        | `.eyeful/config.yml`: commands, `skip`, `risk`                                            |
-| `workflow/report`         | A result as Markdown and SARIF 2.1.0                                                      |
-| `local/subject`           | The snapshot of a local branch, commit or uncommitted changes                             |
-| `local/app`               | The local composition root; the only package the CLI and desktop call                     |
-| `local/agents`            | `workflow.Agents` over the claude, codex and pi CLIs                                      |
-| `local/worktree`          | The snapshot's disposable checkout; `workflow.Workspace`                                  |
-| `local/store`             | `.eyeful/runs/` and the confirmed commands                                                |
-| `local/settings`          | The connected agent and the desktop's last repository                                     |
-| `local/classify`          | `workflow.Classifier` over Jev, through go-jev                                            |
-| `local/archive`           | Stage checkpoints as files                                                                |
-| `local/git`, `local/tail` | Running git with a fixed environment; keeping the end of an output                        |
-| `eval/`                   | The [evaluation](EVALUATION.md#tooling) scripts, in Python                                |
-| `cloud/`                  | The [cloud server](cloud/SERVER.md#layout)                                                |
+| Path                             | Owns                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `cmd/eyeful`                     | The local CLI (kong): `review`, `provider`, `connect`, `commit`                           |
+| `apps/desktop`                   | The local GUI: Wails v3, its own Go module                                                |
+| `apps/desktop/frontend`          | The desktop's SvelteKit frontend and its Wails bindings                                   |
+| `packages/ui`                    | The desktop's components: diff view, file tree, theme                                     |
+| `packages/pulls`                 | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                 |
+| `workflow`                       | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints |
+| `workflow/prompts`               | Expert and role prompts, tool definitions, vendored skills                                |
+| `workflow/pulls`                 | `@pulls.review/core` as `core.js`, run with moejs                                         |
+| `workflow/project`               | `.eyeful/config.yml`: commands, `skip`, `risk`                                            |
+| `workflow/report`                | A result as Markdown and SARIF 2.1.0                                                      |
+| `local/subject`                  | The snapshot of a local branch, commit or uncommitted changes                             |
+| `local/app`                      | The local composition root; the only package the CLI and desktop call                     |
+| `local/agents`                   | `workflow.Agents` over the claude, codex and pi CLIs                                      |
+| `local/worktree`                 | The snapshot's disposable checkout; `workflow.Workspace`                                  |
+| `local/store`                    | `.eyeful/runs/` and the confirmed commands                                                |
+| `local/settings`                 | The connected agent and the desktop's last repository                                     |
+| `local/classify`                 | `workflow.Classifier` over Jev, through go-jev                                            |
+| `local/archive`                  | Stage checkpoints as files                                                                |
+| `local/git`, `local/tail`        | Running git with a fixed environment; keeping the end of an output                        |
+| `eval/`                          | The [evaluation](EVALUATION.md#tooling) scripts, in Python                                |
+| `cmd/eyeful-server`, `internal/` | The [cloud server](cloud/SERVER.md#layout)                                                |
 
 ### Frontends
 
-The desktop frontend calls only its own Go services through the Wails bindings. It shares
-components with the console through `packages/ui`, not pages or state.
+The desktop frontend calls only its own Go services through the Wails bindings. Its components live
+in `packages/ui`.
 
 ## Data flow {#data-flow}
 

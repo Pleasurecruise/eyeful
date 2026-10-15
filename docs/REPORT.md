@@ -74,7 +74,7 @@ The report closes with:
 
 | Output         | For                                                           |
 | -------------- | ------------------------------------------------------------- |
-| Markdown       | The terminal and the console                                  |
+| Markdown       | The terminal                                                  |
 | Findings JSON  | The desktop app, beside the diff                              |
 | SARIF          | Another agent, a script, GitHub code scanning, the evaluation |
 | GitHub review  | Line comments (planned)                                       |
