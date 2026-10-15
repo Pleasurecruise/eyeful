@@ -18,7 +18,7 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 | ------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | `mise run dev:server`（别名 `dev`）        | 在 `:8080` 启动云端服务端（会先迁移）                                                       |
 | `mise run build`                           | 构建 `bin/eyeful-server`                                                                    |
-| `mise run install`                         | 把本地命令行 `eyeful` 安装到 Go 的 bin 目录，mise 会把它加入 `PATH`；升级 Go 后要重新安装   |
+| `mise run install`                         | 把本地命令行 `eyeful` 安装到 `~/.local/bin`，这个目录要在 `PATH` 上；升级 Go 后要重新安装   |
 | `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                     |
 | `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端             |
 | `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                     |

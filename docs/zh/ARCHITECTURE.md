@@ -38,8 +38,6 @@ flowchart TB
 | `workflow`，验证之前 | 同样几行上的两条发现是不是同一个问题       | `Classifier.Same`，用 go-jev |
 | `eval/score.py`      | 一条评论和一条 golden 发现是不是同一个问题 | TypeSafe 的 Python SDK       |
 
-测过之后仍留给 agent 的判断见[评估](EVALUATION.md#jev-pilot)。
-
 ## 语言
 
 - Go：服务器、CLI、工作流、调度和 REST API。

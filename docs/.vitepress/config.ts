@@ -81,7 +81,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'',
-					['How eyeful reviews', 'How the code is built', 'The cloud server', 'Plan', 'Thesis'],
+					['How eyeful reviews', 'How the code is built', 'The cloud server', 'Plan', 'Evaluation'],
 					[
 						[
 							'Overview',
@@ -123,7 +123,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'/zh',
-					['项目思路', '项目框架', '云端服务器', '计划', '毕业设计'],
+					['项目思路', '项目框架', '云端服务器', '计划', '评估'],
 					[
 						[
 							'eyeful 是什么',

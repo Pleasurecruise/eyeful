@@ -13,7 +13,7 @@ flowchart LR
 ## 现状
 
 - **可用：** 本地审查。`eyeful review`、`provider`、`connect`、`commit` 和桌面应用用你自己的编码 agent 运行完整的工作流（见[本地运行](LOCAL.md)）。
-- **进行中：** 评估。工具已经写好，试点已经运行过（见[评估](EVALUATION.md#pilot)）。
+- **进行中：** 评估。工具已经写好，实验还没有运行（见[评估](EVALUATION.md)）。
 - **规划中：** 云端审查、L1 工具和专家自己的工具（见[路线图](ROADMAP.md)）。
 
 ## 局限 {#limits}
@@ -43,7 +43,7 @@ flowchart LR
 | [参考资料](REFERENCES.md)     | 标准和借鉴的项目                    |
 | [原则](PRINCIPLES.md)         | 作者的八条工作原则                  |
 
-毕业论文：[评估](EVALUATION.md)。
+eyeful 怎样测量：[评估](EVALUATION.md)。
 
 代码怎样构建：
 

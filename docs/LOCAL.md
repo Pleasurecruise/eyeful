@@ -6,7 +6,7 @@ signed in to.
 
 ## Commands
 
-`mise run install` puts `eyeful` on the `PATH` ([Local development](DEVELOPMENT.md#commands)).
+`mise run install` puts `eyeful` in `~/.local/bin`, which must be on the `PATH` ([Local development](DEVELOPMENT.md#commands)).
 
 ```sh
 eyeful provider                             # the agents: connected, installed

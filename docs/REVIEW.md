@@ -84,11 +84,8 @@ How workers claim and finish reviews is in
 
 ## Known gaps {#known-gaps}
 
-- What the panel adds over one agent is not known. No pilot has compared the two on the same
-  pull requests, and on the one Code Review Bench pull request the single agent did not finish
-  ([Evaluation](EVALUATION.md#pilot)). No run has used Claude
-  Sonnet 5, the model the benchmarks judge with, so eyeful is not yet comparable with other
-  reviewers.
+- What the panel adds over one agent, and how eyeful compares with other reviewers, is not yet
+  measured ([Evaluation](EVALUATION.md)).
 - No tool runs. The checks planned to run before and beside the experts are not built
   ([Levels](LEVELS.md#planned)).
 - The skills are unmeasured. About a third of the correctness and skeptic experts opened one in the

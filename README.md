@@ -1,6 +1,14 @@
 # eyeful
 
-<p align="center"><img src="brand/eyeful-rounded.png" alt="eyeful sea otter logo" width="160"></p>
+<p align="center"><img src="docs/public/brand/eyeful-rounded.png" alt="eyeful sea otter logo" width="160"></p>
+
+<p align="center">
+  <a href="https://github.com/Pleasurecruise/eyeful/actions/workflows/ci.yml"><img src="https://github.com/Pleasurecruise/eyeful/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.yiming1234.cn/eyeful/"><img src="https://img.shields.io/badge/docs-eyeful-0a7ea4" alt="Docs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status: in development">
+  <a href="https://github.com/Pleasurecruise/eyeful/stargazers"><img src="https://img.shields.io/github/stars/Pleasurecruise/eyeful?style=flat" alt="GitHub stars"></a>
+</p>
 
 > "Given enough eyeballs, all bugs are shallow." — Linus's Law
 
@@ -10,11 +18,11 @@ wrote it, saw its reproduction fail on the change and not on the base commit; th
 then checked against the same test. Everything else is marked with the weaker evidence it has. eyeful never approves a change; a person does.
 
 It runs on your machine with the coding agent you already use (Claude Code, Codex or pi), from the
-command line or a desktop app. eyeful is a final-year project and is in active development.
+command line or a desktop app. eyeful is in active development.
 
 ## How a review works
 
-<p align="center"><img src="brand/harness.svg" alt="How an eyeful review works: prepare, plan, review, merge, verify, report" width="100%"></p>
+<p align="center"><img src="docs/public/brand/harness.svg" alt="How an eyeful review works: prepare, plan, review, merge, verify, report" width="100%"></p>
 
 1. **Prepare.** eyeful finds the project's commands from its manifests and you confirm them. The
    lint command is the CI check; the test suite runs on the change, and on the base where it fails.
@@ -36,10 +44,16 @@ Details: [A review, end to end](docs/REVIEW.md).
 
 ## Quick start
 
+You need git, [mise](https://mise.jdx.dev), and one of Claude Code, Codex or pi signed in. There is
+no release yet, so eyeful is built from source:
+
 ```sh
+git clone https://github.com/Pleasurecruise/eyeful && cd eyeful
 mise trust && mise install && mise run setup
-mise run install          # puts eyeful on your PATH
+mise run install          # puts eyeful in ~/.local/bin; add it to PATH
 eyeful connect claude     # or codex, pi
+
+cd ~/your-project
 eyeful review             # review your uncommitted changes
 ```
 
@@ -60,9 +74,8 @@ When it finds no test command, nothing runs and a judge reads every finding. `--
 ## Status and limits
 
 - **Works:** local reviews from the CLI and the desktop app.
-- **In progress:** the evaluation, offline on SWE-bench Verified, Code Review Bench and
-  ReviewBench. Every run so far uses DeepSeek, not the Claude Sonnet 5 the benchmarks judge with, so how
-  eyeful compares with other reviewers is not yet known ([Evaluation](docs/EVALUATION.md)).
+- **In progress:** the evaluation on SWE-bench Verified, Code Review Bench and ReviewBench
+  ([Evaluation](docs/EVALUATION.md)). How eyeful compares with other reviewers is not yet known.
 - **Planned:** reviews of GitHub pull requests through a self-hosted GitHub App, with reproductions
   in a sandbox ([Running in the cloud](docs/cloud/CLOUD.md)).
 - It can only prove what a unit-sized test shows. Timing, performance and behaviour that needs a

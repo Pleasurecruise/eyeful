@@ -17,19 +17,19 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 
 ## Commands {#commands}
 
-| Command                                    | Does                                                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `mise run dev:server` (alias `dev`)        | The cloud server on `:8080` (migrates first)                                                     |
-| `mise run build`                           | `bin/eyeful-server`                                                                              |
-| `mise run install`                         | The local CLI `eyeful` into Go's bin directory, on `PATH` through mise; rerun after a Go upgrade |
-| `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`                 |
-| `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                       |
-| `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                      |
-| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests; Postgres tests need the test URL         |
-| `mise run format`                          | gofmt and `vp fmt`                                                                               |
-| `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                             |
-| `mise run generate`                        | sqlc, the pulls.review core bundle, the desktop bindings                                         |
-| `mise run check`                           | lint + test + generate, failing if generated files drift                                         |
+| Command                                    | Does                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `mise run dev:server` (alias `dev`)        | The cloud server on `:8080` (migrates first)                                                  |
+| `mise run build`                           | `bin/eyeful-server`                                                                           |
+| `mise run install`                         | The local CLI `eyeful` into `~/.local/bin`, which must be on `PATH`; rerun after a Go upgrade |
+| `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`              |
+| `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                    |
+| `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                   |
+| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests; Postgres tests need the test URL      |
+| `mise run format`                          | gofmt and `vp fmt`                                                                            |
+| `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                          |
+| `mise run generate`                        | sqlc, the pulls.review core bundle, the desktop bindings                                      |
+| `mise run check`                           | lint + test + generate, failing if generated files drift                                      |
 
 The server needs no GitHub App yet. TODO(source): the App's settings for the webhook: Pull requests
 read and write for review comments, Contents and Metadata read-only, Actions and Checks read-only for

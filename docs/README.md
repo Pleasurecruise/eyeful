@@ -16,8 +16,8 @@ flowchart LR
 
 - **Works:** local reviews. `eyeful review`, `provider`, `connect`, `commit` and the desktop app run
   the whole workflow with your own coding agent ([Running locally](LOCAL.md)).
-- **In progress:** the evaluation. Its tooling is built and pilots have run
-  ([Evaluation](EVALUATION.md#pilot)).
+- **In progress:** the evaluation. Its tooling is built; the experiment has not run
+  ([Evaluation](EVALUATION.md)).
 - **Planned:** cloud reviews, the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
 
 ## Limits {#limits}
@@ -52,7 +52,7 @@ How a review works:
 | [References](REFERENCES.md)                  | Standards and borrowed projects                    |
 | [Principles](PRINCIPLES.md)                  | The author's eight working principles              |
 
-The thesis: [Evaluation](EVALUATION.md).
+How eyeful is measured: [Evaluation](EVALUATION.md).
 
 How the code is built:
 

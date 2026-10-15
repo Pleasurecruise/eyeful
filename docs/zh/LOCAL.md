@@ -4,7 +4,7 @@
 
 ## 命令
 
-`mise run install` 把 `eyeful` 放到 `PATH` 上（见[本地开发](DEVELOPMENT.md#commands)）。
+`mise run install` 把 `eyeful` 放到 `~/.local/bin`，这个目录要在 `PATH` 上（见[本地开发](DEVELOPMENT.md#commands)）。
 
 ```sh
 eyeful provider                             # 各个 agent：是否已连接、是否已安装

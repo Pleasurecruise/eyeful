@@ -73,8 +73,8 @@ description = "Build bin/eyeful-server"
 run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/eyeful-server"
 
 [tasks.install]
-description = "Install the local eyeful CLI into Go's bin directory"
-run = "go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
+description = "Install the local eyeful CLI into ~/.local/bin"
+run = "GOBIN=$HOME/.local/bin go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
 
 [tasks."dev:desktop"]
 description = "Run the desktop app with Wails live reload"

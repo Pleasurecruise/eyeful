@@ -66,7 +66,7 @@ eyeful 遵循 Google [Standard of Code Review](https://google.github.io/eng-prac
 
 ## 已知的缺口 {#known-gaps}
 
-- 专家组比单个 agent 多带来什么，目前还不知道。还没有 pilot 在同一批 pull request 上比较过两者，而在那一个 Code Review Bench 的 pull request 上，单个 agent 没有跑完（见[评估](EVALUATION.md#pilot)）。还没有用 benchmark 判分所用的 Claude Sonnet 5 跑过，所以 eyeful 暂时无法和其他审查工具比较。
+- 专家组比单个 agent 多带来什么、eyeful 和其他审查工具相比如何，都还没有测量（见[评估](EVALUATION.md)）。
 - 没有工具在运行。计划在专家之前和专家身边运行的检查都还没有实现（见[层级](LEVELS.md#planned)）。
 - skill 的效果没有测量过。在检查过的运行里，约三分之一的 correctness 和 skeptic 专家打开过 skill，也没有做过不带 skill 的运行。
 - 每个专家是否该给出整体结论、“覆盖率不下降”是否该成为硬性规则，都还没有决定。

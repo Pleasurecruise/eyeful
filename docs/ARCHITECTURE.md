@@ -47,8 +47,6 @@ everything the judgement needs fits in that state.
 | `workflow`, before verification | Whether two findings on the same lines are one problem        | `Classifier.Same`, with go-jev |
 | `eval/score.py`                 | Whether a comment is about the same issue as a golden finding | TypeSafe's Python SDK          |
 
-What was measured and left with the agents is in [Evaluation](EVALUATION.md#jev-pilot).
-
 ## Languages
 
 - Go: the server, the CLI, the workflow and scheduling.
