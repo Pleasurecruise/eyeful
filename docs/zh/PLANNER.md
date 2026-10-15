@@ -12,13 +12,13 @@ flowchart LR
 
 ## CI 检查 {#ci-check}
 
-在云端，eyeful 读取 head 提交的 GitHub Actions 运行，有运行还在进行时就等待。在本地，验证器运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 里的 `lint` 命令。`test` 命令不属于这项检查（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
+在云端，eyeful 读取 head 提交的 GitHub Actions 运行，有运行还在进行时就等待。在本地，验证器运行 [`lint` 命令](CONFIGURATION.md#project)。`test` 命令不属于这项检查（见[被改动弄坏的测试](VERIFICATION.md#regressions)）。
 
 检查失败时不启动任何专家。CI agent 阅读日志，报告每个失败、它的原因和修法，审查以 `ci_failed` 结束。
 
 ## 分拣 {#triage}
 
-用规则、不用模型，把锁文件、生成的代码、vendored 代码、二进制文件、`.eyeful/config.yml` 里的 `skip` 路径以及 diff 超过 512 KB 的文件放到一边。它们不交给任何专家，并被列为未审查。其余每一行都至少交给一个专家，依据是 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)。
+用规则、不用模型，把锁文件、生成的代码、vendored 代码、二进制文件、`.gitattributes` 标为 `linguist-generated` 或 `linguist-vendored` 的文件以及 diff 超过 512 KB 的文件放到一边。它们不交给任何专家，并被列为未审查。其余每一行都至少交给一个专家，依据是 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)。
 
 剩下的文件组成一份清单：
 
@@ -64,7 +64,7 @@ commits: "fix session expiry at the boundary"
 }
 ```
 
-被标为 `critical`、或包含 `.eyeful/config.yml` 里 `risk` 路径的组是核心组。
+被规划器标为 `critical` 的组是核心组。
 
 ### 挑选专家
 

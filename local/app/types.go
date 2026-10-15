@@ -19,6 +19,8 @@ type Options struct {
 	Experts      []string
 	Description  string
 	Verification workflow.Mode
+	Commands     project.Config
+	Detect       bool
 	Run          string
 	TypesafeKey  string
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)

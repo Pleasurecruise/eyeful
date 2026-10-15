@@ -19,14 +19,15 @@ eyeful commit                               # the agent writes the message; you 
 
 `review` takes:
 
-| Flag               | Meaning                                                                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| expert names       | Skip the planner; these experts review every file triage kept                                                                                               |
-| `--base`, `--head` | What to review ([below](#what-can-be-reviewed))                                                                                                             |
-| `--verification`   | `read_only` (default), `execution` or `none`                                                                                                                |
-| `--yes`            | Confirm the project commands without asking                                                                                                                 |
-| `--run`            | The run directory. A review restarted with the same one skips the stages saved there and runs again the steps whose agent call failed or the budget refused |
-| `--description`    | A file with the author's description, such as a pull request's title and body                                                                               |
+| Flag                                        | Meaning                                                                                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| expert names                                | Skip the planner; these experts review every file triage kept                                                                                               |
+| `--base`, `--head`                          | What to review ([below](#what-can-be-reviewed))                                                                                                             |
+| `--verification`                            | `execution` (default), `read_only` or `none`                                                                                                                |
+| `--setup`, `--lint`, `--test`, `--test-one` | Give a [project command](CONFIGURATION.md#project) in place of the one eyeful finds; `--no-detect` runs only these                                          |
+| `--yes`                                     | Confirm the project commands without asking                                                                                                                 |
+| `--run`                                     | The run directory. A review restarted with the same one skips the stages saved there and runs again the steps whose agent call failed or the budget refused |
+| `--description`                             | A file with the author's description, such as a pull request's title and body                                                                               |
 
 The token budget (3,000,000) and the limit per project command (10 minutes) are fixed. Settings are
 in [Configuration](CONFIGURATION.md#local).
@@ -86,7 +87,7 @@ fixed author and date, so the same changes always give the same commit.
 ## How a local review runs {#how-a-local-review-runs}
 
 1. eyeful finds the repository and takes the snapshot.
-2. It reads [`.eyeful/config.yml`](CONFIGURATION.md#project), checks the request and prints the
+2. It finds the [project commands](CONFIGURATION.md#project), checks the request and prints the
    subject, experts, agent and verification.
 3. With `execution` it checks the snapshot out with `git worktree add --detach` into the temporary
    directory, hooks off, and prints the commands it will run there. The user confirms them unless
@@ -139,7 +140,7 @@ discussion, and no code.
 
 | Risk                                              | Guard                                                                                                                                                           |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.eyeful/config.yml` names a harmful command      | Commands run only after the user confirms them, and again after any change                                                                                      |
+| A manifest leads to a harmful command             | Commands run only after the user confirms them, and again after any change                                                                                      |
 | A repository hook runs while eyeful prepares      | eyeful's git commands run with hooks off                                                                                                                        |
 | Content in the code steers an agent               | The agent's CLI has read-only tools only                                                                                                                        |
 | With `execution`, a steered agent writes the test | Not guarded: a reproduction test and a fix are code an agent wrote, and they run with the user's permissions and environment. Use `execution` on code you trust |

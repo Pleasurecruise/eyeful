@@ -6,7 +6,7 @@
 
 没有人挑选层级。模型在三个地方做决定：
 
-- 规划器把出错代价最大的组标为核心组，项目还可以用 `risk` 路径追加。核心组会得到 correctness、skeptic、security 和 design 四个专家（见[计划](PLANNER.md#the-plan)）。
+- 规划器把出错代价最大的组标为核心组。核心组会得到 correctness、skeptic、security 和 design 四个专家（见[计划](PLANNER.md#the-plan)）。
 - 每个专家读完改动对自己文件做的所有事，并报告发现的每一个问题。
 - 每个专家给自己的发现定级。`error` 和 `warning` 的发现会被验证，`note` 的发现折叠进 nitpick（见[审查反馈](REPORT.md#ranked-report)）。
 
@@ -25,7 +25,7 @@
 
 | 层  | 会运行                                                                                                | 模型开销 |
 | --- | ----------------------------------------------------------------------------------------------------- | -------- |
-| L0  | CI 检查、分拣、匹配 `risk` 路径和文件类型                                                             | 无       |
+| L0  | CI 检查、分拣和文件类型                                                                               | 无       |
 | L1  | `lint`、`typecheck`、`secret_scan`、`dependency_audit`、`openapi_diff`、`complexity`、`coverage_diff` | 无       |
 | L2  | 规划器、readability 专家、把工具输出变成评论                                                          | 少       |
 | L3  | 其余专家，以及复现                                                                                    | 最多     |

@@ -159,7 +159,6 @@ type Change struct {
 
 type Project struct {
 	Skip    []string `json:"skip"`
-	Risk    []string `json:"risk"`
 	TestOne string   `json:"test_one"`
 }
 
@@ -200,9 +199,8 @@ type Entry struct {
 }
 
 type Triage struct {
-	Reviewed []Entry  `json:"reviewed"`
-	Excluded []Entry  `json:"excluded"`
-	Risk     []string `json:"risk"`
+	Reviewed []Entry `json:"reviewed"`
+	Excluded []Entry `json:"excluded"`
 }
 
 type Pick struct {

@@ -85,7 +85,7 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `workflow`                       | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints |
 | `workflow/prompts`               | Expert and role prompts, tool definitions, vendored skills                                |
 | `workflow/pulls`                 | `@pulls.review/core` as `core.js`, run with moejs                                         |
-| `workflow/project`               | `.eyeful/config.yml`: commands, `skip`, `risk`                                            |
+| `workflow/project`               | The project's commands, found from its manifests                                          |
 | `workflow/report`                | A result as Markdown and SARIF 2.1.0                                                      |
 | `local/subject`                  | The snapshot of a local branch, commit or uncommitted changes                             |
 | `local/app`                      | The local composition root; the only package the CLI and desktop call                     |

@@ -2,7 +2,6 @@ package workflow_test
 
 import (
 	"errors"
-	"log/slog"
 	"slices"
 	"testing"
 
@@ -76,7 +75,7 @@ func TestTriage(t *testing.T) {
 	a := base()
 	a.plan = goodAnalysis
 	req := request()
-	req.Project = workflow.Project{Skip: []string{"docs/api/**"}, Risk: []string{"app/auth/**"}}
+	req.Project = workflow.Project{Skip: []string{"docs/api/index.md"}}
 	req.Change.Files = []workflow.File{
 		{Path: "app/session.py"},
 		{Path: "app/login.py"},
@@ -107,19 +106,5 @@ func TestTriage(t *testing.T) {
 	}
 	if res.PlanSource != workflow.PlanFromDefault {
 		t.Errorf("a plan missing test_session.py and README.md was accepted")
-	}
-
-	req.Change.Files = append(req.Change.Files, workflow.File{Path: "app/auth/token.py"})
-	if res := run(t, base(), &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Triage.Risk) != 1 {
-		t.Errorf("risk path: risk %v", res.Triage.Risk)
-	}
-
-	req.Project.Risk = []string{"app/[x"}
-	w, err := workflow.New(slog.New(slog.DiscardHandler), roster)
-	if err == nil {
-		_, err = w.Run(t.Context(), workflow.Session{}, req)
-	}
-	if !errors.Is(err, workflow.ErrInvalidRequest) {
-		t.Errorf("bad glob: %v", err)
 	}
 }

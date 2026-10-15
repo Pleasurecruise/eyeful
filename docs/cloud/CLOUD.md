@@ -12,8 +12,8 @@ Branches, commits and uncommitted changes are reviewed locally ([Running locally
 ## How a cloud review runs
 
 1. A pull request event reaches `POST /webhook`, signed with the App's webhook secret, and queues one
-   review per head commit. The project commands come from `.eyeful/config.yml` on the base branch, so
-   a pull request cannot change what runs on it.
+   review per head commit. eyeful finds the project commands from the manifests on the base
+   branch, so a pull request cannot change what runs on it.
 2. eyeful reads the GitHub Actions runs of the head commit. If one failed, the review ends with a
    diagnosis ([Planning and triage](../PLANNER.md#ci-check)).
 3. A worker clones the repository and records the snapshot: the base and head commits and the diff

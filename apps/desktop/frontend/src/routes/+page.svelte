@@ -67,8 +67,8 @@
 	];
 
 	const modes = [
-		{ mode: Mode.ModeReadOnly, label: m.mode_read_only, hint: m.mode_read_only_hint },
 		{ mode: Mode.ModeExecution, label: m.mode_execution, hint: m.mode_execution_hint },
+		{ mode: Mode.ModeReadOnly, label: m.mode_read_only, hint: m.mode_read_only_hint },
 		{ mode: Mode.ModeNone, label: m.mode_none, hint: m.mode_none_hint }
 	];
 

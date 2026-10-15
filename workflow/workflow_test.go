@@ -1410,19 +1410,4 @@ func TestThoroughness(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("a risky path makes its group core", func(t *testing.T) {
-		a := base()
-		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
-			p, err := goodAnalysis(workflow.PlanTask{})
-			p.Groups[0].Critical = false
-			return p, err
-		}
-		req := request()
-		req.Project.Risk = []string{"app/session.py"}
-		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
-		if !res.Plan.Groups[0].Core || res.Plan.Groups[1].Core {
-			t.Fatalf("groups %+v", res.Plan.Groups)
-		}
-	})
 }

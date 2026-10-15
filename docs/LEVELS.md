@@ -7,8 +7,7 @@ group needs review it, and what they find is verified. The cheaper layers below 
 
 Nobody picks a level. The models decide in three places:
 
-- The planner marks the groups where a mistake costs most as core, and a project can add `risk`
-  paths. A core group gets the correctness, skeptic, security and design experts
+- The planner marks the groups where a mistake costs most as core. A core group gets the correctness, skeptic, security and design experts
   ([The plan](PLANNER.md#the-plan)).
 - Each expert reads everything the change does to its files and reports every problem it finds.
 - Each expert grades its findings. `error` and `warning` findings are verified; `note` findings are
@@ -33,7 +32,7 @@ The plan is to start an agent only when a cheaper check has found something for 
 
 | Layer | Would run                                                                                             | Model cost |
 | ----- | ----------------------------------------------------------------------------------------------------- | ---------- |
-| L0    | The CI check, triage, matching `risk` paths and file types                                            | none       |
+| L0    | The CI check, triage and file types                                                                   | none       |
 | L1    | `lint`, `typecheck`, `secret_scan`, `dependency_audit`, `openapi_diff`, `complexity`, `coverage_diff` | none       |
 | L2    | The planner, the readability expert, turning tool output into comments                                | small      |
 | L3    | The other experts, and reproduction                                                                   | most       |

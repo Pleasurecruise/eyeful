@@ -16,7 +16,7 @@ flowchart TB
 
 在本地，客户端展示要审查什么、预算是多少、会运行哪些项目命令，用户确认后审查才开始；命令一有变化就要用户重新确认。在云端，把 GitHub App 安装到仓库上就是这份同意，命令取自 base 分支。已开始的审查不能取消。
 
-命令来自 `.eyeful/config.yml`。没有这个文件时什么都不运行，所有发现都是未验证的。
+eyeful 从项目的清单文件里找出命令（见[项目命令](CONFIGURATION.md#project)）。找不到时什么都不运行，所有发现都由裁判阅读。
 
 ## 各个阶段 {#stages}
 
@@ -66,7 +66,7 @@ eyeful 遵循 Google [Standard of Code Review](https://google.github.io/eng-prac
 
 ## 已知的缺口 {#known-gaps}
 
-- 专家组比单个 agent 多带来什么，目前还不知道。每次 pilot 只跑了一次，用的是更早的提交、DeepSeek 和替代的 judge；第一次 pilot 发现专家组多出来的部分在中、低严重度而不在高严重度，之后没有重复验证过（见[评估](EVALUATION.md#pilot)）。还没有用 benchmark 判分所用的 Claude Sonnet 5 跑过，所以 eyeful 暂时无法和其他审查工具比较。
+- 专家组比单个 agent 多带来什么，目前还不知道。还没有 pilot 在同一批 pull request 上比较过两者，而在那一个 Code Review Bench 的 pull request 上，单个 agent 没有跑完（见[评估](EVALUATION.md#pilot)）。还没有用 benchmark 判分所用的 Claude Sonnet 5 跑过，所以 eyeful 暂时无法和其他审查工具比较。
 - 没有工具在运行。计划在专家之前和专家身边运行的检查都还没有实现（见[层级](LEVELS.md#planned)）。
 - skill 的效果没有测量过。在检查过的运行里，约三分之一的 correctness 和 skeptic 专家打开过 skill，也没有做过不带 skill 的运行。
 - 每个专家是否该给出整体结论、“覆盖率不下降”是否该成为硬性规则，都还没有决定。

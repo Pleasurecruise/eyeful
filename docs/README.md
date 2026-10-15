@@ -1,9 +1,8 @@
 # Overview
 
 eyeful reviews code changes with a group of agents. A planner groups the change, the experts each
-group needs review it in parallel. With the project's test commands and `--verification execution`,
-eyeful then has a test written for each reported bug and runs it; by default a judge reads the
-findings instead. The result reaches a person as review comments.
+group needs review it in parallel. When eyeful finds the project's test commands, it then has a
+test written for each reported bug and runs it; otherwise a judge reads the findings. The result reaches a person as review comments.
 
 ```mermaid
 flowchart LR

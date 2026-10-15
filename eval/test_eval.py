@@ -45,30 +45,31 @@ def review(subject: str, findings: tuple[Finding, ...]) -> Review:
 
 
 class Regions(unittest.TestCase):
-    def test_removed_lines_are_numbered_before_the_patch(self) -> None:
+    def test_removed(self) -> None:
         self.assertEqual(regions(PATCH, "-"), (Region("app/session.py", 12, 12), Region("app/session.py", 33, 33)))
 
-    def test_added_lines_are_numbered_after_the_patch(self) -> None:
+    def test_added(self) -> None:
         self.assertEqual(regions(PATCH, "+"), (Region("app/session.py", 12, 13), Region("app/session.py", 34, 34)))
 
-    def test_a_change_at_the_end_of_a_file_stays_in_that_file(self) -> None:
+    def test_file_end(self) -> None:
         patch = "--- a/a.py\n+++ b/a.py\n@@ -5,2 +5,2 @@\n keep\n-old\n+new\n--- a/b.py\n+++ b/b.py\n@@ -1,2 +1,2 @@\n-first\n+other\n keep\n"
         for side in ("-", "+"):
             self.assertEqual(regions(patch, side), (Region("a.py", 6, 6), Region("b.py", 1, 1)))
 
-    def test_a_finding_near_the_defect_hits_it(self) -> None:
+    def test_hit(self) -> None:
         subject = Subject("s", "swebench", "", "/r", "b", "h", "i", regions(PATCH, "-"))
         self.assertTrue(subject.hit("app/session.py", 15))
         self.assertFalse(subject.hit("app/session.py", 20))
         self.assertFalse(subject.hit("app/other.py", 12))
 
-    def test_django_tests_become_labels(self) -> None:
+    def test_labels(self) -> None:
         self.assertEqual(labels(["test_a (auth.tests.Login)", "odd name"], True), ["auth.tests.Login.test_a"])
         self.assertEqual(labels(["tests/test_a.py::test_b"], False), ["tests/test_a.py::test_b"])
+        self.assertEqual(labels(["t.py::test_a[x y]", "t.py::test_a[x", "t.py::test_b"], False), ["t.py::test_a[x y]", "t.py::test_b"])
 
 
 class Gates(unittest.TestCase):
-    def test_the_gate_is_read_from_what_the_runs_showed(self) -> None:
+    def test_stopped(self) -> None:
         ran = {"status": "unverified", "repro": {}}
         failed = ["FAILED"] * 5
         for verdict, gate in (
@@ -86,20 +87,20 @@ class Gates(unittest.TestCase):
 
 
 class Statistics(unittest.TestCase):
-    def test_mcnemar_is_exact_and_two_sided(self) -> None:
+    def test_mcnemar(self) -> None:
         self.assertEqual(mcnemar(0, 0), 1.0)
         self.assertAlmostEqual(mcnemar(5, 0), 0.0625)
         self.assertAlmostEqual(mcnemar(0, 5), 0.0625)
         self.assertEqual(mcnemar(3, 3), 1.0)
 
-    def test_bootstrap_brackets_the_estimate(self) -> None:
+    def test_bootstrap(self) -> None:
         estimate = bootstrap({str(i): (float(i % 2), 1.0) for i in range(40)})
         self.assertAlmostEqual(estimate.value, 0.5)
         self.assertLess(estimate.low, 0.5)
         self.assertGreater(estimate.high, 0.5)
         self.assertEqual(str(bootstrap({})), "n/a")
 
-    def test_a_paired_difference_of_equal_arms_is_zero(self) -> None:
+    def test_difference(self) -> None:
         arm = {str(i): (float(i % 3 == 0), 1.0) for i in range(30)}
         estimate = difference(arm, arm)
         self.assertEqual((estimate.value, estimate.low, estimate.high), (0.0, 0.0, 0.0))
@@ -112,7 +113,7 @@ class Statistics(unittest.TestCase):
 
 
 class Labelling(unittest.TestCase):
-    def test_findings_within_two_lines_are_one_item(self) -> None:
+    def test_distinct(self) -> None:
         reviews = [
             review("s", (finding("a.py", 10), finding("a.py", 12), finding("a.py", 20))),
             review("s", (finding("a.py", 11), finding("b.py", 10))),
@@ -125,7 +126,7 @@ class Labelling(unittest.TestCase):
 
 
 class Golden(unittest.TestCase):
-    def test_findings_on_the_same_lines_are_one_place(self) -> None:
+    def test_tally(self) -> None:
         comments = [{"comment": "expires a second late"}, {"comment": "leaks the session"}]
         found = review("s", (finding("a.py", 10), finding("a.py", 12), finding("a.py", 40), finding("b.py", 3)))
         kept = {json.dumps([c["comment"], "t\n\nb"]): {"match": c["comment"] == "expires a second late"} for c in comments}
@@ -135,7 +136,7 @@ class Golden(unittest.TestCase):
 
 
 class ReviewBench(unittest.TestCase):
-    def test_a_review_becomes_the_benchmarks_candidate_file(self) -> None:
+    def test_candidate(self) -> None:
         row = {"repo": "https://github.com/owner/repo", "pr_number": 12, "base": "b" * 40, "head": "a1b2c3d4" + "0" * 32}
         result = {
             "comments": [
@@ -151,14 +152,14 @@ class ReviewBench(unittest.TestCase):
         self.assertEqual(shown["usage"], {"time_in_ms": 1500, "total_tokens": 1000})
         self.assertEqual(len(candidate(row, "panel", result, 1.5, True)["findings"]), 2)
 
-    def test_the_held_out_part_is_the_same_every_time_and_leaves_the_test_set_out(self) -> None:
+    def test_held(self) -> None:
         rows = {name: {} for name in ("a_b_1-00000000", "c_d_2-11111111", "e_f_3-22222222", "g_h_4-33333333")}
         part = held(rows, {"c_d_2-11111111"}, 2)
         self.assertEqual(len(part), 2)
         self.assertNotIn("c_d_2-11111111", part)
         self.assertEqual(list(part), list(held(dict(reversed(list(rows.items()))), {"c_d_2-11111111"}, 2)))
 
-    def test_a_golden_finding_is_claimed_once_and_covered_by_every_match(self) -> None:
+    def test_scored(self) -> None:
         golden = [{"tp_fp": "tp"}, {"tp_fp": "fp"}, {"tp_fp": "tp"}]
         overall, details = scored([{"file": "a"}, {"file": "a"}, {"file": "a"}], golden, {0: [0, 2], 1: [0], 2: [1]})
         self.assertEqual([d["matched_truth_label"] for d in details], ["tp", None, "fp"])
@@ -169,7 +170,7 @@ class ReviewBench(unittest.TestCase):
         })
         self.assertEqual(scored([], golden, {})[0]["grounded_precision"], None)
 
-    def test_a_pull_request_with_nothing_handed_in_still_counts_its_golden_findings(self) -> None:
+    def test_standing(self) -> None:
         hit = {"matched_to_ground_truth": True, "matched_truth_label": "tp", "covered_golden_indices": [0]}
         miss = {"matched_to_ground_truth": False, "matched_truth_label": "", "covered_golden_indices": []}
         judged = {

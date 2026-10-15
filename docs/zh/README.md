@@ -1,6 +1,6 @@
 # 概览
 
-eyeful 用一组 agent 审查代码改动。规划器给改动分组，每个组需要的专家并行审查。配置了项目的测试命令并使用 `--verification execution` 时，eyeful 会让 agent 为每个报告的 bug 写一个测试并运行它；默认情况下由 judge 阅读这些发现。结果以审查评论的形式交给人。
+eyeful 用一组 agent 审查代码改动。规划器给改动分组，每个组需要的专家并行审查。eyeful 找到项目的测试命令时，会让 agent 为每个报告的 bug 写一个测试并运行它；找不到时由 judge 阅读这些发现。结果以审查评论的形式交给人。
 
 ```mermaid
 flowchart LR

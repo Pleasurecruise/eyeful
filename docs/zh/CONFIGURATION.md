@@ -1,34 +1,32 @@
 # 配置项参考
 
-配置分三类。被审查仓库里的 `.eyeful/config.yml` 告诉审查怎样构建和测试这个项目；本地设置文件保存用户为 `eyeful review` 做的选择；服务端则通过环境变量和命令行参数配置。
+eyeful 自己找出被审查项目的构建和测试方法。本地设置文件保存用户为 `eyeful review` 做的选择；服务端则通过环境变量和命令行参数配置。
 
-## 项目配置 {#project}
+## 项目命令 {#project}
 
-`.eyeful/config.yml` 放在被审查的仓库里，eyeful 也为审查自己准备了一份 [`.eyeful/config.yml`](../.eyeful/config.yml)。`eyeful review` 会读取它，出现未知的键时报错。云端还不读取它。
+eyeful 用规则、不用模型，根据快照根目录下的文件选出命令，按表格顺序取第一个匹配的行。
 
-```yaml
-setup: pip install -e ".[test]"
-lint: ruff check .
-test: pytest -x -q --junitxml=report.xml
-test_one: pytest -x -q {test}
-coverage: pytest --cov --cov-report=json
-e2e: npx playwright test
-risk: ['auth/**', 'payments/**', 'migrations/**']
-skip: ['docs/api/**']
-```
+| 文件                                                       | `setup`                                                 | `test`、`test_one`                                                                  | `lint`                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `go.mod`                                                   | `go mod download`                                       | `go test ./...`，单个测试加 `-run {test}`                                           | 有 `.golangci` 文件时用 `golangci-lint run ./...` |
+| `Cargo.toml`                                               | `cargo fetch`                                           | `cargo test`，单个测试加 `{test}`                                                   |                                                   |
+| 提到 pytest 的 `pyproject.toml`、`setup.py` 或 `setup.cfg` | 按锁文件用 `uv sync`、`poetry install` 或 `pip install` | `pytest -q`，单个测试加 `{test}`；用 uv 或 poetry 安装时经由 `uv run`、`poetry run` | 配置了 ruff 时用 `ruff check .`                   |
+| `package.json`                                             | 用锁文件对应的包管理器安装                              | 依赖里有 vitest、jest 或 mocha 时用它们，单个测试加 `{test}`；否则只用 `test` 脚本  | `lint` 脚本                                       |
 
-| 键         | 用在哪里                                                     |
+| 命令       | 用在哪里                                                     |
 | ---------- | ------------------------------------------------------------ |
-| `setup`    | 准备阶段：安装依赖。在云端，这是唯一能访问包仓库的步骤       |
-| `lint`     | 本地 CI 校验，以及 readability 专家的 `lint` 工具            |
+| `setup`    | 准备阶段：安装依赖                                           |
+| `lint`     | 本地 CI 校验                                                 |
 | `test`     | 验证器运行整套测试：审查前找出改动弄坏的测试，每次修复后再跑 |
 | `test_one` | 验证器运行单个复现测试，`{test}` 会替换成加了引号的测试编号  |
-| `coverage` | tests 专家的 `coverage_diff` 工具                            |
-| `e2e`      | usability 专家的 `e2e_run` 工具                              |
-| `risk`     | 审查计划：涉及这些路径的分组是核心组                         |
-| `skip`     | 分诊：这些路径不交给专家，在反馈中列为未审查                 |
 
-审查时执行的项目代码只有这些命令，而且要在审查开始前经过用户确认（见[开始之前](REVIEW.md#before-it-starts)）。没有 `test` 和 `test_one` 时，发现都保持未验证。
+一行都匹配不上的项目，或者没有提到 pytest 的 Python 项目，没有命令：什么都不运行，所有发现都由裁判阅读，审查开始前会说明这一点。
+
+`eyeful review` 的 `--setup`、`--lint`、`--test` 和 `--test-one` 会替换 eyeful 找到的命令，`--no-detect` 则只运行给出的命令。评估用它们在容器里运行 SWE-bench 的测试。
+
+审查时执行的项目代码只有这些命令，而且要在审查开始前经过用户确认（见[开始之前](REVIEW.md#before-it-starts)）。
+
+仓库的 `.gitattributes` 标为 `linguist-generated` 或 `linguist-vendored` 的文件不交给任何专家（见[分拣](PLANNER.md#triage)）。
 
 ## 本地设置 {#local}
 

@@ -131,7 +131,7 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 		}
 	}
 	if command == "" {
-		return workflow.TestRun{}, fmt.Errorf("%w: add test and test_one to %s", ErrNoCommand, project.Path)
+		return workflow.TestRun{}, fmt.Errorf("%w: no test command was found for this project", ErrNoCommand)
 	}
 	run := workflow.TestRun{Failed: []string{}}
 	if t.Base {

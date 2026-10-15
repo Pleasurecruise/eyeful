@@ -168,11 +168,6 @@ func (w *Workflow) Admit(req Request) error {
 	if req.Budget.Tokens < 0 || req.Budget.MicroUSD < 0 || req.Budget.Tokens+req.Budget.MicroUSD == 0 {
 		return fmt.Errorf("%w: the budget needs a limit in tokens, money or both", ErrInvalidRequest)
 	}
-	for _, g := range slices.Concat(req.Project.Skip, req.Project.Risk) {
-		if !doublestar.ValidatePattern(g) {
-			return fmt.Errorf("%w: glob %q", ErrInvalidRequest, g)
-		}
-	}
 	picked := map[string]bool{}
 	for _, name := range req.Experts {
 		if _, ok := w.expert(name); !ok || picked[name] {
@@ -251,7 +246,7 @@ func (w *Workflow) askPlanner(ctx context.Context, s Session, l *ledger, req Req
 			}
 		}
 		if problem == "" {
-			st.Plan, st.Source = w.staff(answer, t), PlanFromPlanner
+			st.Plan, st.Source = w.staff(answer), PlanFromPlanner
 			break
 		}
 		st.Notes = append(st.Notes, fmt.Sprintf("grouping %d rejected: %s", attempt, problem))
@@ -381,7 +376,6 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 			scoped := Triage{
 				Reviewed: slices.DeleteFunc(slices.Clone(prep.Triage.Reviewed), func(e Entry) bool { return !slices.Contains(sc.Files, e.Path) }),
 				Excluded: prep.Triage.Excluded,
-				Risk:     slices.DeleteFunc(slices.Clone(prep.Triage.Risk), func(p string) bool { return !slices.Contains(sc.Files, p) }),
 			}
 			return w.plan(ctx, s, sl, req, scoped, files)
 		})

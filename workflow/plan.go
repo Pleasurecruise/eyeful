@@ -32,11 +32,11 @@ func (w *Workflow) expert(name string) (Expert, bool) {
 	return w.roster[i], true
 }
 
-func (w *Workflow) staff(a pulls.Analysis, t Triage) Plan {
+func (w *Workflow) staff(a pulls.Analysis) Plan {
 	p := Plan{Summary: a.OverallSummary, Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
 	for _, g := range a.Groups {
 		for _, leaf := range append([]pulls.DiffGroupLeaf{g.DiffGroupLeaf}, g.Children...) {
-			core := leaf.Critical || slices.ContainsFunc(leaf.FilePaths, func(f string) bool { return slices.Contains(t.Risk, f) })
+			core := leaf.Critical
 			names := slices.Clone(crew[leaf.Category])
 			if core {
 				names = append(names, "correctness", "skeptic", "security", "design")
@@ -58,7 +58,7 @@ func (w *Workflow) staff(a pulls.Analysis, t Triage) Plan {
 }
 
 func whole(t Triage, category string, picks []Pick) Plan {
-	g := Group{Category: category, Summary: "every reviewed file", Core: len(t.Risk) > 0, Experts: picks}
+	g := Group{Category: category, Summary: "every reviewed file", Experts: picks}
 	for _, e := range t.Reviewed {
 		g.Files = append(g.Files, e.Path)
 	}

@@ -29,14 +29,13 @@ line against a dataset.
 | The verifier's six gates, the graded oracle, the read-only judge                     | Built                              |
 | The run archive and stage checkpoints; feedback as SARIF and Markdown                | Built                              |
 | `eval/`: subject builders, runners, labelling sheet, analysis                        | Built                              |
-| Pilots on Code Review Bench, ReviewBench and the injected defects                    | Run ([Pilot](EVALUATION.md#pilot)) |
+| Pilots on Code Review Bench and SWE-bench                                            | Run ([Pilot](EVALUATION.md#pilot)) |
 | Agents in pi with keys eyeful controls ([Agents in pi](cloud/CLOUD.md#agents-in-pi)) | To do                              |
-| The injected-defect subjects                                                         | To do                              |
 | Three repetitions of every review, and the labelling                                 | To do                              |
 
 Exit criteria:
 
-- The main experiment has run on both datasets, in both configurations and all three conditions,
+- The main experiment has run on every dataset, in both configurations and all three conditions,
   three times each, and the findings are labelled.
 - Every `issue (blocking)` in those runs was seen failing by the verifier and has a `specified` or
   `implicit` oracle, or a `derived` one that is a test of the project's own.

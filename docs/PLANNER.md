@@ -15,8 +15,8 @@ flowchart LR
 ## CI check {#ci-check}
 
 In the cloud, eyeful reads the GitHub Actions runs of the head commit and waits while any is in
-progress. Locally the verifier runs the `lint` command from
-[`.eyeful/config.yml`](CONFIGURATION.md#project). The `test` command is not part of this check
+progress. Locally the verifier runs the
+[`lint` command](CONFIGURATION.md#project). The `test` command is not part of this check
 ([Tests the change breaks](VERIFICATION.md#regressions)).
 
 If the check fails, no expert starts. The CI agent reads the logs and reports each failure, its
@@ -24,8 +24,8 @@ cause and how to fix it, and the review ends with `ci_failed`.
 
 ## Triage {#triage}
 
-Rules, with no model, set aside lockfiles, generated code, vendored code, binary files, the `skip`
-paths of `.eyeful/config.yml`, and any file whose diff is over 512 KB. These go to no expert and
+Rules, with no model, set aside lockfiles, generated code, vendored code, binary files, files
+`.gitattributes` marks `linguist-generated` or `linguist-vendored`, and any file whose diff is over 512 KB. These go to no expert and
 are listed as not reviewed. Every other line goes to at least one expert, following Google's
 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line).
 
@@ -84,7 +84,7 @@ binaries need neither Node nor cgo.
 }
 ```
 
-A group is core when it is `critical` or holds a `risk` path from `.eyeful/config.yml`.
+A group is core when the planner marks it `critical`.
 
 ### Picking the experts
 

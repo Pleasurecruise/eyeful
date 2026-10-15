@@ -111,16 +111,8 @@ func setup(t *testing.T, connect bool) (string, string, app.Options) {
 		}
 	}
 	git(t, root, "init", "-q", "-b", "main")
-	for name, content := range map[string]string{
-		"app.txt":            "one\n",
-		".eyeful/config.yml": "setup: touch " + filepath.Join(outside, "setup-ran") + "\n",
-	} {
-		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(filepath.Join(root, "app.txt"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 	git(t, root, "add", ".")
 	git(t, root, "commit", "-q", "-m", "init")
@@ -129,6 +121,7 @@ func setup(t *testing.T, connect bool) (string, string, app.Options) {
 	}
 	return root, outside, app.Options{
 		Dir: root, Experts: []string{"correctness"}, Verification: workflow.ModeReadOnly,
+		Commands: project.Config{Setup: "touch " + filepath.Join(outside, "setup-ran")},
 		Confirm: func(context.Context, string, []project.Command) (bool, error) {
 			return false, errors.New("no terminal")
 		},
@@ -160,9 +153,7 @@ func execution(t *testing.T) (string, string, app.Options) {
 func TestReview(t *testing.T) {
 	t.Run("uncommitted changes run in a checkout of their snapshot", func(t *testing.T) {
 		root, outside, o := setup(t, true)
-		if err := os.WriteFile(filepath.Join(root, ".eyeful/config.yml"), []byte("setup: cp app.txt "+filepath.Join(outside, "seen.txt")+"; touch setup-ran\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		o.Commands = project.Config{Setup: "cp app.txt " + filepath.Join(outside, "seen.txt") + "; touch setup-ran"}
 		before := status(t, root)
 		tmp := t.TempDir()
 		t.Setenv("TMPDIR", tmp)
@@ -193,6 +184,25 @@ func TestReview(t *testing.T) {
 		}
 		if strings.Contains(o.Err.(*strings.Builder).String(), "changed while the review ran") {
 			t.Fatal("an unchanged repository was reported as changed")
+		}
+	})
+
+	t.Run("files .gitattributes marks generated are not reviewed", func(t *testing.T) {
+		root, _, o := setup(t, true)
+		if err := os.WriteFile(filepath.Join(root, ".gitattributes"), []byte("app.txt linguist-generated\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		o.Run = filepath.Join(t.TempDir(), "run")
+		if _, err := app.Review(t.Context(), o); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(filepath.Join(o.Run, "result.json"))
+		var res workflow.Result
+		if err != nil || json.Unmarshal(data, &res) != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(res.Triage.Excluded, workflow.Entry{Path: "app.txt", Class: workflow.ClassSkipped, Added: 1, Deleted: 1}) {
+			t.Fatalf("triage %+v", res.Triage)
 		}
 	})
 
@@ -279,6 +289,28 @@ func TestReview(t *testing.T) {
 		}
 	})
 
+	t.Run("a given command replaces only the one eyeful finds", func(t *testing.T) {
+		root, _, o := setup(t, true)
+		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		git(t, root, "add", ".")
+		git(t, root, "commit", "-qm", "change")
+		o.Verification, o.Range, o.Detect = workflow.ModeExecution, subject.Range{Head: "HEAD", Base: "HEAD~1"}, true
+		var asked []project.Command
+		o.Confirm = func(_ context.Context, _ string, cmds []project.Command) (bool, error) {
+			asked = cmds
+			return false, nil
+		}
+		if _, err := app.Review(t.Context(), o); !errors.Is(err, app.ErrNotConfirmed) {
+			t.Fatalf("%v", err)
+		}
+		want := []project.Command{{Name: "setup", Run: o.Commands.Setup}, {Name: "test", Run: "go test ./..."}, {Name: "test_one", Run: "go test ./... -run {test}"}}
+		if !slices.Equal(asked, want) {
+			t.Fatalf("asked %v", asked)
+		}
+	})
+
 	t.Run("unconfirmed commands do not run", func(t *testing.T) {
 		_, outside, o := execution(t)
 		if _, err := app.Review(t.Context(), o); !errors.Is(err, app.ErrNotConfirmed) {
@@ -291,14 +323,10 @@ func TestReview(t *testing.T) {
 
 	t.Run("a confirmation shipped in the repository is ignored", func(t *testing.T) {
 		root, outside, o := execution(t)
-		cfg, _, err := project.Read(root)
-		if err != nil {
-			t.Fatal(err)
-		}
 		if err := os.MkdirAll(filepath.Join(root, ".eyeful", "runs"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(root, ".eyeful", "runs", "confirmed"), []byte(cfg.Digest()+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(root, ".eyeful", "runs", "confirmed"), []byte(o.Commands.Digest()+"\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		git(t, root, "add", "--force", ".eyeful/runs/confirmed")
@@ -399,8 +427,8 @@ func TestReview(t *testing.T) {
 			if err := errors.Join(err, os.MkdirAll(last, 0o700), os.WriteFile(filepath.Join(last, "..", ".gitignore"), []byte("*\n"), 0o600), os.WriteFile(filepath.Join(last, "snapshot.json"), snapshot, 0o600), os.WriteFile(filepath.Join(last, "result.json"), result, 0o600)); err != nil {
 				t.Fatal(err)
 			}
-			config := "test_one: \"grep -q three {test} || { echo still two; exit 1; }\"\n"
-			if err := errors.Join(os.WriteFile(filepath.Join(root, "app.txt"), []byte("three\n"), 0o644), os.WriteFile(filepath.Join(root, ".eyeful", "config.yml"), []byte(config), 0o644)); err != nil {
+			o.Commands = project.Config{TestOne: "grep -q three {test} || { echo still two; exit 1; }"}
+			if err := os.WriteFile(filepath.Join(root, "app.txt"), []byte("three\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			git(t, root, "commit", "-qam", "fix")
@@ -526,7 +554,10 @@ func TestRepository(t *testing.T) {
 	if dir, err := app.Repository(t.Context(), outside); err != nil || dir != root {
 		t.Fatalf("outside a repository: %q, %v", dir, err)
 	}
-	inside := filepath.Join(root, ".eyeful")
+	inside := filepath.Join(root, "sub")
+	if err := os.Mkdir(inside, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if dir, err := app.Repository(t.Context(), inside); err != nil || dir != inside {
 		t.Fatalf("inside a repository: %q, %v", dir, err)
 	}

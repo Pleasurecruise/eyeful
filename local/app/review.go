@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -56,16 +57,12 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 			o.Log.Warn("remove the snapshot", "dir", objects, "error", err)
 		}
 	}()
-	snap, change, err := read(ctx, o, objects)
+	snap, req, cfg, err := request(ctx, o, objects)
 	if err != nil {
 		return report.Output{}, err
 	}
-	if len(change.Files) == 0 {
+	if len(req.Change.Files) == 0 {
 		return report.Output{}, say(o.Out, "Nothing to review: the change is empty.\n")
-	}
-	cfg, _, err := project.Read(snap.Root)
-	if err != nil {
-		return report.Output{}, err
 	}
 	provider, agent, err := connected(ctx)
 	if err != nil {
@@ -75,17 +72,13 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	if err != nil {
 		return report.Output{}, err
 	}
-	req := workflow.Request{
-		Change: change, Project: cfg.Project(o.Verification == workflow.ModeExecution),
-		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts,
-	}
 	if req.Previous, err = previous(ctx, o, snap); err != nil {
 		return report.Output{}, err
 	}
 	if err := wf.Admit(req); err != nil {
 		return report.Output{}, err
 	}
-	if err := say(o.Err, describe(o, agent, snap, len(change.Files))); err != nil {
+	if err := say(o.Err, describe(o, agent, snap, len(req.Change.Files))); err != nil {
 		return report.Output{}, err
 	}
 	ws, closeTree, err := workspace(ctx, o, snap, objects, cfg)
@@ -194,22 +187,42 @@ func prepare(ctx context.Context, o Options, snap subject.Snapshot) (string, str
 	}, nil
 }
 
-func read(ctx context.Context, o Options, objects string) (subject.Snapshot, workflow.Change, error) {
+func request(ctx context.Context, o Options, objects string) (subject.Snapshot, workflow.Request, project.Config, error) {
+	var req workflow.Request
 	snap, err := subject.Read(ctx, o.Dir, o.Range, objects)
 	if err != nil {
-		return snap, workflow.Change{}, err
+		return snap, req, project.Config{}, err
 	}
 	if snap.Head != "" {
 		if err := subject.CheckedOut(ctx, snap.Root, snap.Head); err != nil {
-			return snap, workflow.Change{}, err
+			return snap, req, project.Config{}, err
 		}
 	}
 	files, err := workflow.SplitPatch(snap.Patch)
 	if err != nil {
-		return snap, workflow.Change{}, err
+		return snap, req, project.Config{}, err
 	}
 	commits, err := subject.Commits(ctx, snap)
-	return snap, workflow.Change{Files: files, Commits: commits, Description: o.Description}, err
+	if err != nil {
+		return snap, req, project.Config{}, err
+	}
+	cfg := o.Commands
+	if o.Detect {
+		found, err := project.Detect(snap.Root)
+		if err != nil {
+			return snap, req, cfg, err
+		}
+		cfg = project.Config{Setup: cmp.Or(cfg.Setup, found.Setup), Lint: cmp.Or(cfg.Lint, found.Lint), Test: cmp.Or(cfg.Test, found.Test), TestOne: cmp.Or(cfg.TestOne, found.TestOne)}
+	}
+	req = workflow.Request{
+		Change: workflow.Change{Files: files, Commits: commits, Description: o.Description},
+		Budget: workflow.Budget{Tokens: budget}, Verification: o.Verification, Experts: o.Experts,
+	}
+	if o.Verification == workflow.ModeExecution {
+		req.Project.TestOne = cfg.TestOne
+	}
+	req.Project.Skip, err = marked(ctx, snap.Root, files)
+	return snap, req, cfg, err
 }
 
 func describe(o Options, agent agents.Agent, snap subject.Snapshot, files int) string {
@@ -247,10 +260,10 @@ func workspace(ctx context.Context, o Options, snap subject.Snapshot, objects st
 func confirm(ctx context.Context, o Options, root string, cfg project.Config, work string) error {
 	cmds := cfg.Commands()
 	if len(cmds) == 0 {
-		return say(o.Err, "No commands in "+project.Path+", so nothing runs and findings stay unverified.\n")
+		return say(o.Err, "No test command was found for this project, so nothing runs and a judge reads every finding.\n")
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Commands from %s, run in %s, a checkout of the snapshot that is reset after every run and removed at the end:\n", project.Path, work)
+	fmt.Fprintf(&b, "Commands for this project, run in %s, a checkout of the snapshot that is reset after every run and removed at the end:\n", work)
 	for _, c := range cmds {
 		fmt.Fprintf(&b, "  %-9s %s\n", c.Name, c.Run)
 	}
@@ -320,4 +333,26 @@ func save(ctx context.Context, o Options, dir string, snap subject.Snapshot, obj
 		note += fmt.Sprintf("The repository changed while the review ran, so the agents may have read newer code. The findings are about snapshot %.12s; the diff is in change.diff.\n", snap.Commit)
 	}
 	return out, say(o.Err, note)
+}
+
+func marked(ctx context.Context, root string, files []workflow.File) ([]string, error) {
+	paths := []string{}
+	if len(files) == 0 {
+		return paths, nil
+	}
+	args := append(make([]string, 0, 5+len(files)), "check-attr", "-z", "linguist-generated", "linguist-vendored", "--")
+	for _, f := range files {
+		args = append(args, f.Path)
+	}
+	out, err := git.Run(ctx, root, nil, args...)
+	if err != nil {
+		return nil, err
+	}
+	fields := strings.Split(out, "\x00")
+	for i := 0; i+2 < len(fields); i += 3 {
+		if v := fields[i+2]; (v == "set" || v == "true") && !slices.Contains(paths, fields[i]) {
+			paths = append(paths, fields[i])
+		}
+	}
+	return paths, nil
 }

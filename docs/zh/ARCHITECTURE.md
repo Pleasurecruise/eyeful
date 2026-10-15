@@ -74,7 +74,7 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `workflow`                       | 审查编排：分拣、计划检查、专家、验证器、汇总、预算、检查点  |
 | `workflow/prompts`               | 专家和角色的提示词、工具定义、vendored 的 skill             |
 | `workflow/pulls`                 | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行     |
-| `workflow/project`               | `.eyeful/config.yml`：命令、`skip`、`risk`                  |
+| `workflow/project`               | 从清单文件找出的项目命令                                    |
 | `workflow/report`                | 把结果渲染成 Markdown 和 SARIF 2.1.0                        |
 | `local/subject`                  | 本地分支、提交或未提交改动的快照                            |
 | `local/app`                      | 本地的组合根；CLI 和桌面端唯一调用的包                      |

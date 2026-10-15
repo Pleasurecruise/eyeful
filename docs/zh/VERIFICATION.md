@@ -90,7 +90,7 @@ def test_expired_at_exact_boundary():
 
 ## 验证器 {#the-verifier}
 
-验证器是 eyeful 里唯一运行项目代码的部分，而且只运行 [`.eyeful/config.yml`](CONFIGURATION.md#project) 里的命令。它按严重度、再按报告[同一个问题](#one-problem)的专家数量依次处理发现。`note` 发现不验证。
+验证器是 eyeful 里唯一运行项目代码的部分，而且只运行用户确认过的[项目命令](CONFIGURATION.md#project)。它按严重度、再按报告[同一个问题](#one-problem)的专家数量依次处理发现。`note` 发现不验证。
 
 对每条 `test` 发现，复现 agent 写一个测试，总是新文件。测试要依次通过这些关卡：
 

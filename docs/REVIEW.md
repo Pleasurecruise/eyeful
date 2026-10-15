@@ -22,8 +22,9 @@ run, and the review starts when the user confirms. The user confirms the command
 change. In the cloud, installing the GitHub App on a repository is that consent, and the commands
 come from the base branch. A started review cannot be cancelled.
 
-The commands come from `.eyeful/config.yml`. Without that file nothing runs and every finding stays
-unverified.
+eyeful finds the commands from the project's manifests
+([Project commands](CONFIGURATION.md#project)). When it finds none, nothing runs and the judge reads
+every finding.
 
 ## Stages {#stages}
 
@@ -83,9 +84,9 @@ How workers claim and finish reviews is in
 
 ## Known gaps {#known-gaps}
 
-- What the panel adds over one agent is not known. Each pilot ran once, at an earlier commit, on
-  DeepSeek with a substitute judge; the first found the panel's gain in medium and low findings, not
-  high, and none has been repeated since ([Evaluation](EVALUATION.md#pilot)). No run has used Claude
+- What the panel adds over one agent is not known. No pilot has compared the two on the same
+  pull requests, and on the one Code Review Bench pull request the single agent did not finish
+  ([Evaluation](EVALUATION.md#pilot)). No run has used Claude
   Sonnet 5, the model the benchmarks judge with, so eyeful is not yet comparable with other
   reviewers.
 - No tool runs. The checks planned to run before and beside the experts are not built

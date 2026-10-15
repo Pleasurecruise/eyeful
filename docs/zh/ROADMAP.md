@@ -26,14 +26,13 @@ flowchart TB
 | 验证器的六道关卡、判定依据的核对、只读的裁判                                              | 已完成                                  |
 | 运行存档和阶段检查点；SARIF 和 Markdown 形式的反馈                                        | 已完成                                  |
 | `eval/`：被试构建、运行器、标注表、分析                                                   | 已完成                                  |
-| 在 Code Review Bench、ReviewBench 和注入缺陷上的试点                                      | 已运行（见[试点](EVALUATION.md#pilot)） |
+| 在 Code Review Bench 和 SWE-bench 上的试点                                                | 已运行（见[试点](EVALUATION.md#pilot)） |
 | 用 eyeful 掌管的密钥在 pi 里运行 agent（见 [pi 里的 agent](cloud/CLOUD.md#agents-in-pi)） | 待做                                    |
-| 注入缺陷的被试                                                                            | 待做                                    |
 | 每次审查重复三次，以及标注                                                                | 待做                                    |
 
 退出标准：
 
-- 主实验已在两个数据集上、以两种配置和全部三种条件各运行三次，发现已标注。
+- 主实验已在每个数据集上、以两种配置和全部三种条件各运行三次，发现已标注。
 - 这些运行里的每条 `issue (blocking)` 都被验证器看到失败过，并且判定依据是 `specified` 或 `implicit`，或者是项目自己测试的 `derived`。
 - 预算用完的审查返回它已验证的部分，并标为 partial。审查中途被杀掉的工作进程从最后完成的阶段继续。
 - 论文能够报告专家组相对单 agent 多了什么、花了多少。

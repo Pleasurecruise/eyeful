@@ -30,8 +30,13 @@ def review(binary: Path, subject: Subject, config: str, condition: Condition, ru
         shutil.copytree(run / "stages", work / "stages")
     command = [
         str(binary), "review", *CONFIGS[config], "--base", subject.base, "--head", subject.head,
-        "--verification", condition, "--yes", *(["--description", str(description)] if description.exists() else []), "--run", str(work),
+        "--verification", condition, "--yes", *(["--description", str(description)] if description.exists() else []), "--run", str(work), "--no-detect",
     ]
+    hidden = Path(subject.repo) / ".eyeful"
+    if (hidden / "run.sh").exists():
+        command += ["--test-one", "sh .eyeful/run.sh {test}"]
+    if (hidden / "suite.sh").exists():
+        command += ["--test", "sh .eyeful/suite.sh"]
     start = time.monotonic()
     with (run / "eyeful.log").open("a") as log:
         subprocess.run(command, cwd=subject.repo, stdout=log, stderr=log, env=environment(Path(subject.repo), (), flags), check=False)

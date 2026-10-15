@@ -119,8 +119,8 @@ the request fails, no findings are merged and the uncertainty checklist says so.
 
 ## The verifier {#the-verifier}
 
-The verifier is the only part of eyeful that runs the project's code, and it runs only the commands
-in [`.eyeful/config.yml`](CONFIGURATION.md#project). It takes findings by severity, then by how many
+The verifier is the only part of eyeful that runs the project's code, and it runs only the
+[project commands](CONFIGURATION.md#project) the user confirmed. It takes findings by severity, then by how many
 experts reported the same [problem](#one-problem). `note` findings are not verified.
 
 For each `test` finding a reproduction agent writes a test, always as a new file. The test must pass

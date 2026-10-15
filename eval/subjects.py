@@ -27,7 +27,6 @@ ENTER = "export PATH=/opt/miniconda3/envs/testbed/bin:$PATH CONDA_DEFAULT_ENV=te
 class Runner:
     command: str
     label: bool
-    enter: str = ENTER
 
 
 RUNNERS: dict[str, Runner] = {
@@ -80,7 +79,7 @@ def regions(patch: str, side: str) -> tuple[Region, ...]:
 
 def labels(tests: list[str], label: bool) -> list[str]:
     if not label:
-        return tests
+        return [t for t in tests if t.count("[") == t.count("]")]
     named = [re.fullmatch(r"(\w+) \(([\w.]+)\)", t) for t in tests]
     return [f"{m.group(2)}.{m.group(1)}" for m in named if m]
 
@@ -102,16 +101,14 @@ def commands(repo: Path, image: str, platform: str, runner: Runner, suite: list[
     hidden.mkdir(exist_ok=True)
     (hidden / "inside.sh").write_text(
         "set -e\ntar -C /change --exclude=.git --exclude=.eyeful -cf - . | tar -C /testbed -xf -\n"
-        f"cd /testbed\n{runner.enter}\nexec {runner.command} \"$@\"\n"
+        f"cd /testbed\n{ENTER}\nexec {runner.command} \"$@\"\n"
     )
     (hidden / "run.sh").write_text(
         f'exec docker run --rm --network none --platform {platform} -v "$PWD":/change:ro {image} '
         'bash /change/.eyeful/inside.sh "$@"\n'
     )
-    config = "test_one: sh .eyeful/run.sh {test}\n"
     if suite:
-        config += f"test: sh .eyeful/run.sh {' '.join(shlex.quote(t) for t in suite)}\n"
-    (hidden / "config.yml").write_text(config)
+        (hidden / "suite.sh").write_text(f"exec sh .eyeful/run.sh {' '.join(shlex.quote(t) for t in suite)}\n")
 
 
 def swebench(row: dict[str, str], out: Path, repos: Path, arch: str) -> Subject:
@@ -152,31 +149,6 @@ def swebench(row: dict[str, str], out: Path, repos: Path, arch: str) -> Subject:
     return subject
 
 
-def injected(spec: dict[str, str], out: Path, repos: Path) -> Subject:
-    name: str = spec["id"]
-    home = out / name
-    repo = repos / hashlib.sha256(name.encode()).hexdigest()[:12]
-    if (home / "subject.json").exists():
-        return Subject.load(home / "subject.json")
-    home.mkdir(parents=True, exist_ok=True)
-    repos.mkdir(parents=True, exist_ok=True)
-    sh(["git", "clone", "--quiet", spec["repository"], str(repo)])
-    git(repo, "checkout", "--quiet", "--detach", f"{spec['commit']}^")
-    commands(repo, spec["image"], spec["platform"], Runner(spec["test"], False, "true"), spec["suite"].split())
-    git(repo, "add", "--force", ".eyeful")
-    git(repo, "commit", "--quiet", "--no-verify", "-m", "Add the project commands")
-    base = git(repo, "rev-parse", "HEAD").strip()
-    git(repo, "cherry-pick", "--no-commit", spec["commit"])
-    patch = Path(spec["defect"]).read_text()
-    git(repo, "apply", "--whitespace=nowarn", stdin=patch)
-    message = git(repo, "log", "-1", "--format=%B", spec["commit"])
-    git(repo, "commit", "--quiet", "--no-verify", "--all", "-m", message)
-    head = git(repo, "rev-parse", "HEAD").strip()
-    subject = Subject(name, "injected", spec["kind"], str(repo), base, head, spec["image"], regions(patch, "+"))
-    subject.save(home / "subject.json")
-    return subject
-
-
 def benchmarked(name: str, owner: str, project: str, number: str, out: Path, repos: Path) -> Subject:
     home = out / name
     repo = repos / hashlib.sha256(name.encode()).hexdigest()[:12]
@@ -197,8 +169,8 @@ def benchmarked(name: str, owner: str, project: str, number: str, out: Path, rep
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dataset", choices=["swebench", "injected", "crb"])
-    parser.add_argument("--data", type=Path, required=True, help="SWE-bench Verified rows, the injected set's specs, or one of Code Review Bench's golden comment files, as JSON")
+    parser.add_argument("dataset", choices=["swebench", "crb"])
+    parser.add_argument("--data", type=Path, required=True, help="SWE-bench Verified rows or one of Code Review Bench's golden comment files, as JSON")
     parser.add_argument("--out", type=Path, required=True, help="where each subject's description goes; it names the defect, so keep it away from --repos")
     parser.add_argument("--repos", type=Path, required=True, help="where the repositories the reviewers work in go, under names that say nothing about the subject; not a temporary or cache directory, which the system and cleaners empty")
     parser.add_argument("--ids", default="", help="comma-separated ids; empty builds every row the runners cover")
@@ -207,7 +179,7 @@ def main() -> None:
     wanted = {i for i in args.ids.split(",") if i}
     for row in json.loads(args.data.read_text()):
         pull = PULL.fullmatch(row.get("url", ""))
-        name = row.get("instance_id") or row.get("id") or "{}__{}-{}".format(*pull.groups())
+        name = row.get("instance_id") or "{}__{}-{}".format(*pull.groups())
         if wanted and name not in wanted:
             continue
         if args.dataset == "swebench" and row["repo"] not in RUNNERS:
@@ -215,8 +187,6 @@ def main() -> None:
         try:
             if args.dataset == "swebench":
                 subject = swebench(row, args.out, args.repos, args.arch)
-            elif args.dataset == "injected":
-                subject = injected(row, args.out, args.repos)
             else:
                 subject = benchmarked(name, *pull.groups(), args.out, args.repos)
         except RuntimeError as err:

@@ -1,40 +1,40 @@
 # Configuration reference
 
-There are three kinds of configuration. `.eyeful/config.yml`, in the repository being reviewed, tells a
-review how to build and test the project. The local settings file holds the user's choices for
-`eyeful review`. The server is configured with environment variables and flags.
+eyeful finds how to build and test the project under review itself. The local settings file holds
+the user's choices for `eyeful review`. The server is configured with environment variables and
+flags.
 
-## Project {#project}
+## Project commands {#project}
 
-`.eyeful/config.yml` lives in the repository under review; eyeful keeps its own
-[`.eyeful/config.yml`](../.eyeful/config.yml) for reviewing itself. `eyeful review` reads it, and an
-unknown key is an error. The cloud does not read it yet.
+Rules, with no model, pick the commands from the files at the root of the snapshot. The first row
+that matches is used.
 
-```yaml
-setup: pip install -e ".[test]"
-lint: ruff check .
-test: pytest -x -q --junitxml=report.xml
-test_one: pytest -x -q {test}
-coverage: pytest --cov --cov-report=json
-e2e: npx playwright test
-risk: ['auth/**', 'payments/**', 'migrations/**']
-skip: ['docs/api/**']
-```
+| Files                                                     | `setup`                                                  | `test`, `test_one`                                                                             | `lint`                                            |
+| --------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `go.mod`                                                  | `go mod download`                                        | `go test ./...`, with `-run {test}`                                                            | `golangci-lint run ./...` with a `.golangci` file |
+| `Cargo.toml`                                              | `cargo fetch`                                            | `cargo test`, with `{test}`                                                                    |                                                   |
+| `pyproject.toml`, `setup.py` or `setup.cfg` naming pytest | `uv sync`, `poetry install` or `pip install` by lockfile | `pytest -q`, with `{test}`, through `uv run` or `poetry run` when they install                 | `ruff check .` when ruff is configured            |
+| `package.json`                                            | install with the lockfile's package manager              | `vitest run`, `jest` or `mocha` when a dependency, with `{test}`; else the `test` script alone | the `lint` script                                 |
 
-| Key        | Used by                                                                                                 |
+| Command    | Used by                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------- |
-| `setup`    | Preparation: installs dependencies. In the cloud it is the only step that can reach package registries  |
-| `lint`     | The local CI check, and the readability expert's `lint` tool                                            |
+| `setup`    | Preparation: installs dependencies                                                                      |
+| `lint`     | The local CI check                                                                                      |
 | `test`     | The verifier, for the suite: before the review, to find the tests the change breaks, and after each fix |
 | `test_one` | The verifier, for one reproduction test; `{test}` is replaced by the test's identifier, quoted          |
-| `coverage` | The tests expert's `coverage_diff` tool                                                                 |
-| `e2e`      | The usability expert's `e2e_run` tool                                                                   |
-| `risk`     | The plan: a group that touches these paths is a core group                                              |
-| `skip`     | Triage: these paths go to no expert and are listed as not reviewed                                      |
+
+A project that matches no row, or a Python project that does not name pytest, gets no commands:
+nothing runs and the judge reads every finding, and the review says so before it starts.
+
+`eyeful review --setup`, `--lint`, `--test` and `--test-one` replace what eyeful finds, and
+`--no-detect` runs only the commands given. The evaluation uses them to run SWE-bench's tests in a
+container.
 
 These commands are the only project code a review runs, and the user confirms them before the
-review starts ([Before it starts](REVIEW.md#before-it-starts)). Without `test` and `test_one`,
-findings stay unverified.
+review starts ([Before it starts](REVIEW.md#before-it-starts)).
+
+Files that the repository's `.gitattributes` marks `linguist-generated` or `linguist-vendored` go to
+no expert ([Triage](PLANNER.md#triage)).
 
 ## Local settings {#local}
 

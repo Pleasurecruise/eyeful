@@ -36,7 +36,7 @@
 	"review_failed": "审查失败",
 	"connect_first": "先连接一个智能体再审查。",
 	"confirm_title": "运行项目命令？",
-	"confirm_description": "这些命令来自 .eyeful/config.yml，只在快照的检出中运行，每次运行后重置，结束时删除。命令不变就不会再次询问。",
+	"confirm_description": "这些命令由 eyeful 根据项目的清单文件（如 go.mod、package.json）识别，只在快照的检出中运行，每次运行后重置，结束时删除。命令不变就不会再次询问。",
 	"run": "运行",
 	"findings": "发现",
 	"log": "日志",

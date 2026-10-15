@@ -8,7 +8,7 @@
 
 ## 云端审查怎样运行
 
-1. pull request 事件到达 `POST /webhook`，带有 App 的 webhook secret 签名，每个 head 提交排入一次审查。项目命令取自 base 分支上的 `.eyeful/config.yml`，所以 pull request 改不了在它身上运行什么。
+1. pull request 事件到达 `POST /webhook`，带有 App 的 webhook secret 签名，每个 head 提交排入一次审查。项目命令由 eyeful 从 base 分支上的清单文件找出，所以 pull request 改不了在它身上运行什么。
 2. eyeful 读取 head 提交的 GitHub Actions 运行。有失败的就以诊断结束审查（见[规划与分拣](../PLANNER.md#ci-check)）。
 3. 工作进程克隆仓库并记录快照：base 和 head 提交，以及相对于它们 merge base 的 diff。新的推送是新的快照和新的审查。
 4. 分拣在沙箱里运行，规划器制定计划。

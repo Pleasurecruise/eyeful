@@ -54,7 +54,7 @@
 	"review_failed": "The review failed",
 	"connect_first": "Connect an agent to review.",
 	"confirm_title": "Run the project commands?",
-	"confirm_description": "They come from .eyeful/config.yml and run only in a checkout of the snapshot that is reset after every run and removed at the end. eyeful does not ask again until they change.",
+	"confirm_description": "eyeful found them from the project's manifests, such as go.mod or package.json, and runs them only in a checkout of the snapshot that is reset after every run and removed at the end. eyeful does not ask again until they change.",
 	"run": "Run",
 	"findings": "Findings",
 	"log": "Log",

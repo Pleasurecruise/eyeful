@@ -1,21 +1,18 @@
 package project
 
-import "errors"
+const Placeholder = "{test}"
 
-const (
-	Path        = ".eyeful/config.yml"
-	Placeholder = "{test}"
-)
+var manifests = []string{
+	"go.mod", ".golangci.yml", ".golangci.yaml", ".golangci.toml", "Cargo.toml",
+	"pyproject.toml", "setup.py", "setup.cfg", "tox.ini", "pytest.ini", "conftest.py", "ruff.toml", "requirements.txt", "uv.lock", "poetry.lock",
+	"package.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "package-lock.json",
+}
 
 type Config struct {
-	Setup    string   `yaml:"setup"`
-	Lint     string   `yaml:"lint"`
-	Test     string   `yaml:"test"`
-	TestOne  string   `yaml:"test_one"`
-	Coverage string   `yaml:"coverage"`
-	E2E      string   `yaml:"e2e"`
-	Risk     []string `yaml:"risk"`
-	Skip     []string `yaml:"skip"`
+	Setup   string
+	Lint    string
+	Test    string
+	TestOne string
 }
 
 type Command struct {
@@ -23,4 +20,8 @@ type Command struct {
 	Run  string
 }
 
-var ErrInvalidConfig = errors.New("invalid " + Path)
+type manifest struct {
+	Dependencies    map[string]string `json:"dependencies"`
+	DevDependencies map[string]string `json:"devDependencies"`
+	Scripts         map[string]string `json:"scripts"`
+}

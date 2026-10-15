@@ -76,7 +76,7 @@ func classify(f File, skip []string) Class {
 		return ClassBinary
 	case len(f.Diff) > maxPatch:
 		return ClassOversized
-	case matchAny(skip, f.Path):
+	case slices.Contains(skip, f.Path):
 		return ClassSkipped
 	case matchAny(vendoredGlobs, f.Path):
 		return ClassVendored
@@ -94,7 +94,7 @@ func classify(f File, skip []string) Class {
 }
 
 func triage(c Change, p Project) Triage {
-	t := Triage{Reviewed: []Entry{}, Excluded: []Entry{}, Risk: []string{}}
+	t := Triage{Reviewed: []Entry{}, Excluded: []Entry{}}
 	for _, f := range c.Files {
 		e := Entry{Path: f.Path, Class: classify(f, p.Skip), Added: f.Added, Deleted: f.Deleted}
 		switch e.Class {
@@ -102,9 +102,6 @@ func triage(c Change, p Project) Triage {
 			t.Reviewed = append(t.Reviewed, e)
 		case ClassLock, ClassGenerated, ClassVendored, ClassBinary, ClassSkipped, ClassOversized:
 			t.Excluded = append(t.Excluded, e)
-		}
-		if matchAny(p.Risk, f.Path) {
-			t.Risk = append(t.Risk, f.Path)
 		}
 	}
 	return t
