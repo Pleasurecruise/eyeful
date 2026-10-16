@@ -46,10 +46,11 @@ test below fails on this change and passes with the suggested fix.
 
 ## Line comments
 
-Planned for the cloud. eyeful posts a pull request review with the event `COMMENT`, never
-`REQUEST_CHANGES` or `APPROVE`. Each `issue (blocking)` sits on its line, with a verified fix as a
-GitHub suggested change. A repository that wants a gate can enable a Check Run, off by default,
-which fails while any `issue (blocking)` remains.
+On a pull request, eyeful posts one review with the event `COMMENT`, never `REQUEST_CHANGES` or
+`APPROVE`. A comment that names a file and a line is posted on that line. When the comment has one
+fix for that same file, the fix is included as a suggested change. Comments without a line stay in
+the ranked report. A Check Run that fails while an `issue (blocking)` remains is planned, and off
+by default.
 
 ## The ranked report {#ranked-report}
 
@@ -77,11 +78,12 @@ The report closes with:
 | Markdown       | The terminal                                                  |
 | Findings JSON  | The desktop app, beside the diff                              |
 | SARIF          | Another agent, a script, GitHub code scanning, the evaluation |
-| GitHub review  | Line comments (planned)                                       |
-| GitHub comment | The ranked report (planned)                                   |
+| GitHub review  | Line comments on the pull request                             |
+| GitHub comment | The ranked report                                             |
 | Check Run      | An optional gate (planned)                                    |
 
-Outputs are sinks at the end of the workflow ([Architecture](ARCHITECTURE.md#data-flow)).
+The GitHub posts happen in the worker. The outbox is planned
+([Architecture](ARCHITECTURE.md#data-flow)).
 
 ## In the terminal {#terminal}
 

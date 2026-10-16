@@ -28,7 +28,7 @@ section, and the review steps at the end are how a change is checked before it i
 | Schemas, TS types, components    | `PascalCase`                                         | `Review`, `ReviewTable.svelte`  |
 | TS variables, functions          | `camelCase`                                          | `tokenKey`                      |
 | Error codes, SQL                 | `snake_case`                                         | `method_not_allowed`            |
-| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_DATABASE_URL`           |
+| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_D1_API_TOKEN`           |
 | CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--max-attempts`                |
 | Docs                             | `UPPERCASE.md`                                       | `SCHEDULING.md`                 |
 

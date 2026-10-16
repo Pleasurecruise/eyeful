@@ -49,22 +49,26 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 
 `.env` 不进 git。mise 加载它时使用 `redact`，所以值不会出现在任务输出里。`.env.example` 列出的正好是这些项。
 
-| 密钥                       | 用途                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------ |
-| `EYEFUL_DATABASE_URL`      | PostgreSQL 地址。必需。                                                              |
-| `EYEFUL_TEST_DATABASE_URL` | 允许 `go test` 清空的数据库。不设置时跳过这些测试。                                  |
-| `EYEFUL_TYPESAFE_API_KEY`  | TypeSafe 的 API 密钥，供 [Jev](ARCHITECTURE.md#jev) 使用。可选：没有它时不合并发现。 |
+| 密钥                            | 用途                                                                                                        |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `EYEFUL_TYPESAFE_API_KEY`       | TypeSafe 的 API 密钥，供 [Jev](ARCHITECTURE.md#jev) 使用。可选：没有它时不合并发现。                        |
+| `EYEFUL_WEBHOOK_SECRET`         | GitHub webhook secret，用来核对 `X-Hub-Signature-256`。未设置时拒绝投递。                                   |
+| `EYEFUL_GITHUB_APP_PRIVATE_KEY` | GitHub App 私钥：PEM 文本，或 PEM 文件的路径。缺少它或 App id 时拒绝投递。不是 PEM 的值会让服务端无法启动。 |
 
-TODO(source)：接入 webhook 时，GitHub App 的 ID、私钥和 webhook secret 加进这张表。
+在 Cloudflare 上，webhook secret、App id 和 App 私钥是 Worker 的 secret，四个 `EYEFUL_D1_` 值（`_API`、`_ACCOUNT_ID`、`_DATABASE_ID`、`_API_TOKEN`）由 Worker 自己设置（见[部署](cloud/DEPLOYMENT.md#deploy)）。
 
 ### 变量：`mise.toml` 和命令行参数 {#variables}
 
 不是密钥的配置都在这里。`DOCS_URL` 写在 `mise.toml` 的 `[env]` 中；在服务器上，其余的值来自部署平台的环境变量。
 
-| 变量               | 用途                                                                            |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`      | 监听地址。默认 `:8080`。                                                        |
-| `EYEFUL_LOG_LEVEL` | `debug`、`info`、`warn` 或 `error`。默认 `info`。                               |
-| `DOCS_URL`         | 文档站点的公开地址，用于 sitemap、robots 和 `llms.txt`。在 `mise.toml` 中设置。 |
+| 变量                    | 用途                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `EYEFUL_ADDR`           | 监听地址。默认 `:8080`。                                                        |
+| `EYEFUL_LOG_LEVEL`      | `debug`、`info`、`warn` 或 `error`。默认 `info`。                               |
+| `DOCS_URL`              | 文档站点的公开地址，用于 sitemap、robots 和 `llms.txt`。在 `mise.toml` 中设置。 |
+| `EYEFUL_GITHUB_APP_ID`  | GitHub App id，用来为每次审查签发 installation token。                          |
+| `EYEFUL_GITHUB_API_URL` | GitHub API 根地址。默认 `https://api.github.com`。                              |
+| `EYEFUL_AGENT`          | 云端 harness 运行的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。           |
+| `EYEFUL_DATA_DIR`       | 一次审查的阶段存档目录。留空时用系统临时目录下的一个目录。                      |
 
-只有命令行参数、没有对应环境变量的配置：`--workers`（2）、`--lease-ttl`（`30s`）、`--poll`（`1s`）、`--max-attempts`（3）、`--shutdown-timeout`（`30s`）和 `--no-migrate`。工作进程数、租约时长和轮询间隔必须为正数，否则服务端拒绝启动。TODO(config)：等配置出现嵌套结构（模型档次、沙箱）后，改为 `conf/eyeful.example.toml`。
+只有命令行参数、没有对应环境变量的配置：`--workers`（2）、`--lease-ttl`（`30s`）、`--poll`（`1s`）、`--max-attempts`（3）、和 `--shutdown-timeout`（`30s`）。工作进程数、租约时长和轮询间隔必须为正数，否则服务端拒绝启动。TODO(config)：等配置出现嵌套结构（模型档次、沙箱）后，改为 `conf/eyeful.example.toml`。

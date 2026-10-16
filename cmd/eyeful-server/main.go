@@ -9,8 +9,7 @@ var version = "dev"
 type cli struct {
 	Version kong.VersionFlag `short:"v" help:"Print the version and exit."`
 
-	Serve   serveCmd   `cmd:"" help:"Run the server with its embedded workers."`
-	Migrate migrateCmd `cmd:"" help:"Manage the database schema."`
+	Serve serveCmd `cmd:"" help:"Run the server with its embedded workers."`
 	// TODO(cli): `runner` to claim and execute reviews without serving HTTP.
 }
 

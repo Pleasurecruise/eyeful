@@ -8,27 +8,26 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-只有服务器需要 PostgreSQL；CLI、桌面端和评测都把数据存在文件里。要运行服务器时，用 Homebrew 安装 PostgreSQL 18（`brew install postgresql@18`，然后 `brew services start postgresql@18`），再执行 `createdb eyeful && createdb eyeful_test`。
+`mise run dev:cloud` 在本地运行云端，需要 Docker，并使用本地 D1。CLI、桌面端和评测都把数据存在文件里。
 
 桌面端需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
 
 ## 常用命令 {#commands}
 
-| 命令                                       | 作用                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `mise run dev:server`（别名 `dev`）        | 在 `:8080` 启动云端服务端（会先迁移）                                                       |
-| `mise run build`                           | 构建 `bin/eyeful-server`                                                                    |
-| `mise run install`                         | 把本地命令行 `eyeful` 安装到 `~/.local/bin`，这个目录要在 `PATH` 上；升级 Go 后要重新安装   |
-| `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                     |
-| `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端             |
-| `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                     |
-| `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试；Postgres 相关测试需要设置测试数据库地址 |
-| `mise run format`                          | gofmt 和 `vp fmt`                                                                           |
-| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                             |
-| `mise run generate`                        | 生成 sqlc、pulls.review core 打包文件和桌面端绑定                                           |
-| `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                              |
+| 命令                                       | 作用                                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `mise run dev:cloud`                       | `cf dev`：在 `:5173`（Vite）运行 Worker，服务端跑在本地 Container 里                      |
+| `mise run install`                         | 把本地命令行 `eyeful` 安装到 `~/.local/bin`，这个目录要在 `PATH` 上；升级 Go 后要重新安装 |
+| `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
+| `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
+| `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                   |
+| `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试。存储测试使用本地 SQLite 文件          |
+| `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
+| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
+| `mise run generate`                        | 生成 pulls.review core 打包文件、桌面端绑定和 Worker 类型                                 |
+| `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 
-服务端目前不需要 GitHub App。TODO(source)：接入 webhook 时 App 需要的权限：Pull requests 读写，用于发布评审意见；Contents 和 Metadata 只读；Actions 和 Checks 只读，用于 [CI 校验](PLANNER.md#ci-check)。表结构改动后要重建数据库（`dropdb eyeful && createdb eyeful`）。
+GitHub App 需要 Pull requests 读写，用来发布评审意见；Contents 和 Metadata 只读；Actions 只读，用于 [CI 校验](PLANNER.md#ci-check)。服务端在没有 `EYEFUL_WEBHOOK_SECRET` 和 App 密钥时也能启动；这时投递会被拒绝，什么都不会入队。表结构改动后要重建 D1 数据库（`cf d1 delete <id>`，然后 `cf d1 create eyeful`）。
 
 ## 配置
 
@@ -36,7 +35,7 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 
 ## 代码生成
 
-sqlc（`generate:db`）生成 `internal/db/sqlc`。`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
+`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。`cf workers types`（`generate:worker`）把 Worker 的 `Env` 和运行时类型写到 `packages/worker/.cloudflare/types`，同样不进 git。这些生成结果都不要手动修改。
 桌面图标的源文件是 `apps/desktop/build/appicon.png`；`generate:icons` 会一并生成 dev 和打包构建使用的 macOS `icons.icns`、`Assets.car`，以及 Windows `icon.ico`。
 
 ## 多语言
@@ -45,11 +44,11 @@ sqlc（`generate:db`）生成 `internal/db/sqlc`。`packages/pulls`（`generate:
 
 ## 工具链说明 {#toolchain-notes}
 
-- Vite+ 1.1.0 通过 `vp migrate` 接入。pnpm catalog 把 `vite` 指向 `@voidzero-dev/vite-plus-core`。
+- Vite+ 1.2.0 通过 `vp migrate` 接入。pnpm catalog 把 `vite` 指向 `@voidzero-dev/vite-plus-core`。
 - 类型检查用 TypeScript 7.0.2（`@typescript/native`、`svelte-check --tsgo`）。`typescript` 保持在 6.0.3，因为 `svelte-kit sync` 要用它的 JS API；它不参与 `pnpm update`。
 - VitePress 用的是 2.0.0-alpha.20。1.6.4 在 Vite+ 下会出错，因为它调用了已经移除的 `transformWithEsbuild`，2.x 则适配当前的 Vite。
-- Wails v3.0.0-beta.29 还没有正式版。
-- 项目用到的工具都是 Go 工具，mise 只安装工具链。sqlc 写在根 `go.mod` 的 `tool` 中，用 `go tool` 运行。`wails3` 命令行写在 `apps/desktop/go.mod` 的 `tool` 中，版本始终和 Wails 库一致。`tools:wails` 把它构建到 `.tools/bin`（不进 git），`mise.toml` 只在仓库目录内把这个目录加进 `PATH`，因为 Wails 的 Taskfile 会调用 `wails3`。桌面端的任务会先执行它。
+- Wails v3.0.0-beta.30 还没有正式版。
+- 项目用到的工具都是 Go 工具，mise 只安装工具链。`wails3` 命令行写在 `apps/desktop/go.mod` 的 `tool` 中，版本始终和 Wails 库一致。`tools:wails` 把它构建到 `.tools/bin`（不进 git），`mise.toml` 只在仓库目录内把这个目录加进 `PATH`，因为 Wails 的 Taskfile 会调用 `wails3`。桌面端的任务会先执行它。
 
 ## 重新生成前端
 

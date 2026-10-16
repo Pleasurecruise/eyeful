@@ -6,13 +6,13 @@
 flowchart LR
     v0["v0 基础<br/>已完成"] --> v1["v1.0 本地审查<br/>基本完成"]
     v1 --> v11["v1.1 评估<br/>进行中"]
-    v11 --> v2["v2.0 云端审查<br/>规划中"]
+    v11 --> v2["v2.0 云端审查<br/>进行中"]
     v2 --> later["之后"]
 ```
 
 ## v0：基础（已完成）
 
-- 带租约、fencing 和回收器的 PostgreSQL 队列；提供商路由已写好但未接入（见[调度](cloud/SCHEDULING.md)）。
+- 带租约、fencing 和回收器的 D1 队列；提供商路由已写好但未接入（见[调度](cloud/SCHEDULING.md)）。
 - 桌面窗口，以及运行 `mise run check` 的 CI。
 
 ## v1.0：本地审查（基本完成）
@@ -36,7 +36,7 @@ flowchart LR
 
 ## v1.1：评估（进行中）
 
-测量 v1.0 的实验（见[评估](EVALUATION.md)），从命令行针对公开数据集运行。在它完成之前，桌面应用和云端服务器都不加新功能。
+测量 v1.0 的实验（见[评估](EVALUATION.md)），从命令行针对公开数据集运行。在它完成之前，桌面应用不加新功能。云端审查在 v2.0 进行。
 
 | 部分                                            | 状态                |
 | ----------------------------------------------- | ------------------- |
@@ -48,9 +48,22 @@ flowchart LR
 
 退出标准：主实验已在每个数据集上、以每种配置和该数据集能用的每种条件各运行三次；发现已标注；结果能说明专家组相对单 agent 多了什么、花了多少。
 
-## v2.0：云端审查（规划中）
+## v2.0：云端审查（进行中）
 
-通过自行部署的 GitHub App 在 pull request 上运行工作流（见[云端运行](cloud/CLOUD.md)）：webhook 作为唯一来源、针对 GitHub Actions 的 CI 检查、`internal/checkout` 和 `internal/sandbox`、用 eyeful 掌管的密钥在 pi 里运行 agent（见 [pi 里的 agent](cloud/CLOUD.md#agents-in-pi)）、outbox 和 sink、以 `COMMENT` review 提交的评论、E2E 运行和 `runner` 命令。迁移从修改 `0001_init` 改为每次改动一个文件（见[持久化](cloud/PERSISTENCE.md)）。
+通过自行部署的 GitHub App 在 pull request 上运行工作流（见[云端运行](cloud/CLOUD.md)）。
+
+| 部分                                                       | 状态   |
+| ---------------------------------------------------------- | ------ |
+| webhook，每个 head 提交一次审查                            | 已完成 |
+| 检出 pull request，命令取自 base 提交                      | 已完成 |
+| 针对 GitHub Actions 的 CI 检查                             | 已完成 |
+| 工作进程运行同一套工作流；agent 在 pi 里，密钥由运维方持有 | 已完成 |
+| 行内评论作为一条 `COMMENT` review，排序报告作为一条评论    | 已完成 |
+| 沙箱，让项目命令只在里面运行                               | 待做   |
+| outbox，让 GitHub 已接受的评论只发布一次                   | 待做   |
+| 可选的 Check Run                                           | 待做   |
+| 端到端运行，以及 `runner` 命令                             | 待做   |
+| 首次发布之后，每次改动一个迁移文件                         | 待做   |
 
 退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途被杀掉的工作进程不丢任何东西，也不重复运行任何东西。
 

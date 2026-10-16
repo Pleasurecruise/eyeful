@@ -4,76 +4,79 @@ This page covers what eyeful ships, where each part runs, and what a production 
 Running eyeful from a checkout is in [Development](../DEVELOPMENT.md), every variable is in
 [Configuration](../CONFIGURATION.md#server), and release timing is in the [Roadmap](../ROADMAP.md).
 
-A cloud deployment consists of the `eyeful-server serve` binary, a PostgreSQL 18 database and a TLS
-proxy; a GitHub App joins them with the webhook. To add capacity, run more copies of the binary against the same
-database. The local side is the desktop app and the `eyeful` command, and needs no server. Nothing is published
-until CI passes on it: the documentation site goes to GitHub Pages after each green CI run on `main`
+The cloud runs on Cloudflare: one Worker, `packages/worker`, starts `eyeful-server serve` in a
+Container and gives it a D1 database. A GitHub App sends its webhook to the Worker. The local side
+is the desktop app and the `eyeful` command, and needs no server. Nothing is published until CI
+passes on it: the documentation site goes to GitHub Pages after each green CI run on `main`
 (`docs.yml`), and a `v*` tag runs CI and then GoReleaser (`release.yml`, `.goreleaser.yml`), which
 attaches the `eyeful` CLI for Linux and macOS, as archives, `.deb` and `.rpm`, to a GitHub release.
-No version has been tagged yet.
+No version has been tagged yet. CI (`.github/workflows/ci.yml`) currently runs `mise run check` and
+nothing else.
 
 ## Artifacts
 
-| Artifact            | Built by                                       | Runs on                         |
-| ------------------- | ---------------------------------------------- | ------------------------------- |
-| `bin/eyeful-server` | `mise run build`                               | A server, next to PostgreSQL 18 |
-| Container image     | `Dockerfile` (distroless, port 8080)           | Any container runtime           |
-| Desktop app         | `mise run package:desktop` (Wails)             | macOS, Windows, Linux           |
-| `eyeful`            | `mise run install`, or a `v*` tag (GoReleaser) | The user's machine              |
-| Documentation site  | `mise run build:docs` (VitePress)              | GitHub Pages at `DOCS_URL`      |
+| Artifact                | Built by                                        | Runs on                         |
+| ----------------------- | ----------------------------------------------- | ------------------------------- |
+| Worker and server image | `cf deploy` in `packages/worker` (`Dockerfile`) | Cloudflare Workers + Containers |
+| Desktop app             | `mise run package:desktop` (Wails)              | macOS, Windows, Linux           |
+| `eyeful`                | `mise run install`, or a `v*` tag (GoReleaser)  | The user's machine              |
+| Documentation site      | `mise run build:docs` (VitePress)               | GitHub Pages at `DOCS_URL`      |
 
-The binary embeds the migrations. A cloud deployment is that one file plus a database URL, with no
-separate migration step. CI
-(`.github/workflows/ci.yml`) currently runs `mise run check` and nothing else.
+The image holds `eyeful-server`, git and pi `1.3.0`.
 
 ## Cloud
 
 ```mermaid
 flowchart TB
-    gh["GitHub App<br/>webhook"] -.->|planned, HTTPS| proxy["TLS proxy"]
-    proxy --> servers
-    subgraph servers["eyeful-server serve × N"]
-        s1["eyeful-server serve"]
-        s2["eyeful-server serve"]
-    end
-    servers --> pg[("PostgreSQL 18")]
-    servers -.->|planned| sandbox["Sandbox per review<br/>package registries only"]
-    servers -.->|planned| models["Model providers<br/>through pi"]
+    gh["GitHub App<br/>webhook"] -->|HTTPS| worker["Worker"]
+    worker --> do["Durable Object Server"]
+    do --> server["Container<br/>eyeful-server serve"]
+    server -->|"http://d1.eyeful"| proxy["D1Query<br/>in the Worker"]
+    proxy --> d1[("Cloudflare D1")]
+    server -->|agent runs| models["Model providers<br/>through pi"]
+    server -.->|planned| sandbox["Sandbox per review<br/>package registries only"]
 ```
 
-All `eyeful-server serve` processes are identical, so the proxy can send any request to any of them.
-Dashed edges are planned; until they exist, nothing queues a review
-([Running in the cloud](CLOUD.md)).
+`packages/worker/cloudflare.config.ts` declares everything: the Worker `eyeful`, the D1 database
+`eyeful`, the Container `eyeful-server` (`standard-1`, one instance) and the three required secrets.
+The Worker sends every request to one Durable Object, `Server`, which starts the Container on the
+first request and forwards the request to port 8080. The dashed edge is the sandbox. Until it exists,
+a review does not run the project's commands ([Running in the cloud](CLOUD.md)).
 
-### Processes and scaling
+### D1 from the container
 
-Each process serves the health routes and runs `--workers` workers. Workers take reviews from a
-queue in PostgreSQL, so adding capacity means starting more processes on the same database. The
-processes share the queue without talking to each other ([Scheduling](SCHEDULING.md)).
+The server keeps its REST client. The Worker points `EYEFUL_D1_API` at `http://d1.eyeful/client/v4`
+and intercepts that host with `D1Query`, which runs each query on the D1 binding and answers in the
+REST query API's shape. No Cloudflare API token is needed, and the queries do not count against the
+API rate limit of 1,200 requests per five minutes. The token in `EYEFUL_D1_API_TOKEN` is drawn fresh
+each time the Container starts.
 
-### Database schema
+### Lifetime
 
-`eyeful-server serve` applies pending migrations when it starts, which is enough for a single process. With
-several processes, run `eyeful-server migrate up` once before the rollout and start every process with
-`--no-migrate`, so they do not race to migrate.
+Every Worker secret and variable is passed to the Container as its environment when it starts; a
+changed secret reaches it on the next start. The Container stops ten minutes after the last request.
+While D1 has a review that is queued or running, the Durable Object's alarm checks every minute and
+keeps the Container up, or starts it again. The Container's disk is lost when it stops, so a review
+cut short starts again from the beginning. A rollout sends `SIGTERM`, and the server returns its
+running reviews to the queue ([Lifecycle](SERVER.md#lifecycle)).
 
-### TLS and secrets
+### Deploy
 
-The server speaks plain HTTP and expects a proxy in front of it to terminate TLS. The database URL
-is the only secret today and belongs in the platform's secret store; the App's credentials join it
-with the webhook ([Credentials](CLOUD.md#credentials)).
+Docker must be running, because `cf deploy` builds the image. From `packages/worker`:
 
-### Health checks and stopping
+1. Write a secrets file, JSON or `.env`, outside the repository, with `EYEFUL_WEBHOOK_SECRET`,
+   `EYEFUL_GITHUB_APP_ID`, `EYEFUL_GITHUB_APP_PRIVATE_KEY` (the PEM) and the model key pi uses, for
+   example `DEEPSEEK_API_KEY`.
+2. `pnpm exec cf deploy --secrets-file <file>` builds the image, creates the D1 database on the first
+   deploy, and uploads the Worker and the secrets.
+3. `pnpm exec cf d1 list` prints the database id. Apply the schema with
+   `pnpm exec cf d1 migrations apply <id> --dir ../../internal/db/migrations`.
+4. In the GitHub App, set the webhook URL to `https://eyeful.<subdomain>.workers.dev/webhook` and the
+   secret to `EYEFUL_WEBHOOK_SECRET`. The App needs the permissions in
+   [Development](../DEVELOPMENT.md#commands).
 
-Use `GET /health` as the liveness probe and `GET /ready` as the readiness probe. To stop a process,
-send `SIGTERM`. It stops accepting requests and returns its running reviews to the queue within
-`--shutdown-timeout`, where another process picks them up ([Lifecycle](SERVER.md#lifecycle)).
-
-### Trying it on one machine
-
-`compose.yaml` runs the same setup locally: `docker compose --profile server
-up` builds the image and starts it next to PostgreSQL, and `http://localhost:8080/ready`
-answers once it is up.
+`pnpm exec cf workers secrets update` changes one secret later. `GET /health` answers once the
+Container is up; `GET /ready` answers once D1 answers `SELECT 1`.
 
 ## Local
 

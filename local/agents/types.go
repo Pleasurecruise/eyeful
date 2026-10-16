@@ -35,6 +35,8 @@ type Config struct {
 	History  string
 	Trace    string
 	Set      prompts.Set
+	Home     string
+	Drop     []string
 }
 
 type activity struct {

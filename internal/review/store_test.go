@@ -3,6 +3,8 @@ package review_test
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,8 +27,8 @@ var ctx = context.Background()
 
 func forEachStore(t *testing.T, maxAttempts int32, test func(t *testing.T, s store)) {
 	t.Run("memory", func(t *testing.T) { test(t, reviewtest.NewMemoryStore(maxAttempts)) })
-	t.Run("postgres", func(t *testing.T) {
-		test(t, review.NewPostgresStore(dbtest.Open(t), maxAttempts))
+	t.Run("d1", func(t *testing.T) {
+		test(t, review.New(dbtest.Open(t), maxAttempts))
 	})
 }
 
@@ -49,7 +51,7 @@ func TestIdempotency(t *testing.T) {
 		if _, created, err := s.Create(ctx, pr()); err != nil || !created {
 			t.Fatalf("no key: %v %v", created, err)
 		}
-		req.Note = "different"
+		req.Source.HeadSHA = strings.Repeat("c", 40)
 		if _, _, err := s.Create(ctx, req); !errors.Is(err, review.ErrIdempotencyConflict) {
 			t.Fatalf("conflict: got %v", err)
 		}
@@ -116,6 +118,88 @@ func TestFinish(t *testing.T) {
 		got, _ := s.Get(ctx, r.ID)
 		if got.Status != review.StatusDone || got.Result != review.ResultNone || got.Reason != "clone failed" || got.FinishedAt.IsZero() {
 			t.Fatalf("got %+v", got)
+		}
+	})
+}
+
+func TestRenewBeatsReap(t *testing.T) {
+	forEachStore(t, 3, func(t *testing.T, s store) {
+		if _, _, err := s.Create(ctx, pr()); err != nil {
+			t.Fatal(err)
+		}
+		_, l, err := s.Claim(ctx, "a", time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Renew(ctx, l, time.Minute); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := s.Reap(ctx); err != nil || n != 0 {
+			t.Fatalf("reaped %d (%v), want 0", n, err)
+		}
+		if err := s.Finish(ctx, l, review.Outcome{Result: review.ResultComplete}); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestAdmissionRace(t *testing.T) {
+	forEachStore(t, 3, func(t *testing.T, s store) {
+		req := pr()
+		req.IdempotencyKey = "same"
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		ids := map[string]struct{}{}
+		createdN := 0
+		var errs []error
+		for range 2 {
+			wg.Go(func() {
+				r, created, err := s.Create(ctx, req)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
+				}
+				ids[r.ID] = struct{}{}
+				if created {
+					createdN++
+				}
+			})
+		}
+		wg.Wait()
+		if len(errs) != 0 || len(ids) != 1 || createdN != 1 {
+			t.Fatalf("ids %v created %d errs %v", ids, createdN, errs)
+		}
+	})
+}
+
+func TestClaimRace(t *testing.T) {
+	forEachStore(t, 3, func(t *testing.T, s store) {
+		for range 2 {
+			if _, _, err := s.Create(ctx, pr()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		ids := map[string]int{}
+		var errs []error
+		for range 2 {
+			wg.Go(func() {
+				r, _, err := s.Claim(ctx, "racer", time.Minute)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
+				}
+				ids[r.ID]++
+			})
+		}
+		wg.Wait()
+		if len(errs) != 0 || len(ids) != 2 {
+			t.Fatalf("ids %v errs %v", ids, errs)
 		}
 	})
 }

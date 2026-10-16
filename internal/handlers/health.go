@@ -19,7 +19,6 @@ type HealthResponse struct {
 	Version string `json:"version"`
 }
 
-// TODO(source): POST /webhook, verifying X-Hub-Signature-256 and queuing one review per pull request head.
 func (h HealthRoutes) Register(g *echo.Group) {
 	g.GET("/health", h.get)
 	g.GET("/ready", h.ready)

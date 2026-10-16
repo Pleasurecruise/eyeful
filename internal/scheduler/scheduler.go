@@ -17,8 +17,6 @@ type WorkerPool struct {
 	log  *slog.Logger
 }
 
-func (f ExecutorFunc) Execute(ctx context.Context, r review.Review) error { return f(ctx, r) }
-
 func NewWorkerPool(log *slog.Logger, q Queue, exec Executor, opts Options) *WorkerPool {
 	return &WorkerPool{q: q, exec: exec, opts: opts, log: log.With(slog.String("component", "scheduler"))}
 }

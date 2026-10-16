@@ -1,6 +1,6 @@
 # 架构
 
-eyeful 是一套审查工作流，加上在用户机器上运行它的两个程序：`eyeful` 命令和桌面应用。它们都不需要服务器。[云端服务器](cloud/SERVER.md)是另一个程序：`cmd/eyeful-server`，它的包在 `internal/`。它只共用 `workflow` 模块，不和本地交换任何数据。
+eyeful 是一套审查工作流，加上在用户机器上运行它的两个程序：`eyeful` 命令和桌面应用。它们都不需要服务器。[云端服务器](cloud/SERVER.md)是另一个程序：`cmd/eyeful-server`，它的包在 `internal/`。它共用 `workflow` 模块和 `local`，不和本地交换任何数据。`local/app` 留在 CLI 和桌面端。
 
 ## 组件
 
@@ -20,12 +20,12 @@ flowchart TB
 
 `workflow` 让一次审查走完各个[阶段](REVIEW.md#stages)。它自己不运行 agent、命令或存储：调用方在 `Session` 里传入四个接口。
 
-| 接口         | 提供                                             | 云端（规划中）  | 本地             |
-| ------------ | ------------------------------------------------ | --------------- | ---------------- |
-| `Agents`     | 每个角色一次调用，返回带类型的结果和花费的 token | pi 进程         | `local/agents`   |
-| `Classifier` | 两条发现是同一个问题的概率，以及花费的 token     | TypeSafe 的 API | `local/classify` |
-| `Workspace`  | CI 检查、`setup`、读文件、在全新副本上运行测试   | 该审查的沙箱    | `local/worktree` |
-| `Archive`    | 读取和保存每个阶段的输出                         | 运行存档        | `local/archive`  |
+| 接口         | 提供                                             | 云端                                                  | 本地             |
+| ------------ | ------------------------------------------------ | ----------------------------------------------------- | ---------------- |
+| `Agents`     | 每个角色一次调用，返回带类型的结果和花费的 token | `EYEFUL_AGENT` 指定的 `pi`、`claude` 或 `codex` 进程  | `local/agents`   |
+| `Classifier` | 两条发现是同一个问题的概率，以及花费的 token     | 设置了 `EYEFUL_TYPESAFE_API_KEY` 时用 TypeSafe 的 API | `local/classify` |
+| `Workspace`  | CI 检查、`setup`、读文件、在全新副本上运行测试   | CI 检查读 GitHub Actions。`setup` 和测试等沙箱        | `local/worktree` |
+| `Archive`    | 读取和保存每个阶段的输出                         | `EYEFUL_DATA_DIR` 下这次审查的目录                    | `local/archive`  |
 
 所有循环都由 Go 掌管：`workflow` 检查每份计划和报告、管理预算、决定重试，并在下一阶段开始前保存当前阶段。它不包含 fx、数据库或服务器的类型。
 
@@ -57,7 +57,7 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `workflow`     | 编排及其接口                     | 无                  |
 | `local`        | CLI 和桌面端共用的部分           | `workflow`          |
 | 根模块         | `cmd/eyeful`，本地 CLI           | `workflow`、`local` |
-|                | `cmd/eyeful-server`、`internal/` | `workflow`          |
+|                | `cmd/eyeful-server`、`internal/` | `workflow`、`local` |
 | `apps/desktop` | 桌面应用，Wails 和 cgo 留在这里  | `workflow`、`local` |
 
 ### 目录
@@ -69,6 +69,7 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `apps/desktop/frontend`          | 桌面端的 SvelteKit 前端及其 Wails 绑定                      |
 | `packages/ui`                    | 桌面端的组件：diff 视图、文件树、主题                       |
 | `packages/pulls`                 | 从 `@pulls.review/core` 构建 `workflow/pulls/core.js`       |
+| `packages/worker`                | 在 Container 里运行 `eyeful-server` 的 Cloudflare Worker    |
 | `workflow`                       | 审查编排：分拣、计划检查、专家、验证器、汇总、预算、检查点  |
 | `workflow/prompts`               | 专家和角色的提示词、工具定义、vendored 的 skill             |
 | `workflow/pulls`                 | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行     |
@@ -102,4 +103,4 @@ flowchart LR
     outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
-现在由 API 接收审查。其他来源、outbox 和 sink 都在规划中。
+webhook 接收审查，工作进程发布一条 `COMMENT` review 和排序报告。outbox 还在规划中。

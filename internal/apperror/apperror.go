@@ -9,6 +9,8 @@ type Code string
 
 const (
 	CodeBadRequest       Code = "bad_request"
+	CodeUnauthorized     Code = "unauthorized"
+	CodeConflict         Code = "conflict"
 	CodeNotFound         Code = "not_found"
 	CodeMethodNotAllowed Code = "method_not_allowed"
 	CodeInternal         Code = "internal"

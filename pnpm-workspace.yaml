@@ -8,16 +8,17 @@ allowBuilds:
   '@google/genai': false
   esbuild: false
   protobufjs: false
+  workerd: true
 engineStrict: true
 
 update:
   ignoreDeps:
     - typescript
 catalog:
-  '@inlang/paraglide-js': 2.27.0
+  '@inlang/paraglide-js': 2.29.0
   svelte: 5.57.2
-  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
-  vite-plus: 1.1.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.2.0
+  vite-plus: 1.2.0
 overrides:
   vite@*: 'catalog:'
 peerDependencyRules:
@@ -25,3 +26,11 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: '*'
+minimumReleaseAgeExclude:
+  - miniflare@5.20261012.1-beta
+  - wrangler@4.151.1
+  - '@cloudflare/build-output-utils@0.9.3'
+  - '@cloudflare/config@0.27.0'
+  - '@cloudflare/runtime-types@0.1.12'
+  - cf@1.0.0-beta.18
+  - '@cloudflare/vite-plugin@2.0.0-beta.v.1'

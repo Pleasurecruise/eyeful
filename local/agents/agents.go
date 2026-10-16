@@ -89,6 +89,26 @@ func decode[T reply](text string) (T, error) {
 	return v, nil
 }
 
+func environment(p Provider, home string, drop []string) []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		switch {
+		case slices.ContainsFunc(p.strip, func(prefix string) bool { return name == prefix }):
+			continue
+		case slices.Contains(drop, name):
+			continue
+		case home != "" && (name == "HOME" || name == "XDG_CONFIG_HOME" || name == "XDG_DATA_HOME" || strings.HasPrefix(name, "EYEFUL_")):
+			continue
+		}
+		env = append(env, kv)
+	}
+	if home != "" {
+		env = append(env, "HOME="+home, "XDG_CONFIG_HOME="+filepath.Join(home, ".config"), "XDG_DATA_HOME="+filepath.Join(home, ".local", "share"))
+	}
+	return env
+}
+
 func ask[T reply](ctx context.Context, a *Agents, role workflow.Role, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
 	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt, nil)
 }
@@ -106,9 +126,7 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 	}
 	p := a.cfg.Provider
 	prompt += fmt.Sprintf(replyNotice, submit, data)
-	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
-		return slices.ContainsFunc(p.strip, func(name string) bool { return strings.HasPrefix(kv, name+"=") })
-	})
+	env := environment(p, a.cfg.Home, a.cfg.Drop)
 	var usage workflow.Usage
 	var bad error
 	for attempt := range 2 {

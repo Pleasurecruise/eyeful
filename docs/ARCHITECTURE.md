@@ -3,7 +3,7 @@
 eyeful is a review workflow and the two programs that run it on a user's machine: the `eyeful`
 command and the desktop app. Neither needs a server. The [cloud server](cloud/SERVER.md) is another
 program, `cmd/eyeful-server` with its packages in `internal/`. It shares the `workflow` module and
-exchanges no data with the local side.
+`local`, and exchanges no data with the local side. `local/app` stays with the CLI and the desktop.
 
 ## Components
 
@@ -26,12 +26,12 @@ checks out the snapshot with `local/worktree` and runs `workflow` through `local
 `workflow` runs one review through the [stages](REVIEW.md#stages). It runs no agent, command or
 storage itself: the caller passes four interfaces in a `Session`.
 
-| Interface    | Provides                                                                | Cloud (planned)      | Local            |
-| ------------ | ----------------------------------------------------------------------- | -------------------- | ---------------- |
-| `Agents`     | One call per role, returning a typed result and the tokens spent        | pi processes         | `local/agents`   |
-| `Classifier` | The probability that two findings are one problem, and the tokens spent | TypeSafe's API       | `local/classify` |
-| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | The review's sandbox | `local/worktree` |
-| `Archive`    | Loading and saving each stage's output                                  | The run archive      | `local/archive`  |
+| Interface    | Provides                                                                | Cloud                                                                 | Local            |
+| ------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------- |
+| `Agents`     | One call per role, returning a typed result and the tokens spent        | A `pi`, `claude` or `codex` process, named by `EYEFUL_AGENT`          | `local/agents`   |
+| `Classifier` | The probability that two findings are one problem, and the tokens spent | TypeSafe's API when `EYEFUL_TYPESAFE_API_KEY` is set                  | `local/classify` |
+| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | GitHub Actions for the CI check. Setup and tests wait for the sandbox | `local/worktree` |
+| `Archive`    | Loading and saving each stage's output                                  | The review directory under `EYEFUL_DATA_DIR`                          | `local/archive`  |
 
 Go owns every loop: `workflow` checks each plan and report, keeps the budget, decides retries, and
 saves each stage before the next starts. It has no fx, database or server types.
@@ -68,7 +68,7 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `workflow`     | Orchestration and its interfaces         | nothing here        |
 | `local`        | What the CLI and the desktop share       | `workflow`          |
 | root           | `cmd/eyeful`, the local CLI              | `workflow`, `local` |
-|                | `cmd/eyeful-server`, `internal/`         | `workflow`          |
+|                | `cmd/eyeful-server`, `internal/`         | `workflow`, `local` |
 | `apps/desktop` | The desktop app; Wails and cgo stay here | `workflow`, `local` |
 
 ### Directories
@@ -80,6 +80,7 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `apps/desktop/frontend`          | The desktop's SvelteKit frontend and its Wails bindings                                   |
 | `packages/ui`                    | The desktop's components: diff view, file tree, theme                                     |
 | `packages/pulls`                 | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                 |
+| `packages/worker`                | The Cloudflare Worker that runs `eyeful-server` in a Container                            |
 | `workflow`                       | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints |
 | `workflow/prompts`               | Expert and role prompts, tool definitions, vendored skills                                |
 | `workflow/pulls`                 | `@pulls.review/core` as `core.js`, run with moejs                                         |
@@ -114,4 +115,5 @@ flowchart LR
     outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
-Today the API admits reviews. Other sources, the outbox and the sinks are planned.
+The webhook admits a review, and the worker posts a `COMMENT` review and the ranked report. The
+outbox is planned.

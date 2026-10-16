@@ -8,13 +8,13 @@ regressed.
 flowchart LR
     v0["v0 Foundation<br/>done"] --> v1["v1.0 Local review<br/>mostly built"]
     v1 --> v11["v1.1 Evaluation<br/>in progress"]
-    v11 --> v2["v2.0 Cloud review<br/>planned"]
+    v11 --> v2["v2.0 Cloud review<br/>in progress"]
     v2 --> later["Later"]
 ```
 
 ## v0: Foundation (done)
 
-- The PostgreSQL queue with leases, fencing and a reaper; provider routing, built but not wired in
+- The D1 queue with leases, fencing and a reaper; provider routing, built but not wired in
   ([Scheduling](cloud/SCHEDULING.md)).
 - The desktop window, and CI running `mise run check`.
 
@@ -44,7 +44,8 @@ Exit criteria:
 ## v1.1: Evaluation (in progress)
 
 The experiment that measures v1.0 ([Evaluation](EVALUATION.md)), run from the command line against
-public datasets. Until it is done, the desktop app and the cloud server get no new features.
+public datasets. The desktop app gets no new features until this is done. Cloud review is under way
+in v2.0.
 
 | Part                                                                         | State         |
 | ---------------------------------------------------------------------------- | ------------- |
@@ -58,13 +59,23 @@ Exit criteria: the main experiment has run on every dataset, in every configurat
 condition the dataset allows, three times each; the findings are labelled; and the results
 show what the panel adds over the single agent and what it costs.
 
-## v2.0: Cloud review (planned)
+## v2.0: Cloud review (in progress)
 
-The workflow on pull requests through a self-hosted GitHub App ([Running in the cloud](cloud/CLOUD.md)):
-the webhook as the only source, the CI check against GitHub Actions, `internal/checkout` and
-`internal/sandbox`, agents in pi with keys eyeful controls ([Agents in pi](cloud/CLOUD.md#agents-in-pi)),
-the outbox and sinks, comments posted as a `COMMENT` review, E2E runs and a `runner` command.
-Migrations move from editing `0001_init` to one file per change ([Persistence](cloud/PERSISTENCE.md)).
+The workflow on pull requests through a self-hosted GitHub App
+([Running in the cloud](cloud/CLOUD.md)).
+
+| Part                                                                         | State |
+| ---------------------------------------------------------------------------- | ----- |
+| The webhook, one review per head commit                                      | Built |
+| Checkout of the pull request, with commands taken from the base commit       | Built |
+| The CI check against GitHub Actions                                          | Built |
+| The worker runs the same workflow; agents in pi with keys the operator holds | Built |
+| A `COMMENT` review for line comments, and the ranked report as one comment   | Built |
+| The sandbox, so the project's commands run only there                        | To do |
+| The outbox, so a comment GitHub has accepted is posted once                  | To do |
+| An optional Check Run                                                        | To do |
+| An end-to-end run, and the `runner` command                                  | To do |
+| Migrations as one file per change, after the first release                   | To do |
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
 its sandbox, and a worker killed mid-review loses nothing and runs nothing twice.

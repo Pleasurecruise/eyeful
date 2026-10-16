@@ -14,16 +14,10 @@ DOCS_URL = "https://github.yiming1234.cn/eyeful/"
 description = "Install Go and pnpm dependencies"
 run = ["go mod download", "pnpm install"]
 
-[tasks."dev:server"]
-description = "Run the cloud server on :8080 (migrates first)"
-alias = "dev"
-run = "go run ./cmd/eyeful-server serve"
-
-[tasks."generate:db"]
-description = "Regenerate internal/db/sqlc from internal/db/queries"
-hide = true
-dir = "internal/db"
-run = "go tool github.com/sqlc-dev/sqlc/cmd/sqlc generate"
+[tasks."dev:cloud"]
+description = "Run the Worker and the server Container locally with cf dev (needs Docker)"
+dir = "packages/worker"
+run = "pnpm exec cf dev"
 
 [tasks."generate:pulls"]
 description = "Rebuild workflow/pulls/core.js from @pulls.review/core"
@@ -44,9 +38,15 @@ depends = ["tools:wails"]
 dir = "apps/desktop"
 run = "wails3 generate bindings -clean=true -ts"
 
+[tasks."generate:worker"]
+description = "Regenerate the Worker's types into packages/worker/.cloudflare/types"
+hide = true
+dir = "packages/worker"
+run = "pnpm exec cf workers types"
+
 [tasks.generate]
-description = "Regenerate sqlc code, the pulls.review core bundle and the desktop bindings"
-depends = ["generate:db", "generate:pulls", "generate:bindings"]
+description = "Regenerate the pulls.review core bundle, the desktop bindings and the Worker types"
+depends = ["generate:pulls", "generate:bindings", "generate:worker"]
 
 [tasks.skills]
 description = "Reinstall the review skills in workflow/prompts/skills from skills-lock.json (skills.sh)"
@@ -68,10 +68,6 @@ run = "pnpm --filter @eyeful/docs dev"
 description = "Build the documentation site into docs/.vitepress/dist"
 run = "pnpm --filter @eyeful/docs build"
 
-[tasks.build]
-description = "Build bin/eyeful-server"
-run = "go build -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o bin/eyeful-server ./cmd/eyeful-server"
-
 [tasks.install]
 description = "Install the local eyeful CLI into ~/.local/bin"
 run = "GOBIN=$HOME/.local/bin go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
@@ -89,7 +85,7 @@ dir = "apps/desktop"
 run = "wails3 package"
 
 [tasks.test]
-description = "Run Go tests with the race detector, and the evaluation scripts' tests; PostgreSQL tests skip without EYEFUL_TEST_DATABASE_URL"
+description = "Run Go tests with the race detector, and the evaluation scripts' tests"
 run = [
 	"go test -race -p 1 ./...",
 	"cd {{config_root}}/workflow && go test -race ./...",
@@ -100,7 +96,7 @@ run = [
 
 [tasks.lint]
 description = "Check formatting and lint Go and TypeScript"
-depends = ["generate:bindings"]
+depends = ["generate:bindings", "generate:worker"]
 run = [
 	"test -z \"$(gofmt -l cmd internal workflow local apps/desktop)\" || (gofmt -l cmd internal workflow local apps/desktop && exit 1)",
 	"golangci-lint run ./...",
@@ -119,4 +115,4 @@ run = ["gofmt -w cmd internal workflow local apps/desktop", "pnpm exec vp fmt"]
 [tasks.check]
 description = "Lint, test, and fail if generated files are stale"
 depends = ["lint", "test", "generate"]
-run = "git diff --exit-code -- internal/db/sqlc workflow/pulls/core.js"
+run = "git diff --exit-code -- workflow/pulls/core.js"

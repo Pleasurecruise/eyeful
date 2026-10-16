@@ -65,26 +65,31 @@ own configuration file. When a required value is missing, the tool fails instead
 `.env` is ignored by git. mise loads it with `redact`, so the values do not appear in task output.
 `.env.example` lists exactly these.
 
-| Secret                     | Purpose                                                                                         |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `EYEFUL_DATABASE_URL`      | PostgreSQL URL. Required.                                                                       |
-| `EYEFUL_TEST_DATABASE_URL` | A database that `go test` may wipe. If unset, those tests are skipped.                          |
-| `EYEFUL_TYPESAFE_API_KEY`  | TypeSafe API key, for [Jev](ARCHITECTURE.md#jev). Optional: without it findings are not merged. |
+| Secret                          | Purpose                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `EYEFUL_TYPESAFE_API_KEY`       | TypeSafe API key, for [Jev](ARCHITECTURE.md#jev). Optional: without it findings are not merged.                                                                    |
+| `EYEFUL_WEBHOOK_SECRET`         | GitHub webhook secret, checked against `X-Hub-Signature-256`. A delivery is refused until it is set.                                                               |
+| `EYEFUL_GITHUB_APP_PRIVATE_KEY` | GitHub App private key: a PEM, or a path to a PEM file. Without it or the App id, a delivery is refused. A value that is not a PEM stops the server from starting. |
 
-TODO(source): the GitHub App's ID, private key and webhook secret join this table with the webhook.
+On Cloudflare the webhook secret, the App id and the App key are Worker secrets, and the Worker
+sets the four `EYEFUL_D1_` values (`_API`, `_ACCOUNT_ID`, `_DATABASE_ID`, `_API_TOKEN`) itself ([Deploy](cloud/DEPLOYMENT.md#deploy)).
 
 ### Variables: `mise.toml` and flags {#variables}
 
 Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mise.toml`; on a
 server the rest come from the platform's environment.
 
-| Variable           | Purpose                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`      | Listen address. Default `:8080`.                                                              |
-| `EYEFUL_LOG_LEVEL` | `debug`, `info`, `warn` or `error`. Default `info`.                                           |
-| `DOCS_URL`         | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`. |
+| Variable                | Purpose                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `EYEFUL_ADDR`           | Listen address. Default `:8080`.                                                                |
+| `EYEFUL_LOG_LEVEL`      | `debug`, `info`, `warn` or `error`. Default `info`.                                             |
+| `DOCS_URL`              | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.   |
+| `EYEFUL_GITHUB_APP_ID`  | GitHub App id, used to mint an installation token per review.                                   |
+| `EYEFUL_GITHUB_API_URL` | GitHub API root. Default `https://api.github.com`.                                              |
+| `EYEFUL_AGENT`          | Agent CLI the cloud harness runs: `pi`, `claude` or `codex`. Default `pi`.                      |
+| `EYEFUL_DATA_DIR`       | Directory for a review's stage archive. Empty uses a directory under the system temp directory. |
 
 Some settings are flags only: `--workers` (2), `--lease-ttl` (`30s`), `--poll` (`1s`), `--max-attempts`
-(3), `--shutdown-timeout` (`30s`) and `--no-migrate`. The server refuses to start unless the
+(3) and `--shutdown-timeout` (`30s`). The server refuses to start unless the
 workers, the lease TTL and the poll interval are positive. TODO(config): move to a
 `conf/eyeful.example.toml` once configuration becomes nested (dispatch tiers, sandboxes).

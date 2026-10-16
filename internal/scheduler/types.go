@@ -20,8 +20,6 @@ type Executor interface {
 	Execute(ctx context.Context, r review.Review) error
 }
 
-type ExecutorFunc func(ctx context.Context, r review.Review) error
-
 type Options struct {
 	Owner    string
 	Workers  int

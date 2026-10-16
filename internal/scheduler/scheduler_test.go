@@ -52,6 +52,10 @@ func waitFor(t *testing.T, s *reviewtest.MemoryStore, ids []string) map[string]r
 	return nil
 }
 
+type ExecutorFunc func(ctx context.Context, r review.Review) error
+
+func (f ExecutorFunc) Execute(ctx context.Context, r review.Review) error { return f(ctx, r) }
+
 func TestRun(t *testing.T) {
 	s := reviewtest.NewMemoryStore(3)
 	ids := create(t, s, 5)

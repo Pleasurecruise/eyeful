@@ -16,9 +16,10 @@ flowchart LR
 
 - **Works:** local reviews. `eyeful review`, `provider`, `connect`, `commit` and the desktop app run
   the whole workflow with your own coding agent ([Running locally](LOCAL.md)).
-- **In progress:** the evaluation. Its tooling is built; the experiment has not run
-  ([Evaluation](EVALUATION.md)).
-- **Planned:** cloud reviews, the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
+- **In progress:** the evaluation, whose tooling is built and whose experiment has not run
+  ([Evaluation](EVALUATION.md)). Cloud reviews queue from a GitHub webhook and run the workflow; the
+  sandbox is not built ([Running in the cloud](cloud/CLOUD.md)).
+- **Planned:** the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
 
 ## Limits {#limits}
 
@@ -62,7 +63,7 @@ How the code is built:
 | [Local development](DEVELOPMENT.md)    | Setup, commands, code generation          |
 | [Code style and review](STYLEGUIDE.md) | Coding rules and how changes are reviewed |
 
-The cloud server, which is separate and whose reviews are planned:
+The cloud server, which is separate. A review can be queued; the sandbox is not built:
 
 | Document                                        | Covers                                   |
 | ----------------------------------------------- | ---------------------------------------- |

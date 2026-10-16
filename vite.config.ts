@@ -11,6 +11,7 @@ const ignorePatterns = [
 	'apps/desktop/frontend/bindings/**',
 	'apps/desktop/build/**',
 	'apps/desktop/bin/**',
+	'packages/worker/.cloudflare/**',
 	'workflow/prompts/skills/**',
 	'workflow/prompts/skills-lock.json',
 	'workflow/pulls/core.js'

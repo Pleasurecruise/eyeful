@@ -34,4 +34,4 @@ features:
     link: /zh/LOCAL#local-risks
 ---
 
-本地审查已经可用，针对 pull request 的云端审查在计划中。建议先读 [eyeful 是什么](/zh/overview)，或看[版本路线图](/zh/ROADMAP)。
+本地审查已经可用。云端审查可以从 GitHub webhook 入队；沙箱还没有实现。建议先读 [eyeful 是什么](/zh/overview)，或看[版本路线图](/zh/ROADMAP)。

@@ -25,7 +25,7 @@
 | Schema、TS 类型、组件         | `PascalCase`                          | `Review`、`ReviewTable.svelte`  |
 | TS 变量、函数                 | `camelCase`                           | `tokenKey`                      |
 | 错误码、SQL                   | `snake_case`                          | `method_not_allowed`            |
-| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_DATABASE_URL`           |
+| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_D1_API_TOKEN`           |
 | CLI 参数、mise 任务、npm 包名 | `kebab-case`（任务变体用 `:`）        | `--max-attempts`                |
 | 文档                          | `UPPERCASE.md`                        | `SCHEDULING.md`                 |
 

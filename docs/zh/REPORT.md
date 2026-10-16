@@ -40,7 +40,7 @@ test below fails on this change and passes with the suggested fix.
 
 ## 行内评论
 
-这是云端的规划。eyeful 以事件 `COMMENT` 提交 pull request review，从不使用 `REQUEST_CHANGES` 或 `APPROVE`。每条 `issue (blocking)` 放在它所在的行上，验证过的修复作为 GitHub suggested change 附上。想要硬性关卡的仓库可以启用 Check Run（默认关闭），只要还有 `issue (blocking)` 它就失败。
+在 pull request 上，eyeful 以事件 `COMMENT` 提交一条 review，从不使用 `REQUEST_CHANGES` 或 `APPROVE`。写明了文件和行的评论发在那一行上。评论里只有一处针对同一文件的修复时，这处修复作为 suggested change 附上。没有行号的评论留在排序报告里。只要还有 `issue (blocking)` 就失败的 Check Run 还在规划中，默认关闭。
 
 ## 排序报告 {#ranked-report}
 
@@ -65,11 +65,11 @@ test below fails on this change and passes with the suggested fix.
 | Markdown       | 终端                                         |
 | Findings JSON  | 桌面应用，显示在 diff 旁边                   |
 | SARIF          | 其他 agent、脚本、GitHub code scanning、评估 |
-| GitHub review  | 行内评论（规划中）                           |
-| GitHub comment | 排序报告（规划中）                           |
+| GitHub review  | pull request 上的行内评论                    |
+| GitHub comment | 排序报告                                     |
 | Check Run      | 可选的关卡（规划中）                         |
 
-输出是接在工作流末尾的 sink（见[架构](ARCHITECTURE.md#data-flow)）。
+发到 GitHub 的内容由工作进程提交。outbox 还在规划中（见[架构](ARCHITECTURE.md#data-flow)）。
 
 ## 终端里的输出 {#terminal}
 

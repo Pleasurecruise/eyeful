@@ -21,9 +21,14 @@ const (
 )
 
 type Source struct {
-	Repo string `json:"repo"`
-	Base string `json:"base"`
-	Head string `json:"head"`
+	Repo           string `json:"repo"`
+	Base           string `json:"base"`
+	Head           string `json:"head"`
+	Number         int64  `json:"number,omitempty"`
+	BaseSHA        string `json:"base_sha,omitempty"`
+	HeadSHA        string `json:"head_sha,omitempty"`
+	CloneURL       string `json:"clone_url,omitempty"`
+	InstallationID int64  `json:"installation_id,omitempty"`
 }
 
 var (
@@ -36,14 +41,12 @@ var (
 
 type Request struct {
 	Source         Source
-	Note           string
 	IdempotencyKey string
 }
 
 type Review struct {
 	ID         string
 	Source     Source
-	Note       string
 	Status     Status
 	Result     Result
 	Reason     string

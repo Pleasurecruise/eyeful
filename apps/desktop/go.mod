@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	github.com/Pleasurecruise/eyeful/local v0.0.0
 	github.com/Pleasurecruise/eyeful/workflow v0.0.0
-	github.com/wailsapp/wails/v3 v3.0.0-beta.29
+	github.com/wailsapp/wails/v3 v3.0.0-beta.30
 )
 
 require (

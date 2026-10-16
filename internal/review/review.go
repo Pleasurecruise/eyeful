@@ -41,7 +41,7 @@ func (s Source) Validate() error {
 	if s.Base == "" || s.Head == "" {
 		return fmt.Errorf("%w: base and head branches are required", ErrInvalidSource)
 	}
-	if s.Base == s.Head {
+	if s.Base == s.Head && s.BaseSHA == s.HeadSHA {
 		return fmt.Errorf("%w: base and head are both %q", ErrInvalidSource, s.Base)
 	}
 	return nil

@@ -98,6 +98,14 @@ linters:
       - path: local/(agents/agents|worktree/workspace)\.go
         linters: [gosec]
         text: G204
+      # checkout runs git with a fixed argv, and its askpass script is owner-executable. The clone URL and the refs were checked first.
+      - path: internal/checkout/checkout\.go
+        linters: [gosec]
+        text: G204|G302|G306
+      # The private key path is the operator's configuration.
+      - path: internal/github/key\.go
+        linters: [gosec]
+        text: G304
       # The desktop asks the user's own login shell for PATH and logs where it looked.
       - path: apps/desktop/main\.go
         linters: [gosec]
@@ -111,8 +119,6 @@ linters:
         linters: [nilerr]
       - path: _test\.go
         linters: [gosec, wrapcheck, gocyclo]
-      - path: internal/db/sqlc/
-        linters: [forbidigo]
 
 formatters:
   enable:

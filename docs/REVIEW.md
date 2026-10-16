@@ -2,8 +2,9 @@
 
 A review goes through four stages, implemented in the `workflow` module
 ([Architecture](ARCHITECTURE.md#workflow)). A local review runs all of them
-([Running locally](LOCAL.md)). A cloud review cannot start yet: the webhook, the cloud's agents and
-the sandbox are not built ([Running in the cloud](cloud/CLOUD.md)).
+([Running locally](LOCAL.md)). A cloud review runs the same stages on a queued pull request. Until
+the sandbox is built, setup and the project's commands do not run, and findings stay unverified
+([Running in the cloud](cloud/CLOUD.md)).
 
 ```mermaid
 flowchart TB

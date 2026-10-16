@@ -1,4 +1,4 @@
-FROM golang:1.27 AS build
+FROM golang:1.27-bookworm AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY workflow/go.mod workflow/go.sum workflow/
@@ -8,10 +8,13 @@ COPY cmd cmd
 COPY internal internal
 COPY workflow workflow
 COPY local local
-ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /eyeful-server ./cmd/eyeful-server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /eyeful-server ./cmd/eyeful-server
 
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /eyeful-server /eyeful-server
+FROM node:24-bookworm-slim
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends git ca-certificates \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& npm install --global @earendil-works/pi-coding-agent@1.3.0
+COPY --from=build /eyeful-server /usr/local/bin/eyeful-server
 EXPOSE 8080
-ENTRYPOINT ["/eyeful-server", "serve"]
+ENTRYPOINT ["eyeful-server", "serve"]

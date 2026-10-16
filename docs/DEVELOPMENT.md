@@ -8,9 +8,8 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-Only the server needs PostgreSQL; the CLI, the desktop app and the evaluation keep everything in
-files. To run the server, install PostgreSQL 18 from Homebrew (`brew install postgresql@18`, then
-`brew services start postgresql@18`) and run `createdb eyeful && createdb eyeful_test`.
+`mise run dev:cloud` runs the cloud locally; it needs Docker and uses a local D1. The CLI, the
+desktop app and the evaluation keep everything in files.
 
 The desktop app needs the platform's webview: it is built into
 macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-4-dev` and `libwebkitgtk-6.0-dev` on Ubuntu 24.04).
@@ -19,22 +18,21 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 
 | Command                                    | Does                                                                                          |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `mise run dev:server` (alias `dev`)        | The cloud server on `:8080` (migrates first)                                                  |
-| `mise run build`                           | `bin/eyeful-server`                                                                           |
+| `mise run dev:cloud`                       | `cf dev`: the Worker on `:5173` (Vite) and the server in a local Container                    |
 | `mise run install`                         | The local CLI `eyeful` into `~/.local/bin`, which must be on `PATH`; rerun after a Go upgrade |
 | `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`              |
 | `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                    |
 | `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                   |
-| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests; Postgres tests need the test URL      |
+| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests. Store tests use a local SQLite file   |
 | `mise run format`                          | gofmt and `vp fmt`                                                                            |
 | `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                          |
-| `mise run generate`                        | sqlc, the pulls.review core bundle, the desktop bindings                                      |
+| `mise run generate`                        | The pulls.review core bundle, the desktop bindings and the Worker types                       |
 | `mise run check`                           | lint + test + generate, failing if generated files drift                                      |
 
-The server needs no GitHub App yet. TODO(source): the App's settings for the webhook: Pull requests
-read and write for review comments, Contents and Metadata read-only, Actions and Checks read-only for
-the [CI check](PLANNER.md#ci-check). After a schema change, recreate the database
-(`dropdb eyeful && createdb eyeful`).
+The GitHub App needs Pull requests read and write, so it can post the review, Contents and Metadata
+read-only, and Actions read-only for the [CI check](PLANNER.md#ci-check). The server starts without
+`EYEFUL_WEBHOOK_SECRET` and the App key; a delivery is then refused and nothing is queued. After a
+schema change, recreate the D1 database (`cf d1 delete <id>`, then `cf d1 create eyeful`).
 
 ## Configuration
 
@@ -43,12 +41,13 @@ Values live only at the repository root: credentials in `.env`, shared local set
 
 ## Code generation
 
-sqlc (`generate:db`) writes `internal/db/sqlc`. `packages/pulls`
-(`generate:pulls`) bundles `@pulls.review/core` into `workflow/pulls/core.js`.
+`packages/pulls` (`generate:pulls`) bundles `@pulls.review/core` into `workflow/pulls/core.js`.
 `wails3 generate bindings` (`generate:bindings`) writes the desktop's services into
 `apps/desktop/frontend/bindings`, the Wails default, as classes, so a Go `nil` slice arrives as
 `[]`; git ignores that directory, and `lint`,
-`wails3 build` and `wails3 dev` regenerate it. None of these outputs is edited by hand.
+`wails3 build` and `wails3 dev` regenerate it. `cf workers types` (`generate:worker`) writes the
+Worker's `Env` and runtime types into `packages/worker/.cloudflare/types`, also ignored by git. None
+of these outputs is edited by hand.
 The desktop icon source is `apps/desktop/build/appicon.png`; `generate:icons` regenerates the macOS
 `icons.icns` and `Assets.car` plus the Windows `icon.ico` used by dev and packaged builds.
 
@@ -63,16 +62,16 @@ strings in. A message added to `en.json` is added to `zh.json` in the same chang
 
 ## Toolchain notes {#toolchain-notes}
 
-- Vite+ 1.1.0 was set up with `vp migrate`. The pnpm catalog aliases `vite` to
+- Vite+ 1.2.0 was set up with `vp migrate`. The pnpm catalog aliases `vite` to
   `@voidzero-dev/vite-plus-core`.
 - Type checks run on TypeScript 7.0.2 (`@typescript/native`, `svelte-check --tsgo`). `typescript`
   stays at 6.0.3, because `svelte-kit sync` needs its JS API, and it is excluded
   from `pnpm update`.
 - VitePress is at 2.0.0-alpha.20. Version 1.6.4 fails under Vite+ because it calls the removed
   `transformWithEsbuild`, while 2.x targets the current Vite.
-- Wails v3.0.0-beta.29 has no stable release yet.
-- Project tools are Go tools, and mise installs only toolchains. sqlc is a `tool` line in
-  the root `go.mod`, run with `go tool`. The `wails3` CLI is a `tool` line in `apps/desktop/go.mod`,
+- Wails v3.0.0-beta.30 has no stable release yet.
+- Project tools are Go tools, and mise installs only toolchains. The `wails3` CLI is a `tool` line in
+  `apps/desktop/go.mod`,
   so it always matches the Wails library. `tools:wails` builds it into `.tools/bin` (ignored by git),
   which `mise.toml` puts on `PATH` inside the repository only, because the Wails Taskfiles call
   `wails3`. The desktop tasks run it first.

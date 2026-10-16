@@ -1,69 +1,53 @@
 package db
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/Pleasurecruise/eyeful/internal/db/migrations"
+	"math"
+	"strconv"
+	"time"
 )
 
-func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+func (r Row) Text(name string) (string, bool) {
+	text, ok := r.values[name]
+	if !ok || text == nil {
+		return "", false
 	}
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping database: %w", err)
-	}
-	return pool, nil
+	return *text, true
 }
 
-type Migrator struct {
-	m *migrate.Migrate
-}
-
-func NewMigrator(url string) (*Migrator, error) {
-	src, err := iofs.New(migrations.Migrations, ".")
-	if err != nil {
-		return nil, fmt.Errorf("read embedded migrations: %w", err)
-	}
-	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+strings.TrimPrefix(strings.TrimPrefix(url, "postgres://"), "postgresql://"))
-	if err != nil {
-		return nil, fmt.Errorf("open migrations: %w", err)
-	}
-	return &Migrator{m: m}, nil
-}
-
-func (m *Migrator) Up() error   { return ignoreNoChange(m.m.Up()) }
-func (m *Migrator) Down() error { return ignoreNoChange(m.m.Steps(-1)) }
-
-func (m *Migrator) Version() (version uint, dirty bool, err error) {
-	version, dirty, err = m.m.Version()
-	if errors.Is(err, migrate.ErrNilVersion) {
+func (r Row) Int(name string) (int64, bool, error) {
+	text, ok := r.Text(name)
+	if !ok {
 		return 0, false, nil
 	}
+	n, err := strconv.ParseInt(text, 10, 64)
 	if err != nil {
-		return 0, false, fmt.Errorf("schema version: %w", err)
+		return 0, false, fmt.Errorf("column %s: %w", name, err)
 	}
-	return version, dirty, nil
+	return n, true, nil
 }
 
-func (m *Migrator) Close() error {
-	srcErr, dbErr := m.m.Close()
-	return errors.Join(srcErr, dbErr)
+func (r Row) Int32(name string) (int32, error) {
+	n, ok, err := r.Int(name)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, fmt.Errorf("column %s is null", name)
+	}
+	if n > math.MaxInt32 || n < math.MinInt32 {
+		return 0, fmt.Errorf("column %s out of range", name)
+	}
+	return int32(n), nil
 }
 
-func ignoreNoChange(err error) error {
-	if errors.Is(err, migrate.ErrNoChange) {
-		return nil
+func (r Row) Time(name string) (time.Time, error) {
+	n, ok, err := r.Int(name)
+	if err != nil || !ok {
+		return time.Time{}, err
 	}
-	return err
+	if n == 0 {
+		return time.Time{}, nil
+	}
+	return time.UnixMilli(n).UTC(), nil
 }

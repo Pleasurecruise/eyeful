@@ -7,24 +7,24 @@ to model providers by `internal/dispatch`, which is built and tested but not wir
 
 ```mermaid
 stateDiagram-v2
-    [*] --> queued: webhook (planned)
+    [*] --> queued: webhook
     queued --> running: claim, lease and fencing token
     running --> queued: lease expired, or shutdown
     running --> done: finished, or attempts used up
 ```
 
-| Mechanism | Behavior                                                                                               |
-| --------- | ------------------------------------------------------------------------------------------------------ |
-| Admission | A review created again with the same idempotency key returns the first; different input is a conflict. |
-| Claim     | `SELECT … FOR UPDATE SKIP LOCKED` on the oldest queued review; the token comes from a sequence.        |
-| Renewal   | Every third of `--lease-ttl`; a transient error is retried on the next tick.                           |
-| Fencing   | `Renew`, `Finish` and `Release` with an outdated token fail with `ErrFenced`.                          |
-| Finish    | An executor error becomes result `none` with the error as reason; no error gives `complete`.           |
-| Reaper    | Expired leases go back to the queue; after `--max-attempts` the review is `done` with result `none`.   |
-| Shutdown  | Running reviews are released back to the queue without counting an attempt.                            |
-| Capacity  | `--workers` per process; more capacity means more processes on the same database.                      |
+| Mechanism | Behavior                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Admission | A review created again with the same idempotency key returns the first; different input is a conflict.                                                                         |
+| Claim     | One `UPDATE` of the oldest queued review. The fencing token is `MAX(lease_token) + 1` inside that statement. The lease deadline is the worker's clock.                         |
+| Renewal   | Every third of `--lease-ttl`; a transient error is retried on the next tick.                                                                                                   |
+| Fencing   | `Renew`, `Finish` and `Release` with an outdated token fail with `ErrFenced`.                                                                                                  |
+| Finish    | A workflow that finishes, including `ci_failed` and `partial`, returns no error and the result is `complete`. An executor error is result `none`, and the error is the reason. |
+| Reaper    | Expired leases go back to the queue; after `--max-attempts` the review is `done` with result `none`.                                                                           |
+| Shutdown  | Running reviews are released back to the queue without counting an attempt.                                                                                                    |
+| Capacity  | `--workers` per process; more capacity means more processes on the same database.                                                                                              |
 
-The server uses `review.PostgresStore`. `reviewtest.MemoryStore` implements the same contract for tests
+The server uses `review.Store`. `reviewtest.MemoryStore` implements the same contract for tests
 ([Persistence](PERSISTENCE.md#tests)).
 
 ## Agent runs over providers {#agent-runs-over-providers}
@@ -54,6 +54,4 @@ budgets are kept by `workflow` ([Levels](../LEVELS.md#budget)).
 - A `runner` command that only claims and executes reviews.
 - A worker that stops itself once renewals have failed for longer than the TTL. Until then fencing
   discards the result of a worker that lost its connection, but not its model spend.
-- The run archive, so a reclaimed review can resume from its last finished stage
-  ([Architecture](../ARCHITECTURE.md#workflow)).
 - Retrying a failed `Finish`.

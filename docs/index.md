@@ -34,5 +34,6 @@ features:
     link: /LOCAL#local-risks
 ---
 
-Local reviews work today; cloud reviews of pull requests are planned. Start with the
+Local reviews work today. A cloud review can be queued from a GitHub webhook; the sandbox is not
+built yet. Start with the
 [overview](/overview) or the [roadmap](/ROADMAP).

@@ -20,10 +20,13 @@ import (
 )
 
 type call struct {
-	Args  []string `json:"args"`
-	Stdin string   `json:"stdin"`
-	Dir   string   `json:"dir"`
-	Key   bool     `json:"key"`
+	Args     []string `json:"args"`
+	Stdin    string   `json:"stdin"`
+	Dir      string   `json:"dir"`
+	Key      bool     `json:"key"`
+	Home     string   `json:"home"`
+	GitHub   bool     `json:"github"`
+	Database bool     `json:"database"`
 }
 
 const report = `{"findings":[]}`
@@ -57,7 +60,12 @@ func fake() error {
 		return err
 	}
 	_, key := os.LookupEnv("ANTHROPIC_API_KEY")
-	data, err := json.Marshal(call{Args: os.Args[1:], Stdin: string(stdin), Dir: dir, Key: key})
+	_, githubToken := os.LookupEnv("GITHUB_TOKEN")
+	_, database := os.LookupEnv("EYEFUL_D1_API_TOKEN")
+	data, err := json.Marshal(call{
+		Args: os.Args[1:], Stdin: string(stdin), Dir: dir, Key: key,
+		Home: os.Getenv("HOME"), GitHub: githubToken, Database: database,
+	})
 	if err != nil {
 		return err
 	}
@@ -190,6 +198,38 @@ func TestProviders(t *testing.T) {
 				t.Errorf("ANTHROPIC_API_KEY passed: %v", c.Key)
 			}
 		})
+	}
+}
+
+func TestFreshHome(t *testing.T) {
+	bin, repo := t.TempDir(), t.TempDir()
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "pi")); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "calls")
+	home := t.TempDir()
+	t.Setenv("PATH", bin)
+	t.Setenv("FAKE_CLI", "1")
+	t.Setenv("FAKE_MODE", "ok")
+	t.Setenv("FAKE_OUT", out)
+	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
+	t.Setenv("GITHUB_TOKEN", "ghs-secret")
+	t.Setenv("EYEFUL_D1_API_TOKEN", "cloudflare-secret")
+	set, err := prompts.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := agents.Find("pi")
+	a := agents.New(slog.New(slog.DiscardHandler), agents.Config{
+		Provider: p, Dir: repo, Skills: skills, Set: set, Home: home,
+		Drop: []string{"GITHUB_TOKEN", "EYEFUL_D1_API_TOKEN"},
+	}, 2*time.Second, 5*time.Second)
+	if _, _, err := a.Review(t.Context(), task); err != nil {
+		t.Fatal(err)
+	}
+	c := calls(t, out)[0]
+	if c.Home != home || !c.Key || c.GitHub || c.Database {
+		t.Fatalf("home %q, key %v, github %v, database %v", c.Home, c.Key, c.GitHub, c.Database)
 	}
 }
 

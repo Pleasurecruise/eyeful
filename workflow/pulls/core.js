@@ -436,7 +436,7 @@ function summarize(issues) {
 	return summary;
 }
 //#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_typescript@6.0.3_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
+//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
 /**
 * Review-comment threads and review summaries for a GitHub PR, in the same
 * valibot-schema-first style as `diff.ts`. Sides use pierre's vocabulary
@@ -545,7 +545,7 @@ var DiffGroupSchema = withChildren(DiffGroupLeafSchema);
 	schemaVersion: /* @__PURE__ */ number()
 })).entries });
 //#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_typescript@6.0.3_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
+//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
 /**
 * Generated/lockfile-style output - shared with `noisy-files.ts`, which collapses
 * these by default in the diff view, so the two "this file is noise" notions
@@ -563,7 +563,7 @@ var GENERATED_PATTERNS = [
 	"**/drizzle/meta/**"
 ];
 //#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_typescript@6.0.3_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/locales.js
+//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/locales.js
 /**
 * The languages the UI and the LLM's summaries can be in. `name` is the English name
 * the analysis prompt uses (the prompt itself stays English), `native` is what the
@@ -2540,7 +2540,7 @@ var require_picomatch$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = picomatch;
 }));
 //#endregion
-//#region ../../node_modules/.pnpm/@valibot+to-json-schema@1.8.0_valibot@1.5.0_typescript@6.0.3_/node_modules/@valibot/to-json-schema/dist/index.mjs
+//#region ../../node_modules/.pnpm/@valibot+to-json-schema@1.8.0_valibot@1.5.0_typescript@7.0.2_/node_modules/@valibot/to-json-schema/dist/index.mjs
 var import_picomatch = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var pico = require_picomatch$1();
 	var utils = require_utils();
@@ -3236,7 +3236,7 @@ function toJsonSchema(schema, config) {
 	return jsonSchema;
 }
 //#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_typescript@6.0.3_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/llm.js
+//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/llm.js
 var isGeneratedPath = (0, import_picomatch.default)(GENERATED_PATTERNS);
 /** Renders a set of files as compact diff text for a prompt - the model-facing view of a patch. */
 function renderFilesAsText(files) {
@@ -3389,7 +3389,7 @@ function describeCoverageIssues(issues, fix) {
 }
 toJsonSchema(AnalysisSchema);
 //#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_typescript@6.0.3_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/patch-parser.js
+//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/patch-parser.js
 var GIT_DIFF_HEADER_RE = /^diff --git a\/.* b\/(.*)$/;
 /** Git quotes a path holding a tab, newline, `"` or `\` (and, without `core.quotePath=false`, any non-ASCII byte). */
 var QUOTED_GIT_DIFF_HEADER_RE = /^diff --git "a\/(?:[^"\\]|\\.)*" "b\/((?:[^"\\]|\\.)*)"$/;

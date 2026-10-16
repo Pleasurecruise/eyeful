@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "es2024",
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"lib": ["es2024"],
+		"allowImportingTsExtensions": true,
+		"types": ["./.cloudflare/types/index.d.ts"],
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true
+	},
+	"include": ["src", "cloudflare.config.ts", "vite.config.ts", ".cloudflare/types"]
+}

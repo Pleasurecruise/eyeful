@@ -21,13 +21,13 @@
 	},
 	"dependencies": {
 		"@eyeful/ui": "workspace:*",
-		"@lucide/svelte": "1.56.0",
-		"@wailsio/runtime": "3.0.0-beta.29"
+		"@lucide/svelte": "1.57.0",
+		"@wailsio/runtime": "3.0.0-beta.30"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "catalog:",
 		"@sveltejs/adapter-static": "4.0.0",
-		"@sveltejs/kit": "3.0.1",
+		"@sveltejs/kit": "3.1.0",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@tailwindcss/vite": "4.3.3",
 		"@typescript/native": "npm:typescript@7.0.2",

@@ -36,7 +36,6 @@ func (s *MemoryStore) Create(_ context.Context, req review.Request) (review.Revi
 	r := &record{
 		ID:        review.NewID(),
 		Source:    req.Source,
-		Note:      req.Note,
 		Status:    review.StatusQueued,
 		CreatedAt: s.now(),
 		request:   req,
