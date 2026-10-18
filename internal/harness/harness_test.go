@@ -101,7 +101,7 @@ func TestExecute(t *testing.T) {
 	src := sample(t)
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), src)
@@ -126,7 +126,7 @@ func TestExecuteResumes(t *testing.T) {
 	runs := archive.New(t.TempDir())
 	first := &fakeHost{actions: github.Actions{Passed: true}, fail: errors.New("GitHub is down")}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: runs, Host: first, Clone: checkout.Clone,
 	}
 	if _, err := runner.Execute(t.Context(), src); err == nil {
@@ -146,7 +146,7 @@ func TestExecuteCIFailed(t *testing.T) {
 	connect(t)
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), sample(t))

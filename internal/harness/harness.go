@@ -43,7 +43,6 @@ type Runner struct {
 	Log        *slog.Logger
 	Experts    []string
 	Classifier workflow.Classifier
-	Progress   io.Writer
 	Dir        string
 	Runs       workflow.Archive
 	Sandbox    *sandbox.Client
@@ -86,7 +85,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,
 		Description: description, Verification: workflow.ModeExecution, Commands: cfg, Run: filepath.Join(r.Dir, "run"),
 		Classifier: r.Classifier, Workspace: workspace{Client: r.Sandbox, check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
-		Out: io.Discard, Err: r.Progress, Log: r.Log,
+		Out: io.Discard, Err: io.Discard, Log: r.Log,
 	})
 	if err != nil {
 		return Status{}, fmt.Errorf("review: %w", err)
