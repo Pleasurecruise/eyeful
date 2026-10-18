@@ -82,7 +82,7 @@ The report closes with:
 | GitHub comment | The ranked report                                             |
 | Check Run      | An optional gate (planned)                                    |
 
-The GitHub posts happen in the worker. The outbox is planned
+The GitHub posts happen in the review's Container. The outbox is planned
 ([Architecture](ARCHITECTURE.md#data-flow)).
 
 ## In the terminal {#terminal}

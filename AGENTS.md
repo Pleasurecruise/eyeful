@@ -27,7 +27,7 @@ Run `mise run check`. For feedback-sensitive work, follow the matching spec befo
 | Change                              | Spec                           |
 | ----------------------------------- | ------------------------------ |
 | Desktop                             | `.agents/specs/frontend.md`    |
-| Leases, fencing, workers, lifecycle | `.agents/specs/concurrency.md` |
+| Durable Objects, alarms, Containers | `.agents/specs/concurrency.md` |
 
 Prove the problem first, break the change as the [five adversaries](docs/STYLEGUIDE.md#review), and
 end every handoff with the uncertainty checklist.

@@ -12,18 +12,6 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: eyeful
-          POSTGRES_PASSWORD: eyeful
-          POSTGRES_DB: eyeful_test
-        ports:
-          - 5432:5432
-        options: --health-cmd "pg_isready -U eyeful" --health-interval 2s --health-retries 30
-    env:
-      EYEFUL_TEST_DATABASE_URL: postgres://eyeful:eyeful@localhost:5432/eyeful_test?sslmode=disable
     steps:
       - name: checkout
         uses: actions/checkout@v7

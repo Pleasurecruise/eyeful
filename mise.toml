@@ -15,9 +15,9 @@ description = "Install Go and pnpm dependencies"
 run = ["go mod download", "pnpm install"]
 
 [tasks."dev:cloud"]
-description = "Run the Worker and the server Container locally with cf dev (needs Docker)"
+description = "Run the Worker and the review Containers locally with cf dev (needs Docker)"
 dir = "packages/worker"
-run = "pnpm exec cf dev"
+run = "ln -sf ../../.env .env && pnpm exec cf dev"
 
 [tasks."generate:pulls"]
 description = "Rebuild workflow/pulls/core.js from @pulls.review/core"

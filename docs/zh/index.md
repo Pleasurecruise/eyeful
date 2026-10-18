@@ -34,4 +34,4 @@ features:
     link: /zh/LOCAL#local-risks
 ---
 
-本地审查已经可用。云端审查可以从 GitHub webhook 入队；沙箱还没有实现。建议先读 [eyeful 是什么](/zh/overview)，或看[版本路线图](/zh/ROADMAP)。
+本地审查已经可用。云端审查在 Cloudflare 上用只读验证逐个处理 pull request；沙箱还没有实现。建议先读 [eyeful 是什么](/zh/overview)，或看[版本路线图](/zh/ROADMAP)。

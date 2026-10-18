@@ -20,13 +20,13 @@ import (
 )
 
 type call struct {
-	Args     []string `json:"args"`
-	Stdin    string   `json:"stdin"`
-	Dir      string   `json:"dir"`
-	Key      bool     `json:"key"`
-	Home     string   `json:"home"`
-	GitHub   bool     `json:"github"`
-	Database bool     `json:"database"`
+	Args   []string `json:"args"`
+	Stdin  string   `json:"stdin"`
+	Dir    string   `json:"dir"`
+	Key    bool     `json:"key"`
+	Home   string   `json:"home"`
+	GitHub bool     `json:"github"`
+	AppKey bool     `json:"app_key"`
 }
 
 const report = `{"findings":[]}`
@@ -61,10 +61,10 @@ func fake() error {
 	}
 	_, key := os.LookupEnv("ANTHROPIC_API_KEY")
 	_, githubToken := os.LookupEnv("GITHUB_TOKEN")
-	_, database := os.LookupEnv("EYEFUL_D1_API_TOKEN")
+	_, appKey := os.LookupEnv("EYEFUL_GITHUB_APP_PRIVATE_KEY")
 	data, err := json.Marshal(call{
 		Args: os.Args[1:], Stdin: string(stdin), Dir: dir, Key: key,
-		Home: os.Getenv("HOME"), GitHub: githubToken, Database: database,
+		Home: os.Getenv("HOME"), GitHub: githubToken, AppKey: appKey,
 	})
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ func TestFreshHome(t *testing.T) {
 	t.Setenv("FAKE_OUT", out)
 	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
 	t.Setenv("GITHUB_TOKEN", "ghs-secret")
-	t.Setenv("EYEFUL_D1_API_TOKEN", "cloudflare-secret")
+	t.Setenv("EYEFUL_GITHUB_APP_PRIVATE_KEY", "app-private-key")
 	set, err := prompts.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -222,14 +222,14 @@ func TestFreshHome(t *testing.T) {
 	p, _ := agents.Find("pi")
 	a := agents.New(slog.New(slog.DiscardHandler), agents.Config{
 		Provider: p, Dir: repo, Skills: skills, Set: set, Home: home,
-		Drop: []string{"GITHUB_TOKEN", "EYEFUL_D1_API_TOKEN"},
+		Drop: []string{"GITHUB_TOKEN", "EYEFUL_GITHUB_APP_PRIVATE_KEY"},
 	}, 2*time.Second, 5*time.Second)
 	if _, _, err := a.Review(t.Context(), task); err != nil {
 		t.Fatal(err)
 	}
 	c := calls(t, out)[0]
-	if c.Home != home || !c.Key || c.GitHub || c.Database {
-		t.Fatalf("home %q, key %v, github %v, database %v", c.Home, c.Key, c.GitHub, c.Database)
+	if c.Home != home || !c.Key || c.GitHub || c.AppKey {
+		t.Fatalf("home %q, key %v, github %v, app key %v", c.Home, c.Key, c.GitHub, c.AppKey)
 	}
 }
 

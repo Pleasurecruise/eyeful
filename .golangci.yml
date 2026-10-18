@@ -36,7 +36,6 @@ linters:
     - prealloc
     - reassign
     - revive
-    - sqlclosecheck
     - staticcheck
     - unconvert
     - unparam

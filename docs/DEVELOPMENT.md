@@ -8,7 +8,8 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run dev:cloud` runs the cloud locally; it needs Docker and uses a local D1. The CLI, the
+`mise run dev:cloud` runs the cloud locally; it needs Docker, keeps the Durable Objects and R2 in a
+local store, and links `packages/worker/.env` to the root `.env` for the secrets. The CLI, the
 desktop app and the evaluation keep everything in files.
 
 The desktop app needs the platform's webview: it is built into
@@ -23,16 +24,15 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 | `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`              |
 | `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                    |
 | `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                   |
-| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests. Store tests use a local SQLite file   |
+| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests                                        |
 | `mise run format`                          | gofmt and `vp fmt`                                                                            |
 | `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                          |
 | `mise run generate`                        | The pulls.review core bundle, the desktop bindings and the Worker types                       |
 | `mise run check`                           | lint + test + generate, failing if generated files drift                                      |
 
-The GitHub App needs Pull requests read and write, so it can post the review, Contents and Metadata
-read-only, and Actions read-only for the [CI check](PLANNER.md#ci-check). The server starts without
-`EYEFUL_WEBHOOK_SECRET` and the App key; a delivery is then refused and nothing is queued. After a
-schema change, recreate the D1 database (`cf d1 delete <id>`, then `cf d1 create eyeful`).
+The GitHub App needs Pull requests and Issues read and write, so it can post the review and the
+report, Contents and Metadata read-only, and Actions read-only for the [CI check](PLANNER.md#ci-check)
+([Deploy](cloud/DEPLOYMENT.md#deploy)).
 
 ## Configuration
 

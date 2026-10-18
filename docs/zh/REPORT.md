@@ -69,7 +69,7 @@ test below fails on this change and passes with the suggested fix.
 | GitHub comment | 排序报告                                     |
 | Check Run      | 可选的关卡（规划中）                         |
 
-发到 GitHub 的内容由工作进程提交。outbox 还在规划中（见[架构](ARCHITECTURE.md#data-flow)）。
+发到 GitHub 的内容由审查的 Container 提交。outbox 还在规划中（见[架构](ARCHITECTURE.md#data-flow)）。
 
 ## 终端里的输出 {#terminal}
 

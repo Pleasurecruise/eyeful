@@ -1,57 +1,34 @@
-# Scheduling and leases
+# Review lifecycle
 
-Reviews are assigned to workers by `internal/scheduler`, which runs today. Agent runs are assigned
-to model providers by `internal/dispatch`, which is built and tested but not wired in.
-
-## Reviews over workers {#reviews-over-workers}
+Each review is one Durable Object, `Server` in `packages/worker`, named by the repository, the pull
+request number and the head commit. It keeps the review's state in its own SQLite storage and drives
+the review's Container from an alarm.
 
 ```mermaid
 stateDiagram-v2
     [*] --> queued: webhook
-    queued --> running: claim, lease and fencing token
-    running --> queued: lease expired, or shutdown
-    running --> done: finished, or attempts used up
+    queued --> running: Container started
+    running --> running: Container lost, started again
+    running --> done: finished, failed, or lost three times
 ```
 
-| Mechanism | Behavior                                                                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Admission | A review created again with the same idempotency key returns the first; different input is a conflict.                                                                         |
-| Claim     | One `UPDATE` of the oldest queued review. The fencing token is `MAX(lease_token) + 1` inside that statement. The lease deadline is the worker's clock.                         |
-| Renewal   | Every third of `--lease-ttl`; a transient error is retried on the next tick.                                                                                                   |
-| Fencing   | `Renew`, `Finish` and `Release` with an outdated token fail with `ErrFenced`.                                                                                                  |
-| Finish    | A workflow that finishes, including `ci_failed` and `partial`, returns no error and the result is `complete`. An executor error is result `none`, and the error is the reason. |
-| Reaper    | Expired leases go back to the queue; after `--max-attempts` the review is `done` with result `none`.                                                                           |
-| Shutdown  | Running reviews are released back to the queue without counting an attempt.                                                                                                    |
-| Capacity  | `--workers` per process; more capacity means more processes on the same database.                                                                                              |
+| Mechanism | Behavior                                                                                                                               |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Admission | A delivery for a head commit already admitted returns the first review; the same commit with different pull request details is `409`.  |
+| Alarm     | Set at admission, then every 30 seconds while the review is running. Each run reads the stored state, so a repeated alarm is harmless. |
+| Start     | When no Container runs, the alarm starts one with the pull request and counts an attempt.                                              |
+| Watch     | When a Container runs, the alarm reads its `GET /review`. `done` or `failed` is recorded and the Container destroyed.                  |
+| Startup   | A Container that has not answered five minutes after it started is destroyed and counts as lost.                                       |
+| Lost      | After three attempts the review is `done` with the reason `container lost N times`.                                                    |
+| Idle      | The Container stops after ten minutes without a request; the alarm's polling keeps a running review alive.                             |
+| Capacity  | At most five Containers at once (`maxInstances`).                                                                                      |
 
-The server uses `review.Store`. `reviewtest.MemoryStore` implements the same contract for tests
-([Persistence](PERSISTENCE.md#tests)).
-
-## Agent runs over providers {#agent-runs-over-providers}
-
-An agent asks for a tier (`cheap`, `mid` or `strong`). A tier is a list of candidates, one per key:
-
-```yaml
-strong:
-  - { model: anthropic/claude-sonnet-5-5, priority: 0, weight: 3 }
-  - { model: openrouter/anthropic/claude-sonnet-5-5, priority: 0, weight: 1 }
-  - { model: deepseek/deepseek-v4, priority: 1 }
-```
-
-| Mechanism    | Behavior                                                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------ |
-| Selection    | The lowest available priority, then weighted random within it; each retry moves down one priority.           |
-| Decision     | `Decide` returns retry or stop, with a reason such as `output_committed` or `non_retryable`.                 |
-| Cooldown     | Out of credit: 30 min. Quota: until it resets. Rate limit: `Retry-After`. Otherwise 1 min, doubling.         |
-| Commit point | Once an agent has reported anything, a later failure fails the agent instead of switching models.            |
-| Lanes        | `max_concurrency` per key; extra requests wait in FIFO order. Waiting never causes a fallback or a cooldown. |
-
-Planned: per-review affinity (one candidate per role) and classification of provider errors. Review
-budgets are kept by `workflow` ([Levels](../LEVELS.md#budget)).
+A rollout or any other `SIGTERM` stops the Container; the alarm counts it as lost and the next one
+resumes from the stages in R2 ([Storage](PERSISTENCE.md)).
 
 ## Not done yet
 
-- A `runner` command that only claims and executes reviews.
-- A worker that stops itself once renewals have failed for longer than the TTL. Until then fencing
-  discards the result of a worker that lost its connection, but not its model spend.
-- Retrying a failed `Finish`.
+- Waiting for CI happens inside the Container, which stays up while the pull request's checks run.
+  Planned: the alarm waits for them and starts the Container afterwards.
+- A newer push does not cancel the review of the older head commit.
+- There is no list of reviews across Durable Objects.

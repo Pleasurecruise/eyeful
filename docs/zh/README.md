@@ -13,7 +13,7 @@ flowchart LR
 ## 现状
 
 - **可用：** 本地审查。`eyeful review`、`provider`、`connect`、`commit` 和桌面应用用你自己的编码 agent 运行完整的工作流（见[本地运行](LOCAL.md)）。
-- **进行中：** 评估。工具已经写好，实验还没有运行（见[评估](EVALUATION.md)）。云端审查从 GitHub webhook 入队并运行工作流；沙箱还没有实现（见[云端运行](cloud/CLOUD.md)）。
+- **进行中：** 评估。工具已经写好，实验还没有运行（见[评估](EVALUATION.md)）。云端审查在 Cloudflare 上用只读验证逐个处理 pull request；沙箱还没有实现（见[云端运行](cloud/CLOUD.md)）。
 - **规划中：** L1 工具和专家自己的工具（见[路线图](ROADMAP.md)）。
 
 ## 局限 {#limits}
@@ -53,15 +53,15 @@ eyeful 怎样测量：[评估](EVALUATION.md)。
 | [本地开发](DEVELOPMENT.md)      | 环境搭建、命令、代码生成     |
 | [代码风格与审查](STYLEGUIDE.md) | 编码规则，以及改动怎样被审查 |
 
-云端服务器是独立的一部分。审查可以入队；沙箱还没有实现：
+云端是独立的一部分。pull request 用只读验证审查；沙箱还没有实现：
 
-| 文档                                 | 内容                              |
-| ------------------------------------ | --------------------------------- |
-| [云端运行](cloud/CLOUD.md)           | pull request、pi 里的 agent、沙箱 |
-| [服务器](cloud/SERVER.md)            | 组件、布局、生命周期              |
-| [调度与租约](cloud/SCHEDULING.md)    | 租约、重试、提供商路由            |
-| [数据库与迁移](cloud/PERSISTENCE.md) | 表结构、迁移、查询                |
-| [部署](cloud/DEPLOYMENT.md)          | 怎样运行服务器                    |
+| 文档                                | 内容                               |
+| ----------------------------------- | ---------------------------------- |
+| [云端运行](cloud/CLOUD.md)          | pull request、agent 与模型、沙箱   |
+| [服务器](cloud/SERVER.md)           | 组件、布局、生命周期               |
+| [审查生命周期](cloud/SCHEDULING.md) | Durable Object、alarm、重试        |
+| [存储](cloud/PERSISTENCE.md)        | Durable Object 存储和 R2           |
+| [部署](cloud/DEPLOYMENT.md)         | Cloudflare、AI Gateway、GitHub App |
 
 所有配置项见[配置](CONFIGURATION.md)。接下来做什么：[路线图](ROADMAP.md)。
 

@@ -14,8 +14,6 @@ flowchart LR
 
 ## v0: Foundation (done)
 
-- The D1 queue with leases, fencing and a reaper; provider routing, built but not wired in
-  ([Scheduling](cloud/SCHEDULING.md)).
 - The desktop window, and CI running `mise run check`.
 
 ## v1.0: Local review (mostly built)
@@ -64,21 +62,22 @@ show what the panel adds over the single agent and what it costs.
 The workflow on pull requests through a self-hosted GitHub App
 ([Running in the cloud](cloud/CLOUD.md)).
 
-| Part                                                                         | State |
-| ---------------------------------------------------------------------------- | ----- |
-| The webhook, one review per head commit                                      | Built |
-| Checkout of the pull request, with commands taken from the base commit       | Built |
-| The CI check against GitHub Actions                                          | Built |
-| The worker runs the same workflow; agents in pi with keys the operator holds | Built |
-| A `COMMENT` review for line comments, and the ranked report as one comment   | Built |
-| The sandbox, so the project's commands run only there                        | To do |
-| The outbox, so a comment GitHub has accepted is posted once                  | To do |
-| An optional Check Run                                                        | To do |
-| An end-to-end run, and the `runner` command                                  | To do |
-| Migrations as one file per change, after the first release                   | To do |
+| Part                                                                       | State |
+| -------------------------------------------------------------------------- | ----- |
+| The webhook, one review per head commit                                    | Built |
+| Checkout of the pull request, with commands taken from the base commit     | Built |
+| The CI check against GitHub Actions                                        | Built |
+| One Durable Object and Container per review, running the local workflow    | Built |
+| Models and Jev through AI Gateway; stages in R2, so a review resumes       | Built |
+| A `COMMENT` review for line comments, and the ranked report as one comment | Built |
+| The sandbox, so the project's commands run only there                      | To do |
+| The outbox, so a comment GitHub has accepted is posted once                | To do |
+| An optional Check Run                                                      | To do |
+| Waiting for CI in the Durable Object instead of the Container              | To do |
+| An end-to-end run on a real pull request                                   | To do |
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
-its sandbox, and a worker killed mid-review loses nothing and runs nothing twice.
+its sandbox, and a Container stopped mid-review loses nothing and posts nothing twice.
 
 ## Later
 

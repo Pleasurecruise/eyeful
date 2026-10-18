@@ -8,7 +8,7 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run dev:cloud` 在本地运行云端，需要 Docker，并使用本地 D1。CLI、桌面端和评测都把数据存在文件里。
+`mise run dev:cloud` 在本地运行云端，需要 Docker，Durable Object 和 R2 存在本地，并把 `packages/worker/.env` 链接到根目录的 `.env` 来读取 secret。CLI、桌面端和评测都把数据存在文件里。
 
 桌面端需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
 
@@ -21,13 +21,13 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 | `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
 | `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
 | `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                   |
-| `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试。存储测试使用本地 SQLite 文件          |
+| `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试                                        |
 | `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
 | `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
 | `mise run generate`                        | 生成 pulls.review core 打包文件、桌面端绑定和 Worker 类型                                 |
 | `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 
-GitHub App 需要 Pull requests 读写，用来发布评审意见；Contents 和 Metadata 只读；Actions 只读，用于 [CI 校验](PLANNER.md#ci-check)。服务端在没有 `EYEFUL_WEBHOOK_SECRET` 和 App 密钥时也能启动；这时投递会被拒绝，什么都不会入队。表结构改动后要重建 D1 数据库（`cf d1 delete <id>`，然后 `cf d1 create eyeful`）。
+GitHub App 需要 Pull requests 和 Issues 读写，用来发布评审意见和报告；Contents 和 Metadata 只读；Actions 只读，用于 [CI 校验](PLANNER.md#ci-check)（见[部署](cloud/DEPLOYMENT.md#deploy)）。
 
 ## 配置
 
