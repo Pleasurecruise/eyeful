@@ -9,6 +9,7 @@
 | 字段         | 内容                                 |
 | ------------ | ------------------------------------ |
 | `source`     | pull request，格式与服务端读取的一致 |
+| `run`        | 这次审查在这个 PR 上的编号           |
 | `status`     | `queued`、`running` 或 `done`        |
 | `attempts`   | 为这次审查启动过的 Container 数      |
 | `started_at` | 当前 Container 的启动时间，毫秒      |
@@ -17,13 +18,13 @@
 
 ## R2
 
-bucket `eyeful-runs` 按 Durable Object 的 id 保存每次审查的阶段存档。服务端通过 `http://runs.eyeful` 访问它，Durable Object 把这个地址路由到 Worker 的 `Runs` 入口，且只限这次审查；Container 没有 R2 凭据。
+bucket `eyeful-runs` 按 Durable Object 的 id 和审查编号保存每次审查的阶段存档。服务端通过 `http://runs.eyeful` 访问它，Durable Object 把这个地址路由到 Worker 的 `Runs` 入口，且只限这次审查；Container 没有 R2 凭据。
 
-| 键               | 内容                                         |
-| ---------------- | -------------------------------------------- |
-| `<id>/request`   | 工作流的请求，用来拒绝不同的请求             |
-| `<id>/<stage>`   | 每个完成的阶段，比如 `plan/0` 或 `judge/…`   |
-| `<id>/published` | 结果，在 GitHub 接受了 review 和评论之后写入 |
+| 键                     | 内容                                         |
+| ---------------------- | -------------------------------------------- |
+| `<id>/<run>/request`   | 工作流的请求，用来拒绝不同的请求             |
+| `<id>/<run>/<stage>`   | 每个完成的阶段，比如 `plan/0` 或 `judge/…`   |
+| `<id>/<run>/published` | 结果，在 GitHub 接受了 review 和评论之后写入 |
 
 `internal/runs` 基于这些请求实现 `workflow.Archive`，所以 Container 重新启动时，工作流会跳过 R2 里已有的阶段。
 

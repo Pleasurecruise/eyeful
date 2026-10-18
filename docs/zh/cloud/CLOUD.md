@@ -8,12 +8,14 @@
 
 ## 云端审查怎样运行
 
-1. GitHub 把 `pull_request` 事件（`opened`、`synchronize`、`reopened` 或 `ready_for_review`）发给 Worker。Worker 用 `@octokit/webhooks` 校验 `X-Hub-Signature-256`，draft 在转为可审查之前一律忽略，并立即返回 `202`。
-2. Worker 把 pull request 交给以仓库、编号和 head 提交命名的 Durable Object，所以同一次投递发两遍也会落到同一次审查（见[审查生命周期](SCHEDULING.md)）。
+1. pull request 在打开、重新打开或标记为可审查时自动审查一次。之后只有在评论里 `@eyeful-review` 才会再审；eyeful 先回一个 👀，再审查那一刻的 head。push 不会触发任何审查。
+2. Worker 用 `@octokit/app` 校验 `X-Hub-Signature-256`，只为 `EYEFUL_ALLOWED_USERS` 里的 PR 作者或评论者行动，立即返回 `202`，并把 pull request 交给这个 PR 的 Durable Object。审查进行中时被 @，只回复"正在审查"，不做别的（见[审查生命周期](SCHEDULING.md)）。
 3. Durable Object 启动这次审查的 Container，里面运行 `eyeful-server serve`，pull request 放在 `EYEFUL_REVIEW` 里。
 4. 服务端签发 installation token，克隆仓库，等 head 提交的 GitHub Actions 全部跑完。如果有失败的，审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
 5. 服务端用只读验证调用 `local/app.Review`：分拣、计划、专家、裁判和报告与 `eyeful review --verification read_only` 完全一样。每个阶段都存进 R2，重新启动的 Container 从最后完成的阶段继续（见[存储](PERSISTENCE.md)）。
-6. eyeful 的 GitHub App 把行内意见作为一条 `COMMENT` review 发布，排序报告作为一条评论发布（见[审查反馈](../REPORT.md)），然后在 R2 里记下 `published`。此后重新开始的审查直接返回，不再发布。如果 GitHub 已接受发布、记录还没写入时崩溃，可能会发布两次；outbox 还在规划中。
+6. eyeful 的 GitHub App 把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)），然后在 R2 里记下 `published`。此后重新启动的 Container 直接返回，不再发布。如果 GitHub 已接受发布、记录还没写入时崩溃，可能会发布两次；outbox 还在规划中。
+
+审查失败、Container 连续丢失三次，或改动为空时，Durable Object 会在 pull request 上评论原因。关闭 pull request 或把它转回 draft 会取消正在进行的审查。
 
 ## agent 与模型 {#agents-and-models}
 

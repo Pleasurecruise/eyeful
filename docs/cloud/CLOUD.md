@@ -12,12 +12,13 @@ commits and uncommitted changes are reviewed locally ([Running locally](../LOCAL
 
 ## How a cloud review runs
 
-1. GitHub sends a `pull_request` event (`opened`, `synchronize`, `reopened` or `ready_for_review`)
-   to the Worker. The Worker checks `X-Hub-Signature-256` with `@octokit/webhooks`, ignores drafts
-   until they are ready for review, and answers `202` at once.
-2. The Worker hands the pull request to the Durable Object named by the repository, the number and
-   the head commit, so a delivery sent twice reaches the same review
-   ([Review lifecycle](SCHEDULING.md)).
+1. A pull request is reviewed once by itself, when it is opened, reopened or marked ready for
+   review. After that a review starts only when someone mentions `@eyeful-review` in a comment on it; eyeful
+   reacts with 👀 and reviews the head at that moment. Pushes start nothing.
+2. The Worker checks `X-Hub-Signature-256` with `@octokit/app`, acts only for the pull request's
+   author or the commenter in `EYEFUL_ALLOWED_USERS`, answers `202` at once, and hands the pull
+   request to the Durable Object of that pull request. While a review runs, a mention gets a reply
+   that one is running, and nothing else ([Review lifecycle](SCHEDULING.md)).
 3. The Durable Object starts the review's Container, which runs `eyeful-server serve` with the pull
    request in `EYEFUL_REVIEW`.
 4. The server mints an installation token, clones the repository and waits until the GitHub Actions
@@ -27,10 +28,14 @@ commits and uncommitted changes are reviewed locally ([Running locally](../LOCAL
    the judge and the report run exactly as in `eyeful review --verification read_only`. Each stage
    is saved to R2, so a Container started again resumes from the last finished stage
    ([Storage](PERSISTENCE.md)).
-6. eyeful's GitHub App posts the line comments as one `COMMENT` review and the ranked report as one
-   comment ([Review feedback](../REPORT.md)), then records `published` in R2. A review started again
+6. eyeful's GitHub App posts each undisputed `issue` as a line comment in one `COMMENT` review, and
+   a short summary as one comment ([Review feedback](../REPORT.md#line-comments)), then records `published` in R2. A Container started again
    after that returns without posting. A crash after GitHub accepts the posts and before the record
    is written can post them twice; an outbox is planned.
+
+If the review fails, its Container is lost three times, or the change is empty, the Durable Object
+comments the reason on the pull request. Closing the pull request or turning it back into a draft
+cancels a running review.
 
 ## Agents and models {#agents-and-models}
 

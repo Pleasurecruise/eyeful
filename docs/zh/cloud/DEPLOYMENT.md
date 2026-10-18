@@ -29,7 +29,7 @@ flowchart TB
     server -.->|planned| sandbox["Sandbox per review<br/>package registries only"]
 ```
 
-`packages/worker/cloudflare.config.ts` 声明了全部内容：Worker `eyeful` 挂在自定义域名 `eyeful.you-find.me` 上，`workers.dev` 和 Preview URL 都关闭；Container `eyeful-server`（`standard-1`，最多五个）；R2 bucket `eyeful-runs`；Workers AI binding；gateway id（`default`）；以及五个必填 secret。Durable Object 在启动 Container 之前把三个内部地址路由到 Worker 的各个入口，所以 Container 里没有 gateway token、R2 凭据或 webhook secret（见[云端运行](CLOUD.md#credentials)）。
+`packages/worker/cloudflare.config.ts` 声明了全部内容：Worker `eyeful` 挂在自定义域名 `eyeful.you-find.me` 上，`workers.dev` 和 Preview URL 都关闭；Container `eyeful-server`（`standard-1`，最多五个）；R2 bucket `eyeful-runs`；Workers AI binding；gateway id（`default`）；以及六个必填 secret。Durable Object 在启动 Container 之前把三个内部地址路由到 Worker 的各个入口，所以 Container 里没有 gateway token、R2 凭据或 webhook secret（见[云端运行](CLOUD.md#credentials)）。
 
 ### AI Gateway
 
@@ -41,7 +41,7 @@ flowchart TB
 
 1. 按 `.env.example` 填好根目录的 `.env`。`EYEFUL_AI_GATEWAY_TOKEN` 是对该账号有 AI Gateway Run 和 Workers AI Read 权限的 Cloudflare API token；`EYEFUL_GITHUB_APP_PRIVATE_KEY` 是 App 的 PEM，写成一行、每个换行写成 `\n`，用双引号包起来。
 2. 在 `packages/worker` 下，`pnpm exec cf deploy --secrets-file ../../.env` 会构建镜像，首次部署时创建 R2 bucket，并上传 Worker、Container 和 secret。
-3. 在 GitHub App 里启用 webhook，URL 设为 `https://eyeful.you-find.me/webhook`，secret 设为 `EYEFUL_WEBHOOK_SECRET`，订阅 Pull request 事件，并授予 Contents（只读）、Pull requests（读写）、Issues（读写）、Actions（只读）和 Metadata（只读）。把 App 安装到要审查的仓库上。
+3. 在 GitHub App 里启用 webhook，URL 设为 `https://eyeful.you-find.me/webhook`，secret 设为 `EYEFUL_WEBHOOK_SECRET`，订阅 Pull request 和 Issue comment 事件，并授予 Contents（只读）、Pull requests（读写）、Issues（读写）、Actions（只读）和 Metadata（只读）。把 App 安装到要审查的仓库上。
 
 之后用 `pnpm exec cf workers secrets update` 修改单个 secret；运行中的 Container 在下一个启动时才看到新值。
 

@@ -54,6 +54,55 @@ func Markdown(r workflow.Result) (string, error) {
 	return b.String(), nil
 }
 
+func Summary(r workflow.Result) (string, error) {
+	out, err := Findings(r)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "**eyeful** · `%s` · %d findings: %d reproduced, %d to review, %d disputed.\n", out.Outcome, len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open)
+	if out.Counts.Fail == 0 {
+		b.WriteString("None was reproduced by running a test.\n")
+	}
+	if out.Reason != "" {
+		fmt.Fprintf(&b, "%s.\n", out.Reason)
+	}
+	for _, f := range out.Diagnosis.Failures {
+		fmt.Fprintf(&b, "\nCI failed: `%s` %s %s: %s Fix: %s\n", f.Workflow, f.Job, f.Step, f.Cause, f.Fix)
+	}
+	if r.Regression != nil && len(r.Regression.Failed) > 0 {
+		fmt.Fprintf(&b, "\nThe change breaks `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
+	}
+	var rest []Finding
+	first := true
+	for _, f := range out.Findings {
+		if !Posted(f.Label, f.Kind) {
+			rest = append(rest, f)
+			continue
+		}
+		if first {
+			b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
+			first = false
+		}
+		fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+	}
+	if first {
+		b.WriteString("\nNo issue to post.\n")
+	}
+	if len(rest) > 0 {
+		fmt.Fprintf(&b, "\n<details><summary>Not posted (%d)</summary>\n\n", len(rest))
+		for _, f := range rest {
+			fmt.Fprintf(&b, "- %s · `%s:%d` %s\n", f.Label, f.File, f.Line, f.ShortSummary)
+		}
+		b.WriteString("\n</details>\n")
+	}
+	return b.String(), nil
+}
+
+func Posted(label workflow.Label, kind workflow.Kind) bool {
+	return label == workflow.LabelIssue && kind != workflow.KindOpen
+}
+
 func resolved(b *strings.Builder, r workflow.Result) {
 	first := true
 	for _, v := range r.Verifications {
