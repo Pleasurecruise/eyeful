@@ -138,7 +138,6 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 		var stdout bytes.Buffer
 		stderr := tail.New(stderrLimit)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = strings.NewReader(prompt), &activity{out: &stdout, idle: idle, after: a.idle}, stderr
-		a.log.Info("agent start", slog.String("role", name))
 		start := time.Now()
 		runErr := cmd.Run()
 		hard.Stop()

@@ -20,4 +20,4 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /uvx /usr/local/bin/
 COPY --from=build /eyeful-sandbox /usr/local/bin/eyeful-sandbox
 ENV PATH=/usr/local/go/bin:/root/go/bin:$PATH
 EXPOSE 8080
-ENTRYPOINT ["sh", "-c", "cp /etc/cloudflare/certs/cloudflare-containers-ca.crt /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && exec eyeful-sandbox"]
+ENTRYPOINT ["sh", "-c", "cp /etc/cloudflare/certs/cloudflare-containers-ca.crt /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null 2>&1 && exec eyeful-sandbox"]

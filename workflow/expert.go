@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -79,10 +80,12 @@ func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task Review
 		}
 		st.Runs = append(st.Runs, r)
 		if r.Error != "" {
+			w.log.Warn("expert absent", slog.String("expert", task.Expert.Name), slog.String("error", r.Error))
 			st.Absent = r.Error
 			return st, nil
 		}
 		if reasons := Validate(task, report); len(reasons) > 0 && attempt == 0 {
+			w.log.Warn("expert report rejected", slog.String("expert", task.Expert.Name), slog.Any("reasons", reasons))
 			task.Rejected = reasons
 			continue
 		}

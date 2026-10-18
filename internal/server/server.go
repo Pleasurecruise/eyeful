@@ -72,21 +72,21 @@ func accessLog(log *slog.Logger) echo.MiddlewareFunc {
 		LogRequestID: true,
 		HandleError:  true,
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
-			attrs := []slog.Attr{
+			if v.Error == nil {
+				return nil
+			}
+			level := slog.LevelWarn
+			if v.Status >= 500 {
+				level = slog.LevelError
+			}
+			log.LogAttrs(c.Request().Context(), level, "request",
 				slog.String("method", v.Method),
 				slog.String("path", v.URIPath),
 				slog.Int("status", v.Status),
 				slog.Duration("latency", v.Latency),
 				slog.String("request_id", v.RequestID),
-			}
-			level := slog.LevelInfo
-			if v.Error != nil {
-				attrs = append(attrs, slog.String("error", v.Error.Error()))
-				if v.Status >= 500 {
-					level = slog.LevelError
-				}
-			}
-			log.LogAttrs(c.Request().Context(), level, "request", attrs...)
+				slog.String("error", v.Error.Error()),
+			)
 			return nil
 		},
 	})

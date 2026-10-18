@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -73,7 +74,7 @@ func newHarness(log *slog.Logger, cfg config.Config, gh *github.App) harness.Run
 	// TODO(sink): an outbox, so a crash after GitHub accepts a comment cannot post it twice.
 	return harness.Runner{
 		Log: log, Clone: checkout.Clone, Classifier: classify.New(log, "http://jev.eyeful", nil),
-		Progress: os.Stderr, Dir: filepath.Join(os.TempDir(), "eyeful-review"), Runs: runs.New(cfg.RunsURL), Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
+		Progress: io.Discard, Dir: filepath.Join(os.TempDir(), "eyeful-review"), Runs: runs.New(cfg.RunsURL), Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
 	}
 }
 
