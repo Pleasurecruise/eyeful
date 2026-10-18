@@ -20,6 +20,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/project"
+	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
 var replies = map[string]string{
@@ -369,8 +370,9 @@ func TestReview(t *testing.T) {
 		if len(asked) != 1 || asked[0].Name != "setup" {
 			t.Fatalf("asked to confirm %v", asked)
 		}
-		if len(reviewed.Findings) != 1 || reviewed.Counts.Review != 1 {
-			t.Fatalf("reviewed %+v", reviewed)
+		out, err := report.Findings(reviewed)
+		if err != nil || len(out.Findings) != 1 || out.Counts.Review != 1 {
+			t.Fatalf("reviewed %+v, %v", out, err)
 		}
 		if _, err := os.Stat(filepath.Join(outside, "setup-ran")); err != nil {
 			t.Fatal("setup did not run after confirmation")

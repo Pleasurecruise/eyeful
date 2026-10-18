@@ -23,6 +23,8 @@ type Options struct {
 	Detect       bool
 	Run          string
 	TypesafeKey  string
+	Workspace    workflow.Workspace
+	Archive      workflow.Archive
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)
 	Out          io.Writer
 	Err          io.Writer

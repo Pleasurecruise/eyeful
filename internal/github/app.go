@@ -99,7 +99,11 @@ func (a *App) Wait(ctx context.Context, token string, src review.Source) (Action
 	}
 }
 
-func (a *App) Publish(ctx context.Context, token string, src review.Source, markdown string, notes []Note) error {
+func (a *App) Publish(ctx context.Context, src review.Source, markdown string, notes []Note) error {
+	token, err := a.Token(ctx, src.InstallationID)
+	if err != nil {
+		return err
+	}
 	owner, name, _ := strings.Cut(src.Repo, "/")
 	if len(notes) > 0 {
 		err := a.review(ctx, token, owner, name, src, notes)

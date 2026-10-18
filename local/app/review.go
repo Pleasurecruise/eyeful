@@ -42,15 +42,16 @@ func Experts() ([]workflow.Expert, error) {
 	return set.Roster(), nil
 }
 
-func Review(ctx context.Context, o Options) (report.Output, error) {
+func Review(ctx context.Context, o Options) (workflow.Result, error) {
+	var none workflow.Result
 	// TODO(app): warn when the branch under review belongs to someone else.
 	set, err := prompts.Load()
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	objects, err := os.MkdirTemp("", "eyeful-snapshot-")
 	if err != nil {
-		return report.Output{}, fmt.Errorf("snapshot objects: %w", err)
+		return none, fmt.Errorf("snapshot objects: %w", err)
 	}
 	defer func() {
 		if err := os.RemoveAll(objects); err != nil {
@@ -59,44 +60,48 @@ func Review(ctx context.Context, o Options) (report.Output, error) {
 	}()
 	snap, req, cfg, err := request(ctx, o, objects)
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	if len(req.Change.Files) == 0 {
-		return report.Output{}, say(o.Out, "Nothing to review: the change is empty.\n")
+		return none, say(o.Out, "Nothing to review: the change is empty.\n")
 	}
 	provider, agent, err := connected(ctx)
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	wf, err := workflow.New(o.Log, set.Roster())
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	if req.Previous, err = previous(ctx, o, snap); err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	if err := wf.Admit(req); err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	if err := say(o.Err, describe(o, agent, snap, len(req.Change.Files))); err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	ws, closeTree, err := workspace(ctx, o, snap, objects, cfg)
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	defer closeTree()
 	run, skills, patch, removeSkills, err := prepare(ctx, o, snap)
 	if err != nil {
-		return report.Output{}, err
+		return none, err
 	}
 	defer removeSkills()
 	runner := agents.New(o.Log, agents.Config{Provider: provider, Dir: snap.Root, Skills: skills, Patch: patch, History: filepath.Join(filepath.Dir(patch), historyFile), Trace: filepath.Join(run, "agents"), Set: set}, idleTimeout, hardTimeout)
-	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Classifier: classify.New(o.Log, o.TypesafeKey), Workspace: ws, Archive: archive.New(filepath.Join(run, "stages"))}, req)
-	if err != nil {
-		return report.Output{}, err
+	var stages workflow.Archive = archive.New(filepath.Join(run, "stages"))
+	if o.Archive != nil {
+		stages = o.Archive
 	}
-	return save(ctx, o, run, snap, objects, res)
+	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Classifier: classify.New(o.Log, o.TypesafeKey), Workspace: ws, Archive: stages}, req)
+	if err != nil {
+		return none, err
+	}
+	return res, save(ctx, o, run, snap, objects, res)
 }
 
 func previous(ctx context.Context, o Options, snap subject.Snapshot) (_ workflow.Result, err error) {
@@ -239,6 +244,9 @@ func describe(o Options, agent agents.Agent, snap subject.Snapshot, files int) s
 
 func workspace(ctx context.Context, o Options, snap subject.Snapshot, objects string, cfg project.Config) (workflow.Workspace, func(), error) {
 	if o.Verification != workflow.ModeExecution {
+		if o.Workspace != nil {
+			return o.Workspace, func() {}, say(o.Err, "Verification: "+string(o.Verification)+"; no project command runs.\n")
+		}
 		return worktree.ReadOnly{}, func() {}, say(o.Err, "Verification: "+string(o.Verification)+"; no project command runs and your working copy is not touched.\n")
 	}
 	tree, err := worktree.Open(ctx, o.Log, snap, objects)
@@ -289,50 +297,46 @@ func confirm(ctx context.Context, o Options, root string, cfg project.Config, wo
 	return store.Confirm(dir, root, cfg.Digest())
 }
 
-func save(ctx context.Context, o Options, dir string, snap subject.Snapshot, objects string, res workflow.Result) (report.Output, error) {
+func save(ctx context.Context, o Options, dir string, snap subject.Snapshot, objects string, res workflow.Result) error {
 	md, err := report.Markdown(res)
 	if err != nil {
-		return report.Output{}, err
-	}
-	out, err := report.Findings(res)
-	if err != nil {
-		return report.Output{}, err
+		return err
 	}
 	findings, err := report.JSON(res)
 	if err != nil {
-		return report.Output{}, err
+		return err
 	}
 	sarif, err := report.SARIF(res)
 	if err != nil {
-		return report.Output{}, err
+		return err
 	}
 	result, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {
-		return report.Output{}, fmt.Errorf("encode result: %w", err)
+		return fmt.Errorf("encode result: %w", err)
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return report.Output{}, fmt.Errorf("run directory: %w", err)
+		return fmt.Errorf("run directory: %w", err)
 	}
 	saved := map[string][]byte{
 		"review.md": []byte(md), "findings.json": findings, "results.sarif": sarif, "result.json": result,
 	}
 	for name, content := range saved {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
-			return report.Output{}, fmt.Errorf("save %s: %w", name, err)
+			return fmt.Errorf("save %s: %w", name, err)
 		}
 	}
 	if err := say(o.Out, md); err != nil {
-		return report.Output{}, err
+		return err
 	}
 	changed, err := subject.Changed(ctx, snap, o.Range, objects)
 	if err != nil {
-		return report.Output{}, err
+		return err
 	}
 	note := "\nSaved review.md, findings.json, results.sarif and result.json in " + dir + "\n"
 	if changed {
 		note += fmt.Sprintf("The repository changed while the review ran, so the agents may have read newer code. The findings are about snapshot %.12s; the diff is in change.diff.\n", snap.Commit)
 	}
-	return out, say(o.Err, note)
+	return say(o.Err, note)
 }
 
 func marked(ctx context.Context, root string, files []workflow.File) ([]string, error) {

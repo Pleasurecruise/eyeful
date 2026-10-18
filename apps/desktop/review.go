@@ -37,10 +37,14 @@ func (r *Review) Start(ctx context.Context, base, head string, experts []string,
 		r.mu.Unlock()
 	}()
 	log := emitter(EventLog)
-	return app.Review(ctx, app.Options{
+	res, err := app.Review(ctx, app.Options{
 		Dir: r.tree.root(), Range: subject.Range{Base: base, Head: head}, Experts: experts, Verification: verification, Detect: true,
 		Confirm: r.confirm, Out: io.Discard, Err: log, Log: slog.New(slog.NewTextHandler(log, nil)),
 	})
+	if err != nil {
+		return report.Output{}, err
+	}
+	return report.Findings(res)
 }
 
 func (r *Review) Answer(yes bool) {

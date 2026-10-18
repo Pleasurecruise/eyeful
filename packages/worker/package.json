@@ -6,6 +6,9 @@
 	"scripts": {
 		"typecheck": "tsc --noEmit"
 	},
+	"dependencies": {
+		"@octokit/webhooks": "14.2.0"
+	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "2.0.0-beta.v.1",
 		"@typescript/native": "npm:typescript@7.0.2",

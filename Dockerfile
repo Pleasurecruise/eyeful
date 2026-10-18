@@ -15,6 +15,7 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends git ca-certificates \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& npm install --global @earendil-works/pi-coding-agent@1.3.0
+COPY packages/worker/pi/ /root/.pi/agent/
 COPY --from=build /eyeful-server /usr/local/bin/eyeful-server
 EXPOSE 8080
 ENTRYPOINT ["eyeful-server", "serve"]

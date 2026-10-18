@@ -2,71 +2,147 @@ package harness
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/internal/checkout"
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
+	"github.com/Pleasurecruise/eyeful/local/archive"
+	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/workflow"
-	"github.com/Pleasurecruise/eyeful/workflow/project"
-	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
+var replies = map[string]string{
+	"`submit_plan`":      `{"overallSummary":"Adds changed.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["changed.txt"]}]}`,
+	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"changed.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
+	"`submit_judgement`": `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
+	"`submit_diagnosis`": `{"failures":[{"workflow":"ci","job":"test","step":"run","cause":"boom","fix":"fix it"}]}`,
+}
+
+func fakeClaude() error {
+	if slices.Contains(os.Args, "--version") {
+		_, err := fmt.Println("9.9.9 (fake)")
+		return err
+	}
+	if os.Getenv("FAKE_DOWN") != "" {
+		return errors.New("the agent is down")
+	}
+	prompt, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return err
+	}
+	for submit, reply := range replies {
+		if strings.Contains(string(prompt), "call "+submit) {
+			text, err := json.Marshal("```json\n" + reply + "\n```")
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Printf(`{"type":"result","subtype":"success","is_error":false,"result":%s,"usage":{"input_tokens":10,"output_tokens":5},"total_cost_usd":0.001,"modelUsage":{"fake-model":{}}}`+"\n", text)
+			return err
+		}
+	}
+	return errors.New("no reply for this role")
+}
+
+func TestMain(m *testing.M) {
+	if os.Getenv("FAKE_CLI") == "1" {
+		if err := fakeClaude(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+func connect(t *testing.T) {
+	t.Helper()
+	home, bin := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("FAKE_CLI", "1")
+	path, err := settings.Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := settings.Save(path, settings.Settings{Agent: "claude"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExecute(t *testing.T) {
+	connect(t)
 	src := sample(t)
 	host := &fakeHost{actions: github.Actions{Passed: true}}
-	agents := &script{}
-	dir := t.TempDir()
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), DataDir: dir, Experts: []string{"correctness"},
-		Host: host, Clone: checkout.Clone, Agents: agents,
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard,
+		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
-	rev := review.Review{ID: "r_harness00000001", Source: src}
-	if err := runner.Execute(t.Context(), rev); err != nil {
+	status, err := runner.Execute(t.Context(), src)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if host.tokens != 2 || host.comments != 1 || agents.reviews != 1 || agents.testOne != "go test ./... -run "+project.Placeholder {
-		t.Fatalf("tokens %d comments %d reviews %d test %q", host.tokens, host.comments, agents.reviews, agents.testOne)
+	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 2 {
+		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
 	}
-	if !strings.Contains(host.body, "the sandbox is not built") {
+	if !strings.Contains(host.body, "changed.txt") {
 		t.Fatalf("report %s", host.body)
 	}
-	if _, err := os.Stat(filepath.Join(dir, rev.ID, "checkout")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("checkout remains")
+	again, err := runner.Execute(t.Context(), src)
+	if err != nil || again.Outcome != status.Outcome || host.tokens != 1 || host.comments != 2 {
+		t.Fatalf("again %+v tokens %d comments %d err %v", again, host.tokens, host.comments, err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, rev.ID, "published")); err != nil {
-		t.Fatal(err)
+}
+
+func TestExecuteResumes(t *testing.T) {
+	connect(t)
+	src := sample(t)
+	runs := archive.New(t.TempDir())
+	first := &fakeHost{actions: github.Actions{Passed: true}, fail: errors.New("GitHub is down")}
+	runner := Runner{
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard,
+		Runs: runs, Host: first, Clone: checkout.Clone,
 	}
-	if err := runner.Execute(t.Context(), rev); err != nil || host.tokens != 2 || host.comments != 1 {
-		t.Fatalf("again tokens %d comments %d err %v", host.tokens, host.comments, err)
+	if _, err := runner.Execute(t.Context(), src); err == nil {
+		t.Fatal("publishing failed but the review succeeded")
+	}
+	t.Setenv("FAKE_DOWN", "1")
+	second := &fakeHost{actions: github.Actions{Passed: true}}
+	runner.Host = second
+	status, err := runner.Execute(t.Context(), src)
+	if err != nil || status.Outcome != workflow.OutcomeComplete || second.comments != 2 {
+		t.Fatalf("a new container did not resume the saved stages: %+v %v", status, err)
 	}
 }
 
 func TestExecuteCIFailed(t *testing.T) {
+	connect(t)
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
-	agents := &script{}
-	dir := t.TempDir()
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), DataDir: dir, Experts: []string{"correctness"},
-		Host: host, Clone: checkout.Clone, Agents: agents,
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard,
+		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
-	rev := review.Review{ID: "r_cifailed0000001", Source: sample(t)}
-	if err := runner.Execute(t.Context(), rev); err != nil {
-		t.Fatal(err)
-	}
-	marker, err := os.ReadFile(filepath.Join(dir, rev.ID, "published"))
+	status, err := runner.Execute(t.Context(), sample(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(marker) != "ci_failed\n" || agents.reviews != 0 || agents.diagnoses != 1 || !strings.Contains(host.body, "boom") {
-		t.Fatalf("marker %q reviews %d diagnoses %d report %s", marker, agents.reviews, agents.diagnoses, host.body)
+	if status.Outcome != workflow.OutcomeCIFailed || !strings.Contains(host.body, "boom") {
+		t.Fatalf("status %+v report %s", status, host.body)
 	}
 }
 
@@ -74,10 +150,10 @@ func TestExecuteCancelled(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	runner := Runner{Log: slog.New(slog.DiscardHandler), DataDir: t.TempDir(), Host: host, Clone: checkout.Clone, Agents: &script{}}
-	err := runner.Execute(ctx, review.Review{ID: "r_cancelled000001", Source: review.Source{Repo: "acme/eyeful", Base: "main", Head: "feature"}})
-	if !errors.Is(err, context.Canceled) || host.tokens != 0 {
-		t.Fatalf("%v tokens %d", err, host.tokens)
+	runner := Runner{Log: slog.New(slog.DiscardHandler), Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone}
+	_, err := runner.Execute(ctx, sample(t))
+	if !errors.Is(err, context.Canceled) || host.comments != 0 {
+		t.Fatalf("%v comments %d", err, host.comments)
 	}
 }
 
@@ -99,6 +175,7 @@ func TestNotes(t *testing.T) {
 
 type fakeHost struct {
 	actions  github.Actions
+	fail     error
 	tokens   int
 	comments int
 	body     string
@@ -114,49 +191,16 @@ func (h *fakeHost) Wait(context.Context, string, review.Source) (github.Actions,
 }
 
 func (h *fakeHost) Description(context.Context, string, review.Source) (string, error) {
-	return "Expire sessions on the boundary", nil
+	return "Add changed.txt", nil
 }
 
-func (h *fakeHost) Publish(_ context.Context, _ string, _ review.Source, markdown string, notes []github.Note) error {
-	h.comments++
-	h.body = markdown
-	if len(notes) > 0 {
-		h.comments += len(notes)
+func (h *fakeHost) Publish(_ context.Context, _ review.Source, markdown string, notes []github.Note) error {
+	if h.fail != nil {
+		return h.fail
 	}
+	h.comments += 1 + len(notes)
+	h.body = markdown
 	return nil
-}
-
-type script struct {
-	reviews   int
-	diagnoses int
-	testOne   string
-}
-
-func (s *script) Diagnose(context.Context, workflow.DiagnoseTask) (workflow.Diagnosis, workflow.Usage, error) {
-	s.diagnoses++
-	return workflow.Diagnosis{Failures: []workflow.Failure{{Workflow: "ci", Job: "test", Step: "run", Cause: "boom", Fix: "fix it"}}}, workflow.Usage{}, nil
-}
-
-func (s *script) Plan(context.Context, workflow.PlanTask) (pulls.Analysis, workflow.Usage, error) {
-	return pulls.Analysis{}, workflow.Usage{}, nil
-}
-
-func (s *script) Review(_ context.Context, task workflow.ReviewTask) (workflow.Report, workflow.Usage, error) {
-	s.reviews++
-	s.testOne = task.TestOne
-	return workflow.Report{Findings: []workflow.Claim{}}, workflow.Usage{}, nil
-}
-
-func (s *script) Fix(context.Context, workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {
-	return []workflow.Edit{}, workflow.Usage{}, nil
-}
-
-func (s *script) Retest(context.Context, workflow.RetestTask) (workflow.Repro, workflow.Usage, error) {
-	return workflow.Repro{}, workflow.Usage{}, nil
-}
-
-func (s *script) Judge(context.Context, workflow.JudgeTask) ([]workflow.Judgement, workflow.Usage, error) {
-	return []workflow.Judgement{}, workflow.Usage{}, nil
 }
 
 func sample(t *testing.T) review.Source {

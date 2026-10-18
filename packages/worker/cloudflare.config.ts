@@ -5,7 +5,7 @@ const server = defineContainer({
 	name: 'eyeful-server',
 	image: { dockerfile: '../../Dockerfile', buildContext: '../..' },
 	instanceType: 'standard-1',
-	maxInstances: 1
+	maxInstances: 5
 });
 
 const worker = defineWorker({
@@ -14,14 +14,17 @@ const worker = defineWorker({
 	entrypoint,
 	observability: { enabled: true },
 	env: {
-		DB: bindings.d1({ name: 'eyeful' }),
+		RUNS: bindings.r2({ name: 'eyeful-runs' }),
+		EYEFUL_AI_GATEWAY_ID: bindings.text('default'),
+		EYEFUL_CLOUDFLARE_ACCOUNT_ID: bindings.secret(),
+		EYEFUL_AI_GATEWAY_TOKEN: bindings.secret(),
 		EYEFUL_WEBHOOK_SECRET: bindings.secret(),
 		EYEFUL_GITHUB_APP_ID: bindings.secret(),
 		EYEFUL_GITHUB_APP_PRIVATE_KEY: bindings.secret()
 	},
 	exports: {
 		Server: exports.durableObject({ storage: 'sqlite', container: server }),
-		D1Query: exports.worker()
+		Runs: exports.worker()
 	}
 });
 

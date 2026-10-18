@@ -1,160 +1,244 @@
+import { Webhooks } from '@octokit/webhooks';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
-import type { DatabaseQueryParams, QueryResult } from 'cloudflare/resources/d1/database';
-import type { ResponseInfo } from 'cloudflare/resources/shared';
 
-const PORT = 8080;
-const IDLE_MS = 10 * 60 * 1000;
-const WATCH_MS = 60 * 1000;
-const D1_HOST = 'd1.eyeful';
-const D1_ACCOUNT = 'worker';
-const D1_DATABASE = 'DB';
-const D1_PATH = `/client/v4/accounts/${D1_ACCOUNT}/d1/database/${D1_DATABASE}/query`;
-
-type D1Props = { token: string };
-
-type D1Envelope = {
-	success: boolean;
-	errors: ResponseInfo[];
-	messages: ResponseInfo[];
-	result: QueryResult[];
+type Source = {
+	repo: string;
+	base: string;
+	head: string;
+	number: number;
+	base_sha: string;
+	head_sha: string;
+	clone_url: string;
+	installation_id: number;
 };
 
-export class D1Query extends WorkerEntrypoint<Env, D1Props> {
+type Stored = {
+	source: Source;
+	status: 'queued' | 'running' | 'done';
+	attempts: number;
+	started_at: number;
+	outcome: string;
+	reason: string;
+};
+
+type Status = {
+	state: 'running' | 'done' | 'failed';
+	outcome: string;
+	reason: string;
+};
+
+type Admission = { review: string; created: boolean } | { conflict: string };
+
+type RunsProps = { review: string };
+
+const PORT = 8080;
+const RUNS_HOST = 'runs.eyeful';
+const BODY_LIMIT = 5 << 20;
+const WATCH_MS = 30 * 1000;
+const START_MS = 5 * 60 * 1000;
+const IDLE_MS = 10 * 60 * 1000;
+const MAX_ATTEMPTS = 3;
+
+export class Runs extends WorkerEntrypoint<Env, RunsProps> {
 	async fetch(request: Request): Promise<Response> {
-		if (request.method !== 'POST' || new URL(request.url).pathname !== D1_PATH) {
+		const segments = new URL(request.url).pathname.slice(1).split('/').map(decodeURIComponent);
+		if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
 			return new Response(null, { status: 404 });
 		}
-		if (request.headers.get('Authorization') !== `Bearer ${this.ctx.props.token}`) {
-			return new Response(null, { status: 401 });
-		}
-		const query = await request.json<Omit<DatabaseQueryParams.D1SingleQuery, 'account_id'>>();
-		const prepared = this.env.DB.prepare(query.sql);
-		const statement = query.params === undefined ? prepared : prepared.bind(...query.params);
-		try {
-			const { results, success } = await statement.run();
-			return Response.json({
-				success: true,
-				errors: [],
-				messages: [],
-				result: [{ results, success }]
-			} satisfies D1Envelope);
-		} catch (error) {
-			if (!(error instanceof Error)) {
-				throw error;
+		const key = `${this.ctx.props.review}/${segments.join('/')}`;
+		switch (request.method) {
+			case 'GET': {
+				const object = await this.env.RUNS.get(key);
+				if (object === null) {
+					return new Response(null, { status: 404 });
+				}
+				return new Response(object.body);
 			}
-			return Response.json(
-				{
-					success: false,
-					errors: [{ code: 7500, message: error.message }],
-					messages: [],
-					result: []
-				} satisfies D1Envelope,
-				{ status: 400 }
-			);
+			case 'PUT':
+				await this.env.RUNS.put(key, await request.arrayBuffer());
+				return new Response(null, { status: 204 });
+			default:
+				return new Response(null, { status: 405 });
 		}
 	}
 }
 
 export class Server extends DurableObject<Env> {
-	#ready: Promise<void> | undefined;
-
-	constructor(ctx: DurableObjectState, env: Env) {
-		super(ctx, env);
-		const container = ctx.container;
-		if (container !== undefined && container.running) {
-			void ctx.blockConcurrencyWhile(() => container.setInactivityTimeout(IDLE_MS));
+	async admit(source: Source): Promise<Admission> {
+		const review = this.ctx.id.toString();
+		const kept = this.ctx.storage.kv.get<Stored>('review');
+		if (kept !== undefined) {
+			if (JSON.stringify(kept.source) !== JSON.stringify(source)) {
+				return {
+					conflict: 'this delivery does not match the review already queued for that commit'
+				};
+			}
+			return { review, created: false };
 		}
+		this.ctx.storage.kv.put<Stored>('review', {
+			source,
+			status: 'queued',
+			attempts: 0,
+			started_at: 0,
+			outcome: '',
+			reason: ''
+		});
+		await this.ctx.storage.setAlarm(Date.now());
+		return { review, created: true };
 	}
 
-	async fetch(request: Request): Promise<Response> {
+	async alarm(): Promise<void> {
 		const container = this.ctx.container;
 		if (container === undefined) {
 			throw new Error('no container is configured for this durable object');
 		}
-		if (this.#ready === undefined) {
-			this.#ready = (async () => {
-				if (!container.running) {
-					const token = crypto.randomUUID();
-					await container.interceptOutboundHttp(
-						D1_HOST,
-						this.ctx.exports.D1Query({ props: { token } })
-					);
-					const env: Record<string, string> = {};
-					for (const [name, value] of Object.entries(this.env)) {
-						if (typeof value === 'string') {
-							env[name] = value;
-						}
-					}
-					container.start({
-						enableInternet: true,
-						env: {
-							...env,
-							EYEFUL_D1_API: `http://${D1_HOST}/client/v4`,
-							EYEFUL_D1_ACCOUNT_ID: D1_ACCOUNT,
-							EYEFUL_D1_DATABASE_ID: D1_DATABASE,
-							EYEFUL_D1_API_TOKEN: token
-						}
-					});
-				}
-				await container.setInactivityTimeout(IDLE_MS);
-				const port = container.getTcpPort(PORT);
-				let refused: Error | undefined;
-				for (let attempt = 0; attempt < 150; attempt++) {
-					let res: Response;
-					try {
-						res = await port.fetch('http://container/health', {
-							signal: AbortSignal.timeout(1000)
-						});
-					} catch (error) {
-						if (!(error instanceof Error)) {
-							throw error;
-						}
-						refused = error;
-						await scheduler.wait(200);
-						continue;
-					}
-					if (res.body !== null) {
-						await res.body.cancel();
-					}
-					if (!res.ok) {
-						throw new Error(`health check returned ${res.status}`);
-					}
-					return;
-				}
-				throw new Error(`the server did not answer on port ${PORT}`, { cause: refused });
-			})().finally(() => {
-				this.#ready = undefined;
-			});
-		}
-		await this.#ready;
-		if ((await this.ctx.storage.getAlarm()) === null) {
-			await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
-		}
-		const url = new URL(request.url);
-		url.protocol = 'http:';
-		url.host = 'container';
-		const forwarded = new Request(url, request);
-		forwarded.headers.delete('host');
-		return container.getTcpPort(PORT).fetch(forwarded);
-	}
-
-	async alarm(): Promise<void> {
-		const active = await this.env.DB.prepare(
-			"SELECT 1 FROM reviews WHERE status IN ('queued', 'running') LIMIT 1"
-		).first();
-		if (active === null) {
+		const kept = this.ctx.storage.kv.get<Stored>('review');
+		if (kept === undefined || kept.status === 'done') {
+			if (container.running) {
+				await container.destroy();
+			}
 			return;
 		}
-		const res = await this.fetch(new Request('http://container/health'));
-		if (res.body !== null) {
-			await res.body.cancel();
+		if (container.running) {
+			const status = await this.#status(container);
+			if (status !== undefined && status.state !== 'running') {
+				this.ctx.storage.kv.put<Stored>('review', {
+					...kept,
+					status: 'done',
+					outcome: status.outcome,
+					reason: status.reason
+				});
+				await container.destroy();
+				return;
+			}
+			if (status === undefined && Date.now() - kept.started_at > START_MS) {
+				await container.destroy('the server did not answer');
+			}
+			await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
+			return;
 		}
+		if (kept.attempts >= MAX_ATTEMPTS) {
+			this.ctx.storage.kv.put<Stored>('review', {
+				...kept,
+				status: 'done',
+				reason: `container lost ${kept.attempts} times`
+			});
+			return;
+		}
+		const review = this.ctx.id.toString();
+		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
+		container.start({
+			enableInternet: true,
+			env: {
+				EYEFUL_REVIEW: JSON.stringify(kept.source),
+				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
+				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,
+				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY,
+				CLOUDFLARE_API_KEY: this.env.EYEFUL_AI_GATEWAY_TOKEN,
+				CLOUDFLARE_ACCOUNT_ID: this.env.EYEFUL_CLOUDFLARE_ACCOUNT_ID,
+				CLOUDFLARE_GATEWAY_ID: this.env.EYEFUL_AI_GATEWAY_ID
+			}
+		});
+		this.ctx.storage.kv.put<Stored>('review', {
+			...kept,
+			status: 'running',
+			attempts: kept.attempts + 1,
+			started_at: Date.now()
+		});
+		await container.setInactivityTimeout(IDLE_MS);
 		await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
+	}
+
+	async #status(container: Container): Promise<Status | undefined> {
+		let res: Response;
+		try {
+			res = await container.getTcpPort(PORT).fetch('http://container/review', {
+				signal: AbortSignal.timeout(5000)
+			});
+		} catch (error) {
+			if (!(error instanceof Error)) {
+				throw error;
+			}
+			return undefined;
+		}
+		if (!res.ok) {
+			throw new Error(`the server answered ${res.status} for its review`);
+		}
+		return res.json<Status>();
 	}
 }
 
+function problem(status: number, code: string, detail: string): Response {
+	return Response.json(
+		{ type: 'about:blank', title: code, status, code, detail },
+		{ status, headers: { 'Content-Type': 'application/problem+json' } }
+	);
+}
+
 export default {
-	fetch(request, _env, ctx) {
-		return ctx.exports.Server.getByName('server').fetch(request);
+	async fetch(request, env, ctx) {
+		if (new URL(request.url).pathname !== '/webhook') {
+			return problem(404, 'not_found', 'Not Found');
+		}
+		if (request.method !== 'POST') {
+			return problem(405, 'method_not_allowed', 'Method Not Allowed');
+		}
+		const payload = await request.text();
+		if (payload.length > BODY_LIMIT) {
+			return problem(413, 'bad_request', 'the webhook body is too large');
+		}
+		const id = request.headers.get('X-GitHub-Delivery');
+		const name = request.headers.get('X-GitHub-Event');
+		const signature = request.headers.get('X-Hub-Signature-256');
+		if (id === null || name === null || signature === null) {
+			return problem(400, 'bad_request', 'the delivery, event or signature header is missing');
+		}
+		const webhooks = new Webhooks({ secret: env.EYEFUL_WEBHOOK_SECRET });
+		if (!(await webhooks.verify(payload, signature))) {
+			return problem(401, 'unauthorized', 'the webhook signature is invalid');
+		}
+		let response = Response.json({ ignored: name });
+		webhooks.on(
+			[
+				'pull_request.opened',
+				'pull_request.synchronize',
+				'pull_request.reopened',
+				'pull_request.ready_for_review'
+			],
+			async ({ payload: event }) => {
+				const pr = event.pull_request;
+				if (pr.draft === true && event.action !== 'ready_for_review') {
+					response = Response.json({ ignored: 'draft' });
+					return;
+				}
+				if (event.installation === undefined) {
+					response = problem(
+						400,
+						'bad_request',
+						'the delivery is not from a GitHub App installation'
+					);
+					return;
+				}
+				const source: Source = {
+					repo: event.repository.full_name,
+					base: pr.base.ref,
+					head: pr.head.ref,
+					number: pr.number,
+					base_sha: pr.base.sha,
+					head_sha: pr.head.sha,
+					clone_url: event.repository.clone_url,
+					installation_id: event.installation.id
+				};
+				const admission = await ctx.exports.Server.getByName(
+					`${source.repo}#${source.number}@${source.head_sha}`
+				).admit(source);
+				response =
+					'conflict' in admission
+						? problem(409, 'conflict', admission.conflict)
+						: Response.json(admission, { status: 202 });
+			}
+		);
+		await webhooks.verifyAndReceive({ id, name, payload, signature });
+		return response;
 	}
 } satisfies ExportedHandler<Env>;

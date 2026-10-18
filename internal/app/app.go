@@ -1,24 +1,25 @@
 package app
 
 import (
+	"bytes"
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
+	"sync/atomic"
 
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
 	"github.com/Pleasurecruise/eyeful/internal/checkout"
 	"github.com/Pleasurecruise/eyeful/internal/config"
-	"github.com/Pleasurecruise/eyeful/internal/db"
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/handlers"
 	"github.com/Pleasurecruise/eyeful/internal/harness"
 	"github.com/Pleasurecruise/eyeful/internal/review"
-	"github.com/Pleasurecruise/eyeful/internal/scheduler"
+	"github.com/Pleasurecruise/eyeful/internal/runs"
 	"github.com/Pleasurecruise/eyeful/internal/server"
 )
 
@@ -32,24 +33,14 @@ func New(cfg config.Config, log *slog.Logger) *fx.App {
 		}),
 		fx.StartTimeout(cfg.ShutdownTimeout),
 		fx.StopTimeout(cfg.ShutdownTimeout),
-		DatabaseModule,
 		ReviewModule,
-		SchedulerModule,
 		HTTPModule,
 	)
 }
 
-var DatabaseModule = fx.Module("database",
-	fx.Provide(newDB),
-)
-
 var ReviewModule = fx.Module("review",
-	fx.Provide(newReviewStore),
-)
-
-var SchedulerModule = fx.Module("scheduler",
-	fx.Provide(newGitHub, newHarness, newWorkerPool),
-	fx.Invoke(runWorkers),
+	fx.Provide(newSource, newGitHub, newHarness, newStatus),
+	fx.Invoke(runReview),
 )
 
 var HTTPModule = fx.Module("http",
@@ -57,74 +48,72 @@ var HTTPModule = fx.Module("http",
 	fx.Invoke(runServer),
 )
 
-func newDB(cfg config.Config) (*db.Client, error) {
-	client, err := db.New(cfg.D1API, cfg.D1AccountID, cfg.D1DatabaseID, cfg.D1APIToken)
-	if err != nil {
-		return nil, err
+func newSource(cfg config.Config) (review.Source, error) {
+	var src review.Source
+	dec := json.NewDecoder(bytes.NewReader([]byte(cfg.Review)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&src); err != nil {
+		return src, fmt.Errorf("decode EYEFUL_REVIEW: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-	defer cancel()
-	if err := client.Ping(ctx); err != nil {
-		return nil, err
-	}
-	return client, nil
-}
-
-func newReviewStore(client *db.Client, cfg config.Config) *review.Store {
-	return review.New(client, cfg.MaxAttempts)
+	return src, nil
 }
 
 func newGitHub(cfg config.Config) (*github.App, error) {
 	key, err := github.ParseKey(cfg.PrivateKey)
-	if err != nil && !errors.Is(err, github.ErrNoKey) {
+	if err != nil {
 		return nil, err
 	}
 	return github.New(cfg.GitHubAPI, cfg.AppID, key), nil
 }
 
-func newHarness(log *slog.Logger, cfg config.Config, gh *github.App) *harness.Runner {
-	return &harness.Runner{Log: log, Clone: checkout.Clone, DataDir: cfg.DataDir, Agent: cfg.Agent, TypesafeKey: cfg.TypesafeKey, Host: gh}
-}
-
-func newWorkerPool(log *slog.Logger, cfg config.Config, store *review.Store, runner *harness.Runner) (*scheduler.WorkerPool, error) {
-	host, err := os.Hostname()
-	if err != nil {
-		return nil, fmt.Errorf("hostname for lease owner: %w", err)
-	}
-	// TODO(sandbox): Docker sandbox with snapshots, egress allowlist and orphan reconciliation.
+func newHarness(log *slog.Logger, cfg config.Config, gh *github.App) harness.Runner {
+	// TODO(sandbox): run the project's commands in a sandbox per review, then verify by execution.
 	// TODO(sink): an outbox, so a crash after GitHub accepts a comment cannot post it twice.
-	return scheduler.NewWorkerPool(log, store, runner, scheduler.Options{Owner: fmt.Sprintf("%s:%d", host, os.Getpid()), Workers: cfg.Workers, LeaseTTL: cfg.LeaseTTL, Poll: cfg.Poll}), nil
+	return harness.Runner{
+		Log: log, Clone: checkout.Clone, TypesafeKey: cfg.TypesafeKey,
+		Progress: os.Stderr, Runs: runs.New(cfg.RunsURL), Host: gh,
+	}
 }
 
-func runWorkers(lc fx.Lifecycle, workers *scheduler.WorkerPool) {
+func newStatus() *atomic.Pointer[harness.Status] {
+	var status atomic.Pointer[harness.Status]
+	status.Store(&harness.Status{State: harness.StateRunning})
+	return &status
+}
+
+func runReview(lc fx.Lifecycle, log *slog.Logger, cfg config.Config, src review.Source, runner harness.Runner, status *atomic.Pointer[harness.Status]) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
 				defer close(done)
-				workers.Run(ctx)
+				result, err := runner.Execute(ctx, src)
+				if err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					log.Error("review failed", slog.String("repo", src.Repo), slog.Int64("pull", src.Number), slog.Any("error", err))
+					result = harness.Status{State: harness.StateFailed, Reason: err.Error()}
+				}
+				status.Store(&result)
 			}()
 			return nil
 		},
-		// TODO(sandbox): end sandbox and agent processes before the workers release their reviews.
 		OnStop: func(stop context.Context) error {
 			cancel()
 			select {
 			case <-done:
 				return nil
 			case <-stop.Done():
-				return fmt.Errorf("workers did not drain: %w", stop.Err())
+				return fmt.Errorf("the review did not stop: %w", stop.Err())
 			}
 		},
 	})
 }
 
-func newServer(log *slog.Logger, cfg config.Config, client *db.Client, store *review.Store, gh *github.App) *server.Server {
-	return server.New(log,
-		handlers.HealthRoutes{Version: cfg.Version, Ping: client.Ping},
-		handlers.Webhook{Secret: cfg.WebhookSecret, Configured: gh.Key != nil && gh.AppID >= 1, Admit: store},
-	)
+func newServer(log *slog.Logger, status *atomic.Pointer[harness.Status]) *server.Server {
+	return server.New(log, handlers.ReviewRoutes{Status: func() harness.Status { return *status.Load() }})
 }
 
 func runServer(lc fx.Lifecycle, cfg config.Config, srv *server.Server) {

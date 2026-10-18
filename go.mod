@@ -7,7 +7,6 @@ require (
 	github.com/Pleasurecruise/eyeful/workflow v0.0.0
 	github.com/alecthomas/kong v1.16.1
 	github.com/labstack/echo/v5 v5.4.0
-	github.com/ncruces/go-sqlite3 v0.35.6
 	go.uber.org/fx v1.24.0
 )
 
@@ -16,8 +15,6 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.3 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/mattn/go-jev v0.0.3 // indirect
-	github.com/ncruces/go-sqlite3-wasm/v6 v6.3.35304 // indirect
-	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/owenrumney/go-sarif/v3 v3.3.1 // indirect
 	github.com/sourcegraph/go-diff v0.9.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
