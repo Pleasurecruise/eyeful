@@ -23,6 +23,7 @@ after each green CI run on `main` (`docs.yml`), and a `v*` tag runs CI and then 
 | Documentation site      | `mise run build:docs` (VitePress)               | GitHub Pages at `DOCS_URL`      |
 
 The image holds `eyeful-server`, git, pi `1.3.0`, and pi's settings from `packages/worker/pi/`.
+`Dockerfile.sandbox` builds the sandbox.
 
 ## Cloud
 
@@ -35,12 +36,13 @@ flowchart TB
     server -->|"models.eyeful"| models["Models entrypoint"] --> gateway["AI Gateway<br/>default"]
     server -->|"jev.eyeful"| jev["Jev entrypoint"] --> gateway
     server -->|clone, publish| github["GitHub"]
-    server -.->|planned| sandbox["Sandbox per review<br/>package registries only"]
+    server -->|"sandbox.eyeful"| sandbox["Sandbox Container<br/>one per review"]
+    sandbox -->|"github.com, read-only token"| github
 ```
 
 `packages/worker/cloudflare.config.ts` declares everything: the Worker `eyeful` on the custom domain
-`eyeful.you-find.me` with `workers.dev` and Preview URLs off, the Container `eyeful-server`
-(`standard-1`, at most five), the R2 bucket `eyeful-runs`, the Workers AI binding, the gateway id
+`eyeful.you-find.me` with `workers.dev` and Preview URLs off, the Containers `eyeful-server` and
+`eyeful-sandbox` (`standard-1`, at most five each), the R2 bucket `eyeful-runs`, the Workers AI binding, the gateway id
 (`default`) and the six required secrets. The Durable Object routes the three internal hosts to the
 Worker's entrypoints before it starts the Container, so the Container holds no gateway token, R2
 credential or webhook secret ([Running in the cloud](CLOUD.md#credentials)).

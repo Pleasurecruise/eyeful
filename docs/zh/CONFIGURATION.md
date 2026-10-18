@@ -73,5 +73,6 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 | `EYEFUL_AGENT`          | 云端审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
 | `EYEFUL_REVIEW`         | 云端审查要处理的 pull request，JSON 格式，由 Durable Object 设置。              |
 | `EYEFUL_RUNS_URL`       | 云端审查存放阶段存档的地址，由 Durable Object 设为 `http://runs.eyeful`。       |
+| `EYEFUL_SANDBOX_URL`    | 这次审查的沙箱，由 Durable Object 设为 `http://sandbox.eyeful`。                |
 
 `--shutdown-timeout`（`30s`）只有命令行参数。云端审查用的模型写在 `packages/worker/pi/` 里 pi 自己的设置中，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。

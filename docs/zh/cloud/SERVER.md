@@ -38,6 +38,7 @@ Durable Object 轮询这个路由。所有错误都是 [RFC 9457](https://www.rf
 | `internal/checkout` | pull request 的克隆                                        |
 | `internal/harness`  | 一次审查：检出、`local/app.Review`、发布、`published` 记录 |
 | `internal/runs`     | 基于 Worker 的 R2 入口实现的 `workflow.Archive`            |
+| `internal/sandbox`  | 沙箱服务端（`cmd/eyeful-sandbox`）和客户端                 |
 
 `packages/worker` 里是 Worker、Durable Object 和 Container 访问的各个入口（见[部署](DEPLOYMENT.md)）。
 

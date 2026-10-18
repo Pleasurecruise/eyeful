@@ -59,7 +59,8 @@ flowchart LR
 | 每个 review 一个 Durable Object 和 Container，运行本地的工作流 | 已完成 |
 | 模型和 Jev 经 AI Gateway；阶段存进 R2，审查可以续跑            | 已完成 |
 | 行内评论作为一条 `COMMENT` review，排序报告作为一条评论        | 已完成 |
-| 沙箱，让项目命令只在里面运行                                   | 待做   |
+| 沙箱，让项目命令只在里面运行                                   | 已完成 |
+| 沙箱只能访问包仓库                                             | 待做   |
 | outbox，让 GitHub 已接受的评论只发布一次                       | 待做   |
 | `eyeful` Check Run，合并前必需                                 | 已完成 |
 | 在 Durable Object 而不是 Container 里等待 CI                   | 待做   |

@@ -13,7 +13,7 @@ flowchart LR
 ## 现状
 
 - **可用：** 本地审查。`eyeful review`、`provider`、`connect`、`commit` 和桌面应用用你自己的编码 agent 运行完整的工作流（见[本地运行](LOCAL.md)）。
-- **进行中：** 评估。工具已经写好，实验还没有运行（见[评估](EVALUATION.md)）。云端审查在 Cloudflare 上用只读验证逐个处理 pull request；沙箱还没有实现（见[云端运行](cloud/CLOUD.md)）。
+- **进行中：** 评估。工具已经写好，实验还没有运行（见[评估](EVALUATION.md)）。云端审查在 Cloudflare 上逐个处理 pull request，并在每次审查的沙箱里验证（见[云端运行](cloud/CLOUD.md)）。
 - **规划中：** L1 工具和专家自己的工具（见[路线图](ROADMAP.md)）。
 
 ## 局限 {#limits}
@@ -53,7 +53,7 @@ eyeful 怎样测量：[评估](EVALUATION.md)。
 | [本地开发](DEVELOPMENT.md)      | 环境搭建、命令、代码生成     |
 | [代码风格与审查](STYLEGUIDE.md) | 编码规则，以及改动怎样被审查 |
 
-云端是独立的一部分。pull request 用只读验证审查；沙箱还没有实现：
+云端是独立的一部分。pull request 在自己的沙箱里审查和验证：
 
 | 文档                                | 内容                               |
 | ----------------------------------- | ---------------------------------- |

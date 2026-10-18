@@ -9,6 +9,14 @@ const server = defineContainer({
 	maxInstances: 5
 });
 
+const sandbox = defineContainer({
+	name: 'eyeful-sandbox',
+	image: { dockerfile: '../../Dockerfile.sandbox', buildContext: '../..' },
+	instanceType: 'standard-1',
+	maxInstances: 5,
+	observability: { logs: { enabled: true } }
+});
+
 const worker = defineWorker({
 	name: 'eyeful',
 	compatibilityDate: '2026-10-16',
@@ -30,10 +38,12 @@ const worker = defineWorker({
 	},
 	exports: {
 		Server: exports.durableObject({ storage: 'sqlite', container: server }),
+		Sandbox: exports.durableObject({ storage: 'sqlite', container: sandbox }),
+		ContainerProxy: exports.worker(),
 		Runs: exports.worker(),
 		Models: exports.worker(),
 		Jev: exports.worker()
 	}
 });
 
-export default defineConfig({ worker, containers: [server] });
+export default defineConfig({ worker, containers: [server, sandbox] });

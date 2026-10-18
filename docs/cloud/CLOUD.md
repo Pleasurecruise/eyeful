@@ -1,8 +1,7 @@
 # Running in the cloud
 
 A cloud review runs on Cloudflare against a GitHub pull request, with the same workflow as a local
-review, in its own Container. The sandbox is not built, so it runs none of the project's commands
-and a judge checks its findings.
+review, in its own Container. Tests run in a separate sandbox.
 
 ## What can be reviewed {#what-can-be-reviewed}
 
@@ -18,8 +17,8 @@ in `EYEFUL_ALLOWED_USERS`. Branches, commits and uncommitted changes are reviewe
    starts the review's Container running `eyeful-server serve`.
 3. The server clones the repository, waits for the head commit's GitHub Actions and reacts with 👀.
    A failed run ends the review with a diagnosis ([Planning and triage](../PLANNER.md#ci-check)).
-4. The server calls `local/app.Review` with read-only verification, as in
-   `eyeful review --verification read_only`, saving each stage to R2 ([Storage](PERSISTENCE.md)).
+4. The server opens the sandbox and calls `local/app.Review` with execution verification, saving
+   each stage to R2 ([Storage](PERSISTENCE.md)).
 5. The App posts each undisputed `issue` as a line comment in one `COMMENT` review, and a short
    summary as a comment ([Review feedback](../REPORT.md#line-comments)), then records `published`
    in R2. A crash between the two can post twice; an outbox is planned.
@@ -46,13 +45,13 @@ gateway.
 
 ## The sandbox {#the-sandbox}
 
-These limits are hard measures in `.agents/POLARIS.md`. The sandbox they describe is not built.
-Until it is, a cloud review runs no project command and verifies by a judge, and the report says so.
+Each review gets its own sandbox Container, removed when the review ends. It runs setup once and
+each test on a fresh copy, as `eyeful review` does.
 
-- Each review gets one sandbox.
-- No credential enters it: no GitHub token, API key or model key.
-- It reaches package registries during `setup` and nothing else.
-- Each reproduction runs on a fresh copy.
+- It holds no credential. It clones from `github.com`; the Worker lets through only fetches of the
+  reviewed repository and adds a read-only token for it.
+- The commands come from the base commit, so a pull request cannot change what runs.
+- For now it can reach the whole internet, not only package registries.
 
 ## Credentials {#credentials}
 

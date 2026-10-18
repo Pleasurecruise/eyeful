@@ -24,7 +24,7 @@ flowchart TB
 | ------------ | ------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------- |
 | `Agents`     | 每个角色调用一次，返回带类型的结果和花费的 token | `local/agents`：review 的 Container 里的 pi，由 `EYEFUL_AGENT` 指定 | `local/agents`                  |
 | `Classifier` | 两条发现是同一个问题的概率，以及花费的 token     | `local/classify`，经 Worker 的 Workers AI binding                   | `local/classify`，经 AI Gateway |
-| `Workspace`  | CI 检查、`setup`、读文件、在全新副本上运行测试   | CI 检查读 GitHub Actions。`setup` 和测试等沙箱                      | `local/worktree`                |
+| `Workspace`  | CI 检查、`setup`、读文件、在全新副本上运行测试   | CI 检查读 GitHub Actions；其余走 `internal/sandbox`                 | `local/worktree`                |
 | `Archive`    | 读取和保存每个阶段的输出                         | `internal/runs`：经 Worker 存进 R2                                  | `local/archive`                 |
 
 所有循环都由 Go 掌管：`workflow` 检查每份计划和报告、管理预算、决定重试，并在下一阶段开始前保存当前阶段。它不包含 fx、数据库或服务器的类型。

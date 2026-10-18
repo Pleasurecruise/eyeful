@@ -92,6 +92,7 @@ server the rest come from the platform's environment.
 | `EYEFUL_AGENT`          | Agent CLI the cloud review connects: `pi`, `claude` or `codex`. Default `pi`.                 |
 | `EYEFUL_REVIEW`         | The pull request a cloud review runs, as JSON. The Durable Object sets it.                    |
 | `EYEFUL_RUNS_URL`       | Where a cloud review keeps its stages. The Durable Object sets it to `http://runs.eyeful`.    |
+| `EYEFUL_SANDBOX_URL`    | The review's sandbox. The Durable Object sets it to `http://sandbox.eyeful`.                  |
 
 `--shutdown-timeout` (`30s`) is a flag only. The model a cloud review uses is set in pi's own
 settings in `packages/worker/pi/`, not by a variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).

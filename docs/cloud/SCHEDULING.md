@@ -29,6 +29,7 @@ stateDiagram-v2
 | Cancel    | Closing the pull request or turning it into a draft destroys the running Container and cancels its Check Runs.                                              |
 | Idle      | The Container stops after ten minutes without a request; the alarm's polling keeps a running review alive.                                                  |
 | Capacity  | At most five Containers at once (`maxInstances`).                                                                                                           |
+| Sandbox   | Each review has its own sandbox, removed when the review ends.                                                                                              |
 
 A rollout or any other `SIGTERM` stops the Container; the alarm counts it as lost and the next one
 resumes from the stages in R2 ([Storage](PERSISTENCE.md)).

@@ -242,10 +242,10 @@ func describe(o Options, agent agents.Agent, snap subject.Snapshot, files int) s
 }
 
 func workspace(ctx context.Context, o Options, snap subject.Snapshot, objects string, cfg project.Config) (workflow.Workspace, func(), error) {
+	if o.Workspace != nil {
+		return o.Workspace, func() {}, nil
+	}
 	if o.Verification != workflow.ModeExecution {
-		if o.Workspace != nil {
-			return o.Workspace, func() {}, say(o.Err, "Verification: "+string(o.Verification)+"; no project command runs.\n")
-		}
 		return worktree.ReadOnly{}, func() {}, say(o.Err, "Verification: "+string(o.Verification)+"; no project command runs and your working copy is not touched.\n")
 	}
 	tree, err := worktree.Open(ctx, o.Log, snap, objects)

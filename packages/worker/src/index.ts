@@ -1,3 +1,4 @@
+import * as containers from '@cloudflare/containers';
 import { App } from '@octokit/app';
 import type { Endpoints } from '@octokit/types';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
@@ -38,10 +39,13 @@ type Status = {
 
 type Admission = { review: string } | { busy: string } | { skipped: string };
 
+type Repository = { repo: string; installation: number };
+
 const PORT = 8080;
 const RUNS_HOST = 'runs.eyeful';
 const MODELS_HOST = 'models.eyeful';
 const JEV_HOST = 'jev.eyeful';
+const SANDBOX_HOST = 'sandbox.eyeful';
 const MENTION = '@eyeful-review';
 const CHECK = 'eyeful';
 const BODY_LIMIT = 5 << 20;
@@ -94,6 +98,60 @@ export class Jev extends WorkerEntrypoint<Env> {
 				gateway: { id: this.env.EYEFUL_AI_GATEWAY_ID }
 			})
 		);
+	}
+}
+
+export { ContainerProxy } from '@cloudflare/containers';
+
+export class Sandbox extends containers.Container<Env> {
+	defaultPort = PORT;
+	sleepAfter = '10m';
+	enableInternet = true;
+	interceptHttps = true;
+
+	static outboundHandlers = {
+		async github(
+			request: Request,
+			env: Env,
+			ctx: containers.OutboundHandlerContext<Repository>
+		): Promise<Response> {
+			const url = new URL(request.url);
+			const repository = `/${ctx.params.repo}.git`;
+			const fetches =
+				(request.method === 'GET' &&
+					url.pathname === `${repository}/info/refs` &&
+					url.search === '?service=git-upload-pack') ||
+				(request.method === 'POST' && url.pathname === `${repository}/git-upload-pack`);
+			if (!fetches) {
+				return new Response('Forbidden', { status: 403 });
+			}
+			const app = new App({
+				appId: env.EYEFUL_GITHUB_APP_ID,
+				privateKey: env.EYEFUL_GITHUB_APP_PRIVATE_KEY
+			});
+			const { data } = await app.octokit.request(
+				'POST /app/installations/{installation_id}/access_tokens',
+				{
+					installation_id: ctx.params.installation,
+					repositories: [ctx.params.repo.split('/')[1]],
+					permissions: { contents: 'read' }
+				}
+			);
+			const headers = new Headers(request.headers);
+			headers.set('Authorization', `Basic ${btoa(`x-access-token:${data.token}`)}`);
+			return fetch(new Request(request, { headers }));
+		}
+	};
+
+	async allow(repository: Repository): Promise<void> {
+		await this.setOutboundByHost('github.com', 'github', repository);
+	}
+
+	async release(): Promise<void> {
+		const { status } = await this.getState();
+		if (status === 'running' || status === 'healthy') {
+			await this.destroy();
+		}
 	}
 }
 
@@ -154,12 +212,7 @@ export class Server extends DurableObject<Env> {
 		if (kept === undefined || kept.status === 'done') {
 			return;
 		}
-		if (this.#container.running) {
-			await this.#container.destroy(reason);
-		}
-		const done: Stored = { ...kept, status: 'done', reason, conclusion: 'cancelled' };
-		this.ctx.storage.kv.put<Stored>('review', done);
-		await this.#complete(done);
+		await this.#finish({ ...kept, status: 'done', reason, conclusion: 'cancelled' });
 	}
 
 	async alarm(): Promise<void> {
@@ -187,16 +240,13 @@ export class Server extends DurableObject<Env> {
 			}
 			const status = res === undefined ? undefined : await res.json<Status>();
 			if (status !== undefined && status.state !== 'running') {
-				const done: Stored = {
+				await this.#finish({
 					...kept,
 					status: 'done',
 					outcome: status.outcome,
 					reason: status.reason,
 					conclusion: status.outcome === '' ? 'failure' : 'success'
-				};
-				this.ctx.storage.kv.put<Stored>('review', done);
-				await container.destroy();
-				await this.#complete(done);
+				});
 				return;
 			}
 			if (status === undefined && Date.now() - kept.started_at > START_MS) {
@@ -206,14 +256,12 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (kept.attempts >= MAX_ATTEMPTS) {
-			const done: Stored = {
+			await this.#finish({
 				...kept,
 				status: 'done',
 				reason: `the review's Container was lost ${kept.attempts} times`,
 				conclusion: 'failure'
-			};
-			this.ctx.storage.kv.put<Stored>('review', done);
-			await this.#complete(done);
+			});
 			return;
 		}
 		this.ctx.storage.kv.put<Stored>('review', {
@@ -226,6 +274,9 @@ export class Server extends DurableObject<Env> {
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
 		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
 		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
+		const sandbox = this.ctx.exports.Sandbox.getByName(review);
+		await sandbox.allow({ repo: kept.source.repo, installation: kept.source.installation_id });
+		await container.interceptOutboundHttp(SANDBOX_HOST, sandbox);
 		const current = this.ctx.storage.kv.get<Stored>('review');
 		if (current === undefined || current.status === 'done') {
 			return;
@@ -235,12 +286,22 @@ export class Server extends DurableObject<Env> {
 			env: {
 				EYEFUL_REVIEW: JSON.stringify(kept.source),
 				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
+				EYEFUL_SANDBOX_URL: `http://${SANDBOX_HOST}`,
 				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,
 				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
 			}
 		});
 		await container.setInactivityTimeout(IDLE_MS);
 		await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
+	}
+
+	async #finish(done: Stored): Promise<void> {
+		this.ctx.storage.kv.put<Stored>('review', done);
+		if (this.#container.running) {
+			await this.#container.destroy();
+		}
+		await this.ctx.exports.Sandbox.getByName(`${this.ctx.id.toString()}/${done.run}`).release();
+		await this.#complete(done);
 	}
 
 	async #check(source: Source, title: string): Promise<CheckRun> {

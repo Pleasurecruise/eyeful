@@ -17,8 +17,8 @@ flowchart LR
 - **Works:** local reviews. `eyeful review`, `provider`, `connect`, `commit` and the desktop app run
   the whole workflow with your own coding agent ([Running locally](LOCAL.md)).
 - **In progress:** the evaluation, whose tooling is built and whose experiment has not run
-  ([Evaluation](EVALUATION.md)). Cloud reviews run each pull request on Cloudflare with read-only
-  verification; the sandbox is not built ([Running in the cloud](cloud/CLOUD.md)).
+  ([Evaluation](EVALUATION.md)). Cloud reviews run each pull request on Cloudflare and verify in a
+  sandbox per review ([Running in the cloud](cloud/CLOUD.md)).
 - **Planned:** the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
 
 ## Limits {#limits}
@@ -63,7 +63,7 @@ How the code is built:
 | [Local development](DEVELOPMENT.md)    | Setup, commands, code generation          |
 | [Code style and review](STYLEGUIDE.md) | Coding rules and how changes are reviewed |
 
-The cloud, which is separate. A pull request is reviewed with read-only verification; the sandbox is not built:
+The cloud, which is separate. A pull request is reviewed and verified in its own sandbox:
 
 | Document                                | Covers                                        |
 | --------------------------------------- | --------------------------------------------- |
