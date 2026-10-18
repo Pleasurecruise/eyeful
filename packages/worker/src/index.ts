@@ -31,8 +31,12 @@ type Admission = { review: string; created: boolean } | { conflict: string };
 
 type RunsProps = { review: string };
 
+type JevRequest = { state: Record<string, unknown>; questions: Record<string, unknown> };
+
 const PORT = 8080;
 const RUNS_HOST = 'runs.eyeful';
+const MODELS_HOST = 'models.eyeful';
+const JEV_HOST = 'jev.eyeful';
 const BODY_LIMIT = 5 << 20;
 const WATCH_MS = 30 * 1000;
 const START_MS = 5 * 60 * 1000;
@@ -60,6 +64,29 @@ export class Runs extends WorkerEntrypoint<Env, RunsProps> {
 			default:
 				return new Response(null, { status: 405 });
 		}
+	}
+}
+
+export class Models extends WorkerEntrypoint<Env> {
+	async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		const headers = new Headers(request.headers);
+		headers.delete('Authorization');
+		headers.set('cf-aig-authorization', `Bearer ${this.env.EYEFUL_AI_GATEWAY_TOKEN}`);
+		return fetch(
+			`https://gateway.ai.cloudflare.com/v1/${this.env.EYEFUL_CLOUDFLARE_ACCOUNT_ID}/${this.env.EYEFUL_AI_GATEWAY_ID}/custom-volcengine${url.pathname}${url.search}`,
+			{ method: request.method, headers, body: request.body }
+		);
+	}
+}
+
+export class Jev extends WorkerEntrypoint<Env> {
+	async fetch(request: Request): Promise<Response> {
+		return Response.json(
+			await this.env.AI.run('typesafe/jev', await request.json<JevRequest>(), {
+				gateway: { id: this.env.EYEFUL_AI_GATEWAY_ID }
+			})
+		);
 	}
 }
 
@@ -127,16 +154,15 @@ export class Server extends DurableObject<Env> {
 		}
 		const review = this.ctx.id.toString();
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
+		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
+		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
 		container.start({
 			enableInternet: true,
 			env: {
 				EYEFUL_REVIEW: JSON.stringify(kept.source),
 				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
 				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,
-				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY,
-				CLOUDFLARE_API_KEY: this.env.EYEFUL_AI_GATEWAY_TOKEN,
-				CLOUDFLARE_ACCOUNT_ID: this.env.EYEFUL_CLOUDFLARE_ACCOUNT_ID,
-				CLOUDFLARE_GATEWAY_ID: this.env.EYEFUL_AI_GATEWAY_ID
+				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
 			}
 		});
 		this.ctx.storage.kv.put<Stored>('review', {

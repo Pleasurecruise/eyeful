@@ -22,7 +22,7 @@ type Options struct {
 	Commands     project.Config
 	Detect       bool
 	Run          string
-	TypesafeKey  string
+	Classifier   workflow.Classifier
 	Workspace    workflow.Workspace
 	Archive      workflow.Archive
 	Confirm      func(ctx context.Context, work string, commands []project.Command) (bool, error)

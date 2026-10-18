@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/Pleasurecruise/eyeful/local/app"
+	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/project"
@@ -26,7 +28,9 @@ type reviewCmd struct {
 	Detect       bool     `default:"true" negatable:"" help:"Find the project's commands from its manifests, such as go.mod or package.json, when none is given."`
 	Description  string   `type:"existingfile" help:"A file with the author's description of the change, such as a pull request's title and body; the reviewers read it as the author's word."`
 	Archive      string   `name:"run" type:"path" help:"Directory for this review's files; stages already saved there are not run again. Empty makes one under .eyeful/runs."`
-	TypesafeKey  string   `env:"EYEFUL_TYPESAFE_API_KEY" help:"TypeSafe API key; Jev says which findings on the same lines are one problem. Without it they are not merged."`
+	Account      string   `name:"cloudflare-account-id" env:"EYEFUL_CLOUDFLARE_ACCOUNT_ID" help:"Cloudflare account whose AI Gateway runs Jev, which says which findings on the same lines are one problem. Without it and a token they are not merged."`
+	Gateway      string   `name:"ai-gateway-id" default:"default" help:"AI Gateway that runs Jev."`
+	Token        string   `name:"ai-gateway-token" env:"EYEFUL_AI_GATEWAY_TOKEN" help:"Cloudflare API token with AI Gateway Run and Workers AI Read."`
 	Yes          bool     `short:"y" help:"Confirm the project commands without asking."`
 }
 
@@ -40,16 +44,22 @@ func (c *reviewCmd) Run() error {
 			return fmt.Errorf("read the description: %w", err)
 		}
 	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	url := ""
+	if c.Account != "" && c.Token != "" {
+		url = fmt.Sprintf("https://gateway.ai.cloudflare.com/v1/%s/%s/workers-ai/run/typesafe/jev", c.Account, c.Gateway)
+	}
 	_, err := app.Review(ctx, app.Options{
 		Dir: ".", Range: subject.Range{Base: c.Base, Head: c.Head}, Experts: c.Experts, Verification: workflow.Mode(c.Verification), Run: c.Archive,
-		Commands: project.Config{Setup: c.Setup, Lint: c.Lint, Test: c.Test, TestOne: c.TestOne}, Detect: c.Detect, Description: string(description), TypesafeKey: c.TypesafeKey,
+		Commands: project.Config{Setup: c.Setup, Lint: c.Lint, Test: c.Test, TestOne: c.TestOne}, Detect: c.Detect, Description: string(description),
+		Classifier: classify.New(log, url, http.Header{"Cf-Aig-Authorization": {"Bearer " + c.Token}, "Authorization": {"Bearer " + c.Token}}),
 		Confirm: func(context.Context, string, []project.Command) (bool, error) {
 			if c.Yes {
 				return true, nil
 			}
 			return ask("Run these commands?")
 		},
-		Out: os.Stdout, Err: os.Stderr, Log: slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		Out: os.Stdout, Err: os.Stderr, Log: log,
 	})
 	return err
 }

@@ -15,6 +15,7 @@ const worker = defineWorker({
 	observability: { enabled: true },
 	env: {
 		RUNS: bindings.r2({ name: 'eyeful-runs' }),
+		AI: bindings.ai(),
 		EYEFUL_AI_GATEWAY_ID: bindings.text('default'),
 		EYEFUL_CLOUDFLARE_ACCOUNT_ID: bindings.secret(),
 		EYEFUL_AI_GATEWAY_TOKEN: bindings.secret(),
@@ -24,7 +25,9 @@ const worker = defineWorker({
 	},
 	exports: {
 		Server: exports.durableObject({ storage: 'sqlite', container: server }),
-		Runs: exports.worker()
+		Runs: exports.worker(),
+		Models: exports.worker(),
+		Jev: exports.worker()
 	}
 });
 

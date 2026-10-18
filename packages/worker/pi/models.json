@@ -1,34 +1,16 @@
 {
 	"$schema": "https://pi.dev/schemas/models.schema.json",
 	"providers": {
-		"cloudflare-ai-gateway": {
+		"volcengine": {
+			"baseUrl": "http://models.eyeful",
+			"api": "openai-completions",
+			"apiKey": "eyeful",
 			"models": [
 				{
-					"id": "workers-ai/@cf/deepseek-ai/deepseek-v4-flash-1017",
-					"name": "DeepSeek V4 Flash 1017",
-					"api": "openai-completions",
-					"baseUrl": "https://gateway.ai.cloudflare.com/v1/{CLOUDFLARE_ACCOUNT_ID}/{CLOUDFLARE_GATEWAY_ID}/compat",
-					"reasoning": true,
-					"input": ["text"],
+					"id": "deepseek-v4.1-flash",
+					"input": ["text", "image"],
 					"contextWindow": 1048576,
-					"maxTokens": 1048576,
-					"compat": {
-						"supportsStore": false,
-						"supportsDeveloperRole": false,
-						"supportsReasoningEffort": false,
-						"maxTokensField": "max_tokens",
-						"supportsLongCacheRetention": false,
-						"sendSessionAffinityHeaders": true,
-						"requiresReasoningContentOnAssistantMessages": true,
-						"thinkingFormat": "deepseek"
-					},
-					"thinkingLevelMap": {
-						"minimal": null,
-						"low": null,
-						"medium": null,
-						"high": "high",
-						"max": "max"
-					}
+					"maxTokens": 393216
 				}
 			]
 		}

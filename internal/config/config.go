@@ -15,6 +15,5 @@ type Config struct {
 	PrivateKey      string        `required:"" env:"EYEFUL_GITHUB_APP_PRIVATE_KEY" help:"GitHub App private key. A PEM, or a path to a PEM file."`
 	GitHubAPI       string        `default:"https://api.github.com" env:"EYEFUL_GITHUB_API_URL" help:"GitHub API root."`
 	Agent           string        `default:"pi" env:"EYEFUL_AGENT" help:"Agent CLI the review runs: pi, claude or codex."`
-	TypesafeKey     string        `env:"EYEFUL_TYPESAFE_API_KEY" help:"TypeSafe API key. Without it, findings on the same lines are not merged."`
 	Version         string        `kong:"-"`
 }

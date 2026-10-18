@@ -1,4 +1,4 @@
 {
-	"defaultProvider": "cloudflare-ai-gateway",
-	"defaultModel": "workers-ai/@cf/deepseek-ai/deepseek-v4-flash-1017"
+	"defaultProvider": "volcengine",
+	"defaultModel": "deepseek-v4.1-flash"
 }

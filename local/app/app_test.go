@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/local/app"
+	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -126,7 +127,8 @@ func setup(t *testing.T, connect bool) (string, string, app.Options) {
 		Confirm: func(context.Context, string, []project.Command) (bool, error) {
 			return false, errors.New("no terminal")
 		},
-		Out: &strings.Builder{}, Err: &strings.Builder{}, Log: slog.New(slog.DiscardHandler),
+		Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil),
+		Out:        &strings.Builder{}, Err: &strings.Builder{}, Log: slog.New(slog.DiscardHandler),
 	}
 }
 

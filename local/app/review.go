@@ -15,7 +15,6 @@ import (
 
 	"github.com/Pleasurecruise/eyeful/local/agents"
 	"github.com/Pleasurecruise/eyeful/local/archive"
-	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/git"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/local/store"
@@ -97,7 +96,7 @@ func Review(ctx context.Context, o Options) (workflow.Result, error) {
 	if o.Archive != nil {
 		stages = o.Archive
 	}
-	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Classifier: classify.New(o.Log, o.TypesafeKey), Workspace: ws, Archive: stages}, req)
+	res, err := wf.Run(ctx, workflow.Session{Agents: runner, Classifier: o.Classifier, Workspace: ws, Archive: stages}, req)
 	if err != nil {
 		return none, err
 	}

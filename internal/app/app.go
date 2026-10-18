@@ -21,6 +21,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/internal/runs"
 	"github.com/Pleasurecruise/eyeful/internal/server"
+	"github.com/Pleasurecruise/eyeful/local/classify"
 )
 
 func New(cfg config.Config, log *slog.Logger) *fx.App {
@@ -70,7 +71,7 @@ func newHarness(log *slog.Logger, cfg config.Config, gh *github.App) harness.Run
 	// TODO(sandbox): run the project's commands in a sandbox per review, then verify by execution.
 	// TODO(sink): an outbox, so a crash after GitHub accepts a comment cannot post it twice.
 	return harness.Runner{
-		Log: log, Clone: checkout.Clone, TypesafeKey: cfg.TypesafeKey,
+		Log: log, Clone: checkout.Clone, Classifier: classify.New(log, "http://jev.eyeful", nil),
 		Progress: os.Stderr, Runs: runs.New(cfg.RunsURL), Host: gh,
 	}
 }

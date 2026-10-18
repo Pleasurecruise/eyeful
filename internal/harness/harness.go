@@ -40,13 +40,13 @@ type Host interface {
 }
 
 type Runner struct {
-	Log         *slog.Logger
-	TypesafeKey string
-	Experts     []string
-	Progress    io.Writer
-	Runs        workflow.Archive
-	Host        Host
-	Clone       func(ctx context.Context, dir, token string, src review.Source) error
+	Log        *slog.Logger
+	Experts    []string
+	Classifier workflow.Classifier
+	Progress   io.Writer
+	Runs       workflow.Archive
+	Host       Host
+	Clone      func(ctx context.Context, dir, token string, src review.Source) error
 }
 
 var errNoSandbox = errors.New("the sandbox is not built, so project commands do not run")
@@ -87,7 +87,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	res, err := app.Review(ctx, app.Options{
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,
 		Description: description, Verification: workflow.ModeReadOnly, Run: filepath.Join(dir, "run"),
-		TypesafeKey: r.TypesafeKey, Workspace: workspace{check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
+		Classifier: r.Classifier, Workspace: workspace{check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
 		Out: io.Discard, Err: r.Progress, Log: r.Log,
 	})
 	if err != nil {
