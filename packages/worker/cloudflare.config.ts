@@ -24,7 +24,8 @@ const worker = defineWorker({
 		EYEFUL_AI_GATEWAY_TOKEN: bindings.secret(),
 		EYEFUL_WEBHOOK_SECRET: bindings.secret(),
 		EYEFUL_GITHUB_APP_ID: bindings.secret(),
-		EYEFUL_GITHUB_APP_PRIVATE_KEY: bindings.secret()
+		EYEFUL_GITHUB_APP_PRIVATE_KEY: bindings.secret(),
+		EYEFUL_ALLOWED_USERS: bindings.secret()
 	},
 	exports: {
 		Server: exports.durableObject({ storage: 'sqlite', container: server }),

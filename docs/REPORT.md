@@ -44,12 +44,12 @@ is_expired compares with >, so a request at the expiry second is accepted. The r
 test below fails on this change and passes with the suggested fix.
 ```
 
-## Line comments
+## Line comments {#line-comments}
 
 On a pull request, eyeful posts one review with the event `COMMENT`, never `REQUEST_CHANGES` or
-`APPROVE`. A comment that names a file and a line is posted on that line. When the comment has one
-fix for that same file, the fix is included as a suggested change. Comments without a line stay in
-the ranked report. A Check Run that fails while an `issue (blocking)` remains is planned, and off
+`APPROVE`. Only an `issue` that names a file and a line, and that the judge does not dispute, is
+posted on that line; questions, suggestions and nitpicks are listed, folded, at the end of the summary and not posted.
+When a posted comment has one fix for that same file, the fix is included as a suggested change. A Check Run that fails while an `issue (blocking)` remains is planned, and off
 by default.
 
 ## The ranked report {#ranked-report}
@@ -79,7 +79,7 @@ The report closes with:
 | Findings JSON  | The desktop app, beside the diff                              |
 | SARIF          | Another agent, a script, GitHub code scanning, the evaluation |
 | GitHub review  | Line comments on the pull request                             |
-| GitHub comment | The ranked report                                             |
+| GitHub comment | A short summary: counts, the posted issues, the rest folded   |
 | Check Run      | An optional gate (planned)                                    |
 
 The GitHub posts happen in the review's Container. The outbox is planned

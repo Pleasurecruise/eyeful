@@ -71,6 +71,30 @@ func TestMarkdown(t *testing.T) {
 	}
 }
 
+func TestSummary(t *testing.T) {
+	md, err := report.Summary(result())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"**eyeful** · `complete` · 3 findings: 1 reproduced, 1 to review, 1 disputed.",
+		"The change breaks `tests/test_login.py::test_remember_me`.",
+		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
+		"<details><summary>Not posted (2)</summary>",
+		"- nitpick · `app/login.py:3` Name the token",
+		"- question · `app/session.py:40` Refresh skips the expiry check",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("missing %q in\n%s", want, md)
+		}
+	}
+	for _, unwanted := range []string{"| `app/login.py:3` |", "| `app/session.py:40` |", "What this change does", "None was reproduced"} {
+		if strings.Contains(md, unwanted) {
+			t.Errorf("%q in\n%s", unwanted, md)
+		}
+	}
+}
+
 func TestResolved(t *testing.T) {
 	r := result()
 	old := workflow.Finding{ID: "previous/0/correctness/7"}

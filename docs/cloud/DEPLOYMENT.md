@@ -41,7 +41,7 @@ flowchart TB
 `packages/worker/cloudflare.config.ts` declares everything: the Worker `eyeful` on the custom domain
 `eyeful.you-find.me` with `workers.dev` and Preview URLs off, the Container `eyeful-server`
 (`standard-1`, at most five), the R2 bucket `eyeful-runs`, the Workers AI binding, the gateway id
-(`default`) and the five required secrets. The Durable Object routes the three internal hosts to the
+(`default`) and the six required secrets. The Durable Object routes the three internal hosts to the
 Worker's entrypoints before it starts the Container, so the Container holds no gateway token, R2
 credential or webhook secret ([Running in the cloud](CLOUD.md#credentials)).
 
@@ -62,7 +62,7 @@ because `cf deploy` builds the image.
 2. From `packages/worker`, `pnpm exec cf deploy --secrets-file ../../.env` builds the image, creates
    the R2 bucket on the first deploy, and uploads the Worker, the Container and the secrets.
 3. In the GitHub App, turn the webhook on, set its URL to `https://eyeful.you-find.me/webhook` and
-   its secret to `EYEFUL_WEBHOOK_SECRET`, subscribe to the Pull request event, and grant Contents
+   its secret to `EYEFUL_WEBHOOK_SECRET`, subscribe to the Pull request and Issue comment events, and grant Contents
    (read), Pull requests (read and write), Issues (read and write), Actions (read) and Metadata
    (read). Install the App on the repositories to review.
 

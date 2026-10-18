@@ -98,14 +98,14 @@ func TestExecute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 2 {
+	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 {
 		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
 	}
-	if !strings.Contains(host.body, "changed.txt") {
+	if !strings.Contains(host.body, "<details><summary>Not posted (1)</summary>") || !strings.Contains(host.body, "- suggestion · `changed.txt:1`") || strings.Contains(host.body, "What this change does") {
 		t.Fatalf("report %s", host.body)
 	}
 	again, err := runner.Execute(t.Context(), src)
-	if err != nil || again.Outcome != status.Outcome || host.tokens != 1 || host.comments != 2 {
+	if err != nil || again.Outcome != status.Outcome || host.tokens != 1 || host.comments != 1 {
 		t.Fatalf("again %+v tokens %d comments %d err %v", again, host.tokens, host.comments, err)
 	}
 }
@@ -126,7 +126,7 @@ func TestExecuteResumes(t *testing.T) {
 	second := &fakeHost{actions: github.Actions{Passed: true}}
 	runner.Host = second
 	status, err := runner.Execute(t.Context(), src)
-	if err != nil || status.Outcome != workflow.OutcomeComplete || second.comments != 2 {
+	if err != nil || status.Outcome != workflow.OutcomeComplete || second.comments != 1 {
 		t.Fatalf("a new container did not resume the saved stages: %+v %v", status, err)
 	}
 }
@@ -166,6 +166,8 @@ func TestNotes(t *testing.T) {
 			Path: "app/session.py", Line: 11,
 			Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}},
 		},
+		{Label: workflow.LabelSuggestion, Path: "app/session.py", Line: 20, Subject: "skipped"},
+		{Label: workflow.LabelIssue, Kind: workflow.KindOpen, Path: "app/session.py", Line: 30, Subject: "skipped"},
 		{Path: "", Line: 4, Subject: "skipped"},
 		{Path: "a.go", Line: 0, Subject: "skipped"},
 	})

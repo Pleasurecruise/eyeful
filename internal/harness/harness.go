@@ -96,7 +96,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if res.Outcome == "" {
 		return Status{State: StateDone, Reason: "the change is empty"}, nil
 	}
-	markdown, err := report.Markdown(res)
+	markdown, err := report.Summary(res)
 	if err != nil {
 		return Status{}, fmt.Errorf("report: %w", err)
 	}
@@ -127,36 +127,28 @@ func (workspace) Test(context.Context, []workflow.Edit, workflow.Target) (workfl
 func notesFrom(comments []workflow.Comment) []github.Note {
 	notes := []github.Note{}
 	for _, c := range comments {
-		if c.Path == "" || c.Line < 1 {
+		if c.Path == "" || c.Line < 1 || !report.Posted(c.Label, c.Kind) {
 			continue
 		}
-		notes = append(notes, github.Note{Path: c.Path, Line: c.Line, Body: noteBody(c)})
+		var b strings.Builder
+		b.WriteString(string(c.Label))
+		if len(c.Decorations) > 0 {
+			b.WriteString(" (" + strings.Join(c.Decorations, ", ") + ")")
+		}
+		b.WriteString(": " + c.Subject)
+		for _, part := range []string{c.Discussion, c.Scenario, c.Objection} {
+			if part != "" {
+				b.WriteString("\n\n" + part)
+			}
+		}
+		if len(c.Fix) == 1 && c.Fix[0].Path == c.Path && c.Fix[0].New != "" {
+			b.WriteString("\n\n```suggestion\n" + c.Fix[0].New)
+			if !strings.HasSuffix(c.Fix[0].New, "\n") {
+				b.WriteByte('\n')
+			}
+			b.WriteString("```\n")
+		}
+		notes = append(notes, github.Note{Path: c.Path, Line: c.Line, Body: b.String()})
 	}
 	return notes
-}
-
-func noteBody(c workflow.Comment) string {
-	var b strings.Builder
-	b.WriteString(string(c.Label))
-	if len(c.Decorations) > 0 {
-		b.WriteString(" (" + strings.Join(c.Decorations, ", ") + ")")
-	}
-	b.WriteString(": " + c.Subject)
-	if c.Discussion != "" {
-		b.WriteString("\n\n" + c.Discussion)
-	}
-	if c.Scenario != "" {
-		b.WriteString("\n\n" + c.Scenario)
-	}
-	if c.Objection != "" {
-		b.WriteString("\n\n" + c.Objection)
-	}
-	if len(c.Fix) == 1 && c.Fix[0].Path == c.Path && c.Fix[0].New != "" {
-		b.WriteString("\n\n```suggestion\n" + c.Fix[0].New)
-		if !strings.HasSuffix(c.Fix[0].New, "\n") {
-			b.WriteByte('\n')
-		}
-		b.WriteString("```\n")
-	}
-	return b.String()
 }

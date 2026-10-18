@@ -1,4 +1,4 @@
-import { Webhooks } from '@octokit/webhooks';
+import { App } from '@octokit/app';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 
 type Source = {
@@ -14,6 +14,7 @@ type Source = {
 
 type Stored = {
 	source: Source;
+	run: number;
 	status: 'queued' | 'running' | 'done';
 	attempts: number;
 	started_at: number;
@@ -27,7 +28,7 @@ type Status = {
 	reason: string;
 };
 
-type Admission = { review: string; created: boolean } | { conflict: string };
+type Admission = { review: string } | { busy: string } | { skipped: string };
 
 type RunsProps = { review: string };
 
@@ -37,6 +38,7 @@ const PORT = 8080;
 const RUNS_HOST = 'runs.eyeful';
 const MODELS_HOST = 'models.eyeful';
 const JEV_HOST = 'jev.eyeful';
+const MENTION = '@eyeful-review';
 const BODY_LIMIT = 5 << 20;
 const WATCH_MS = 30 * 1000;
 const START_MS = 5 * 60 * 1000;
@@ -91,19 +93,28 @@ export class Jev extends WorkerEntrypoint<Env> {
 }
 
 export class Server extends DurableObject<Env> {
-	async admit(source: Source): Promise<Admission> {
-		const review = this.ctx.id.toString();
-		const kept = this.ctx.storage.kv.get<Stored>('review');
-		if (kept !== undefined) {
-			if (JSON.stringify(kept.source) !== JSON.stringify(source)) {
-				return {
-					conflict: 'this delivery does not match the review already queued for that commit'
-				};
-			}
-			return { review, created: false };
+	readonly #container: Container;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		if (ctx.container === undefined) {
+			throw new Error('no container is configured for this durable object');
 		}
+		this.#container = ctx.container;
+	}
+
+	async review(source: Source, automatic: boolean): Promise<Admission> {
+		const kept = this.ctx.storage.kv.get<Stored>('review');
+		if (kept !== undefined && kept.status !== 'done') {
+			return { busy: kept.source.head_sha };
+		}
+		if (automatic && kept !== undefined) {
+			return { skipped: 'this pull request was reviewed once; mention the App to review it again' };
+		}
+		const run = kept === undefined ? 1 : kept.run + 1;
 		this.ctx.storage.kv.put<Stored>('review', {
 			source,
+			run,
 			status: 'queued',
 			attempts: 0,
 			started_at: 0,
@@ -111,14 +122,22 @@ export class Server extends DurableObject<Env> {
 			reason: ''
 		});
 		await this.ctx.storage.setAlarm(Date.now());
-		return { review, created: true };
+		return { review: `${this.ctx.id.toString()}/${run}` };
+	}
+
+	async cancel(reason: string): Promise<void> {
+		const kept = this.ctx.storage.kv.get<Stored>('review');
+		if (kept === undefined || kept.status === 'done') {
+			return;
+		}
+		if (this.#container.running) {
+			await this.#container.destroy(reason);
+		}
+		this.ctx.storage.kv.put<Stored>('review', { ...kept, status: 'done', reason });
 	}
 
 	async alarm(): Promise<void> {
-		const container = this.ctx.container;
-		if (container === undefined) {
-			throw new Error('no container is configured for this durable object');
-		}
+		const container = this.#container;
 		const kept = this.ctx.storage.kv.get<Stored>('review');
 		if (kept === undefined || kept.status === 'done') {
 			if (container.running) {
@@ -127,7 +146,20 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (container.running) {
-			const status = await this.#status(container);
+			let res: Response | undefined;
+			try {
+				res = await container.getTcpPort(PORT).fetch('http://container/review', {
+					signal: AbortSignal.timeout(5000)
+				});
+			} catch (error) {
+				if (!(error instanceof Error)) {
+					throw error;
+				}
+			}
+			if (res !== undefined && !res.ok) {
+				throw new Error(`the server answered ${res.status} for its review`);
+			}
+			const status = res === undefined ? undefined : await res.json<Status>();
 			if (status !== undefined && status.state !== 'running') {
 				this.ctx.storage.kv.put<Stored>('review', {
 					...kept,
@@ -136,6 +168,9 @@ export class Server extends DurableObject<Env> {
 					reason: status.reason
 				});
 				await container.destroy();
+				if (status.outcome === '') {
+					await this.#report(kept.source, status.reason);
+				}
 				return;
 			}
 			if (status === undefined && Date.now() - kept.started_at > START_MS) {
@@ -145,14 +180,12 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (kept.attempts >= MAX_ATTEMPTS) {
-			this.ctx.storage.kv.put<Stored>('review', {
-				...kept,
-				status: 'done',
-				reason: `container lost ${kept.attempts} times`
-			});
+			const reason = `the review's Container was lost ${kept.attempts} times`;
+			this.ctx.storage.kv.put<Stored>('review', { ...kept, status: 'done', reason });
+			await this.#report(kept.source, reason);
 			return;
 		}
-		const review = this.ctx.id.toString();
+		const review = `${this.ctx.id.toString()}/${kept.run}`;
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
 		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
 		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
@@ -175,22 +208,19 @@ export class Server extends DurableObject<Env> {
 		await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
 	}
 
-	async #status(container: Container): Promise<Status | undefined> {
-		let res: Response;
-		try {
-			res = await container.getTcpPort(PORT).fetch('http://container/review', {
-				signal: AbortSignal.timeout(5000)
-			});
-		} catch (error) {
-			if (!(error instanceof Error)) {
-				throw error;
-			}
-			return undefined;
-		}
-		if (!res.ok) {
-			throw new Error(`the server answered ${res.status} for its review`);
-		}
-		return res.json<Status>();
+	async #report(source: Source, reason: string): Promise<void> {
+		const app = new App({
+			appId: this.env.EYEFUL_GITHUB_APP_ID,
+			privateKey: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
+		});
+		const octokit = await app.getInstallationOctokit(source.installation_id);
+		const [owner, repo] = source.repo.split('/');
+		await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+			owner,
+			repo,
+			issue_number: source.number,
+			body: `**eyeful** did not post a review of \`${source.head_sha.slice(0, 7)}\`: ${reason}.`
+		});
 	}
 }
 
@@ -219,22 +249,26 @@ export default {
 		if (id === null || name === null || signature === null) {
 			return problem(400, 'bad_request', 'the delivery, event or signature header is missing');
 		}
-		const webhooks = new Webhooks({ secret: env.EYEFUL_WEBHOOK_SECRET });
-		if (!(await webhooks.verify(payload, signature))) {
+		const app = new App({
+			appId: env.EYEFUL_GITHUB_APP_ID,
+			privateKey: env.EYEFUL_GITHUB_APP_PRIVATE_KEY,
+			webhooks: { secret: env.EYEFUL_WEBHOOK_SECRET }
+		});
+		if (!(await app.webhooks.verify(payload, signature))) {
 			return problem(401, 'unauthorized', 'the webhook signature is invalid');
 		}
+		const allowed = env.EYEFUL_ALLOWED_USERS.split(',');
 		let response = Response.json({ ignored: name });
-		webhooks.on(
-			[
-				'pull_request.opened',
-				'pull_request.synchronize',
-				'pull_request.reopened',
-				'pull_request.ready_for_review'
-			],
+		app.webhooks.on(
+			['pull_request.opened', 'pull_request.reopened', 'pull_request.ready_for_review'],
 			async ({ payload: event }) => {
 				const pr = event.pull_request;
 				if (pr.draft === true && event.action !== 'ready_for_review') {
 					response = Response.json({ ignored: 'draft' });
+					return;
+				}
+				if (!allowed.includes(pr.user.login)) {
+					response = Response.json({ ignored: `${pr.user.login} is not allowed` });
 					return;
 				}
 				if (event.installation === undefined) {
@@ -245,7 +279,63 @@ export default {
 					);
 					return;
 				}
-				const source: Source = {
+				const admission = await ctx.exports.Server.getByName(
+					`${event.repository.full_name}#${pr.number}`
+				).review(
+					{
+						repo: event.repository.full_name,
+						base: pr.base.ref,
+						head: pr.head.ref,
+						number: pr.number,
+						base_sha: pr.base.sha,
+						head_sha: pr.head.sha,
+						clone_url: event.repository.clone_url,
+						installation_id: event.installation.id
+					},
+					true
+				);
+				response = Response.json(admission, { status: 202 });
+			}
+		);
+		app.webhooks.on('issue_comment.created', async ({ payload: event, octokit }) => {
+			const commenter = event.comment.user;
+			if (
+				event.issue.pull_request === undefined ||
+				!event.comment.body.includes(MENTION) ||
+				commenter === null ||
+				!allowed.includes(commenter.login)
+			) {
+				return;
+			}
+			if (event.installation === undefined) {
+				response = problem(
+					400,
+					'bad_request',
+					'the delivery is not from a GitHub App installation'
+				);
+				return;
+			}
+			const owner = event.repository.owner.login;
+			const repo = event.repository.name;
+			const { data: pr } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+				owner,
+				repo,
+				pull_number: event.issue.number
+			});
+			if (pr.state === 'closed') {
+				response = Response.json({ ignored: 'closed' });
+				return;
+			}
+			await octokit.request('POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions', {
+				owner,
+				repo,
+				comment_id: event.comment.id,
+				content: 'eyes'
+			});
+			const admission = await ctx.exports.Server.getByName(
+				`${event.repository.full_name}#${pr.number}`
+			).review(
+				{
 					repo: event.repository.full_name,
 					base: pr.base.ref,
 					head: pr.head.ref,
@@ -254,17 +344,29 @@ export default {
 					head_sha: pr.head.sha,
 					clone_url: event.repository.clone_url,
 					installation_id: event.installation.id
-				};
-				const admission = await ctx.exports.Server.getByName(
-					`${source.repo}#${source.number}@${source.head_sha}`
-				).admit(source);
-				response =
-					'conflict' in admission
-						? problem(409, 'conflict', admission.conflict)
-						: Response.json(admission, { status: 202 });
+				},
+				false
+			);
+			if ('busy' in admission) {
+				await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+					owner,
+					repo,
+					issue_number: pr.number,
+					body: `**eyeful** is still reviewing \`${admission.busy.slice(0, 7)}\`; mention it again once that review is posted.`
+				});
+			}
+			response = Response.json(admission, { status: 202 });
+		});
+		app.webhooks.on(
+			['pull_request.closed', 'pull_request.converted_to_draft'],
+			async ({ payload: event }) => {
+				await ctx.exports.Server.getByName(
+					`${event.repository.full_name}#${event.pull_request.number}`
+				).cancel(`pull request ${event.action}`);
+				response = Response.json({ cancelled: event.action });
 			}
 		);
-		await webhooks.verifyAndReceive({ id, name, payload, signature });
+		await app.webhooks.verifyAndReceive({ id, name, payload, signature });
 		return response;
 	}
 } satisfies ExportedHandler<Env>;

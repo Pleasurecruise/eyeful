@@ -70,10 +70,11 @@ own configuration file. When a required value is missing, the tool fails instead
 | `EYEFUL_WEBHOOK_SECRET`         | GitHub webhook secret, checked by the Worker against `X-Hub-Signature-256`.                                                      |
 | `EYEFUL_GITHUB_APP_ID`          | GitHub App id, used to mint an installation token per review.                                                                    |
 | `EYEFUL_GITHUB_APP_PRIVATE_KEY` | GitHub App private key: a PEM on one line with `\n` breaks, or a path to a PEM file. A value that is not a PEM stops the server. |
+| `EYEFUL_ALLOWED_USERS`          | GitHub logins, comma separated, whose pull requests and mentions the cloud reviews. Everyone else is ignored.                    |
 | `EYEFUL_CLOUDFLARE_ACCOUNT_ID`  | The Cloudflare account whose AI Gateway runs the models and Jev.                                                                 |
 | `EYEFUL_AI_GATEWAY_TOKEN`       | Cloudflare API token with AI Gateway Run and Workers AI Read.                                                                    |
 
-All five are Worker secrets: `cf deploy --secrets-file ../../.env` uploads them
+All six are Worker secrets: `cf deploy --secrets-file ../../.env` uploads them
 ([Deploy](cloud/DEPLOYMENT.md#deploy)). Locally, `eyeful review` and `eval/score.py` use the account id and the token
 for [Jev](ARCHITECTURE.md#jev); without them `eyeful review` does not merge findings.
 

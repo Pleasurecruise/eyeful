@@ -10,6 +10,7 @@ The review's Durable Object is SQLite-backed and holds one record under the key 
 | Field        | Holds                                               |
 | ------------ | --------------------------------------------------- |
 | `source`     | The pull request, as the server reads it            |
+| `run`        | The review's number on this pull request            |
 | `status`     | `queued`, `running` or `done`                       |
 | `attempts`   | Containers started for the review                   |
 | `started_at` | When the current Container started, in milliseconds |
@@ -18,15 +19,15 @@ The review's Durable Object is SQLite-backed and holds one record under the key 
 
 ## R2
 
-The bucket `eyeful-runs` holds each review's stage archive under the Durable Object's id. The server
+The bucket `eyeful-runs` holds each review's stage archive under the Durable Object's id and the review's number. The server
 reaches it through `http://runs.eyeful`, which the Durable Object routes to the Worker's `Runs`
 entrypoint for that review only; the Container has no R2 credential.
 
-| Key              | Holds                                                            |
-| ---------------- | ---------------------------------------------------------------- |
-| `<id>/request`   | The workflow request, so a different request is refused          |
-| `<id>/<stage>`   | Each finished stage, such as `plan/0` or `judge/…`               |
-| `<id>/published` | The outcome, written once GitHub accepted the review and comment |
+| Key                    | Holds                                                            |
+| ---------------------- | ---------------------------------------------------------------- |
+| `<id>/<run>/request`   | The workflow request, so a different request is refused          |
+| `<id>/<run>/<stage>`   | Each finished stage, such as `plan/0` or `judge/…`               |
+| `<id>/<run>/published` | The outcome, written once GitHub accepted the review and comment |
 
 `internal/runs` implements `workflow.Archive` over these requests, so the workflow skips every stage
 already in R2 when a Container starts again.
