@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -14,10 +15,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Pleasurecruise/eyeful/internal/checkout"
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
+	"github.com/Pleasurecruise/eyeful/internal/sandbox"
 	"github.com/Pleasurecruise/eyeful/local/archive"
 	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/settings"
@@ -67,6 +70,13 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func sandboxFor(t *testing.T) *sandbox.Client {
+	t.Helper()
+	srv := httptest.NewServer(sandbox.NewServer(slog.New(slog.DiscardHandler), filepath.Join(t.TempDir(), "sandbox"), time.Minute))
+	t.Cleanup(srv.Close)
+	return sandbox.NewClient(srv.URL)
+}
+
 func connect(t *testing.T) {
 	t.Helper()
 	home, bin := t.TempDir(), t.TempDir()
@@ -91,7 +101,7 @@ func TestExecute(t *testing.T) {
 	src := sample(t)
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), src)
@@ -116,7 +126,7 @@ func TestExecuteResumes(t *testing.T) {
 	runs := archive.New(t.TempDir())
 	first := &fakeHost{actions: github.Actions{Passed: true}, fail: errors.New("GitHub is down")}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: runs, Host: first, Clone: checkout.Clone,
 	}
 	if _, err := runner.Execute(t.Context(), src); err == nil {
@@ -125,6 +135,7 @@ func TestExecuteResumes(t *testing.T) {
 	t.Setenv("FAKE_DOWN", "1")
 	second := &fakeHost{actions: github.Actions{Passed: true}}
 	runner.Host = second
+	runner.Dir = t.TempDir()
 	status, err := runner.Execute(t.Context(), src)
 	if err != nil || status.Outcome != workflow.OutcomeComplete || second.comments != 1 {
 		t.Fatalf("a new container did not resume the saved stages: %+v %v", status, err)
@@ -135,7 +146,7 @@ func TestExecuteCIFailed(t *testing.T) {
 	connect(t)
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Progress: io.Discard, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), sample(t))
@@ -151,7 +162,7 @@ func TestExecuteCancelled(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	runner := Runner{Log: slog.New(slog.DiscardHandler), Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone}
+	runner := Runner{Log: slog.New(slog.DiscardHandler), Dir: t.TempDir(), Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone}
 	_, err := runner.Execute(ctx, sample(t))
 	if !errors.Is(err, context.Canceled) || host.comments != 0 {
 		t.Fatalf("%v comments %d", err, host.comments)

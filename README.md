@@ -77,7 +77,7 @@ When it finds no test command, nothing runs and a judge reads every finding. `--
 - **In progress:** the evaluation on SWE-bench Verified, Code Review Bench and ReviewBench
   ([Evaluation](docs/EVALUATION.md)). How eyeful compares with other reviewers is not yet known.
 - **In progress:** reviews of GitHub pull requests through a self-hosted GitHub App on Cloudflare,
-  with read-only verification until the sandbox is built ([Running in the cloud](docs/cloud/CLOUD.md)).
+  verifying findings in a sandbox per review ([Running in the cloud](docs/cloud/CLOUD.md)).
 - It can only prove what a unit-sized test shows. Timing, performance and behaviour that needs a
   database or a browser are read by the judge, never run.
 - It reports only what the change introduces, and a review without findings proves nothing.

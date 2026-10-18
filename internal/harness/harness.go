@@ -2,16 +2,15 @@ package harness
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
+	"github.com/Pleasurecruise/eyeful/internal/sandbox"
 	"github.com/Pleasurecruise/eyeful/local/app"
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -45,12 +44,12 @@ type Runner struct {
 	Experts    []string
 	Classifier workflow.Classifier
 	Progress   io.Writer
+	Dir        string
 	Runs       workflow.Archive
+	Sandbox    *sandbox.Client
 	Host       Host
 	Clone      func(ctx context.Context, dir, token string, src review.Source) error
 }
-
-var errNoSandbox = errors.New("the sandbox is not built, so project commands do not run")
 
 func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) {
 	published, ok, err := r.Runs.Load(ctx, "published")
@@ -60,20 +59,11 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if ok {
 		return Status{State: StateDone, Outcome: workflow.Outcome(published)}, nil
 	}
-	dir, err := os.MkdirTemp("", "eyeful-review-")
-	if err != nil {
-		return Status{}, fmt.Errorf("review directory: %w", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			r.Log.Warn("remove the review directory", slog.String("path", dir), slog.Any("error", err))
-		}
-	}()
 	token, err := r.Host.Token(ctx, src.InstallationID)
 	if err != nil {
 		return Status{}, fmt.Errorf("installation token: %w", err)
 	}
-	checkout := filepath.Join(dir, "checkout")
+	checkout := filepath.Join(r.Dir, "checkout")
 	if err := r.Clone(ctx, checkout, token, src); err != nil {
 		return Status{}, fmt.Errorf("checkout: %w", err)
 	}
@@ -88,10 +78,14 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err != nil {
 		return Status{}, fmt.Errorf("pull request: %w", err)
 	}
+	cfg, err := r.Sandbox.Open(ctx, src)
+	if err != nil {
+		return Status{}, fmt.Errorf("sandbox: %w", err)
+	}
 	res, err := app.Review(ctx, app.Options{
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,
-		Description: description, Verification: workflow.ModeReadOnly, Run: filepath.Join(dir, "run"),
-		Classifier: r.Classifier, Workspace: workspace{check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
+		Description: description, Verification: workflow.ModeExecution, Commands: cfg, Run: filepath.Join(r.Dir, "run"),
+		Classifier: r.Classifier, Workspace: workspace{Client: r.Sandbox, check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
 		Out: io.Discard, Err: r.Progress, Log: r.Log,
 	})
 	if err != nil {
@@ -115,18 +109,11 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 }
 
 type workspace struct {
+	*sandbox.Client
 	check workflow.Check
 }
 
 func (w workspace) CI(context.Context) (workflow.Check, error) { return w.check, nil }
-
-func (workspace) Setup(context.Context) error { return nil }
-
-func (workspace) Read(context.Context, string) (string, error) { return "", errNoSandbox }
-
-func (workspace) Test(context.Context, []workflow.Edit, workflow.Target) (workflow.TestRun, error) {
-	return workflow.TestRun{}, errNoSandbox
-}
 
 func notesFrom(comments []workflow.Comment) []github.Note {
 	notes := []github.Note{}

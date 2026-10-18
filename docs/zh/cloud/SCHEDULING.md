@@ -27,6 +27,7 @@ stateDiagram-v2
 | 取消     | 关闭 pull request 或转回 draft 会销毁正在运行的 Container，并取消它的 Check Run。                                  |
 | 空闲     | Container 十分钟没有请求就停止；alarm 的轮询会让运行中的审查保持活跃。                                             |
 | 容量     | 同时最多五个 Container（`maxInstances`）。                                                                         |
+| 沙箱     | 每次审查有自己的沙箱，审查结束时删除。                                                                             |
 
 发布新版本或任何 `SIGTERM` 都会让 Container 停止；alarm 把它记为丢失，下一个从 R2 里的阶段继续（见[存储](PERSISTENCE.md)）。
 

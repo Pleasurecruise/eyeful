@@ -30,7 +30,7 @@ storage itself: the caller passes four interfaces in a `Session`.
 | ------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ |
 | `Agents`     | One call per role, returning a typed result and the tokens spent        | `local/agents`: pi in the review's Container, named by `EYEFUL_AGENT` | `local/agents`                       |
 | `Classifier` | The probability that two findings are one problem, and the tokens spent | `local/classify`, through the Worker's Workers AI binding             | `local/classify`, through AI Gateway |
-| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | GitHub Actions for the CI check. Setup and tests wait for the sandbox | `local/worktree`                     |
+| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | GitHub Actions for the CI check; `internal/sandbox` for the rest      | `local/worktree`                     |
 | `Archive`    | Loading and saving each stage's output                                  | `internal/runs`: R2, through the Worker                               | `local/archive`                      |
 
 Go owns every loop: `workflow` checks each plan and report, keeps the budget, decides retries, and

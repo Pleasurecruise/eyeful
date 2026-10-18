@@ -38,10 +38,13 @@ type Status = {
 
 type Admission = { review: string } | { busy: string } | { skipped: string };
 
+type Repository = { repo: string; installation: number };
+
 const PORT = 8080;
 const RUNS_HOST = 'runs.eyeful';
 const MODELS_HOST = 'models.eyeful';
 const JEV_HOST = 'jev.eyeful';
+const SANDBOX_HOST = 'sandbox.eyeful';
 const MENTION = '@eyeful-review';
 const CHECK = 'eyeful';
 const BODY_LIMIT = 5 << 20;
@@ -94,6 +97,87 @@ export class Jev extends WorkerEntrypoint<Env> {
 				gateway: { id: this.env.EYEFUL_AI_GATEWAY_ID }
 			})
 		);
+	}
+}
+
+export class Git extends WorkerEntrypoint<Env, Repository> {
+	async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		const repository = `/${this.ctx.props.repo}.git`;
+		const fetches =
+			(request.method === 'GET' &&
+				url.pathname === `${repository}/info/refs` &&
+				url.search === '?service=git-upload-pack') ||
+			(request.method === 'POST' && url.pathname === `${repository}/git-upload-pack`);
+		if (!fetches) {
+			return new Response('Forbidden', { status: 403 });
+		}
+		const app = new App({
+			appId: this.env.EYEFUL_GITHUB_APP_ID,
+			privateKey: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
+		});
+		const { data } = await app.octokit.request(
+			'POST /app/installations/{installation_id}/access_tokens',
+			{
+				installation_id: this.ctx.props.installation,
+				repositories: [this.ctx.props.repo.split('/')[1]],
+				permissions: { contents: 'read' }
+			}
+		);
+		const headers = new Headers(request.headers);
+		headers.set('Authorization', `Basic ${btoa(`x-access-token:${data.token}`)}`);
+		return fetch(new Request(request, { headers }));
+	}
+}
+
+export class Workspace extends WorkerEntrypoint<Env, Repository & { review: string }> {
+	async fetch(request: Request): Promise<Response> {
+		return this.ctx.exports.Sandbox.getByName(this.ctx.props.review).forward(request, {
+			repo: this.ctx.props.repo,
+			installation: this.ctx.props.installation
+		});
+	}
+}
+
+export class Sandbox extends DurableObject<Env> {
+	readonly #container: Container;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		if (ctx.container === undefined) {
+			throw new Error('no container is configured for this durable object');
+		}
+		this.#container = ctx.container;
+	}
+
+	async forward(request: Request, repository: Repository): Promise<Response> {
+		const container = this.#container;
+		const port = container.getTcpPort(PORT);
+		if (!container.running) {
+			await container.interceptOutboundHttps(
+				'github.com',
+				this.ctx.exports.Git({ props: repository })
+			);
+			container.start({ enableInternet: true });
+			await container.setInactivityTimeout(IDLE_MS);
+			for (const started = Date.now(); ; await scheduler.wait(1000)) {
+				try {
+					await port.fetch('http://container/health');
+					break;
+				} catch (error) {
+					if (!(error instanceof Error) || Date.now() - started > START_MS) {
+						throw error;
+					}
+				}
+			}
+		}
+		return port.fetch(request);
+	}
+
+	async release(): Promise<void> {
+		if (this.#container.running) {
+			await this.#container.destroy();
+		}
 	}
 }
 
@@ -154,12 +238,7 @@ export class Server extends DurableObject<Env> {
 		if (kept === undefined || kept.status === 'done') {
 			return;
 		}
-		if (this.#container.running) {
-			await this.#container.destroy(reason);
-		}
-		const done: Stored = { ...kept, status: 'done', reason, conclusion: 'cancelled' };
-		this.ctx.storage.kv.put<Stored>('review', done);
-		await this.#complete(done);
+		await this.#finish({ ...kept, status: 'done', reason, conclusion: 'cancelled' });
 	}
 
 	async alarm(): Promise<void> {
@@ -187,16 +266,13 @@ export class Server extends DurableObject<Env> {
 			}
 			const status = res === undefined ? undefined : await res.json<Status>();
 			if (status !== undefined && status.state !== 'running') {
-				const done: Stored = {
+				await this.#finish({
 					...kept,
 					status: 'done',
 					outcome: status.outcome,
 					reason: status.reason,
 					conclusion: status.outcome === '' ? 'failure' : 'success'
-				};
-				this.ctx.storage.kv.put<Stored>('review', done);
-				await container.destroy();
-				await this.#complete(done);
+				});
 				return;
 			}
 			if (status === undefined && Date.now() - kept.started_at > START_MS) {
@@ -206,14 +282,12 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (kept.attempts >= MAX_ATTEMPTS) {
-			const done: Stored = {
+			await this.#finish({
 				...kept,
 				status: 'done',
 				reason: `the review's Container was lost ${kept.attempts} times`,
 				conclusion: 'failure'
-			};
-			this.ctx.storage.kv.put<Stored>('review', done);
-			await this.#complete(done);
+			});
 			return;
 		}
 		this.ctx.storage.kv.put<Stored>('review', {
@@ -226,6 +300,12 @@ export class Server extends DurableObject<Env> {
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
 		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
 		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
+		await container.interceptOutboundHttp(
+			SANDBOX_HOST,
+			this.ctx.exports.Workspace({
+				props: { review, repo: kept.source.repo, installation: kept.source.installation_id }
+			})
+		);
 		const current = this.ctx.storage.kv.get<Stored>('review');
 		if (current === undefined || current.status === 'done') {
 			return;
@@ -235,12 +315,22 @@ export class Server extends DurableObject<Env> {
 			env: {
 				EYEFUL_REVIEW: JSON.stringify(kept.source),
 				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
+				EYEFUL_SANDBOX_URL: `http://${SANDBOX_HOST}`,
 				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,
 				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
 			}
 		});
 		await container.setInactivityTimeout(IDLE_MS);
 		await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
+	}
+
+	async #finish(done: Stored): Promise<void> {
+		this.ctx.storage.kv.put<Stored>('review', done);
+		if (this.#container.running) {
+			await this.#container.destroy();
+		}
+		await this.ctx.exports.Sandbox.getByName(`${this.ctx.id.toString()}/${done.run}`).release();
+		await this.#complete(done);
 	}
 
 	async #check(source: Source, title: string): Promise<CheckRun> {

@@ -186,6 +186,12 @@ func TestWorktree(t *testing.T) {
 		}
 	}
 
+	nested := filepath.Join(outside, "nested")
+	gitInTests := worktree.NewWorkspace(w, project.Config{Test: "git log -1 --format=%s >/dev/null && git init -q " + nested + " && git -C " + nested + " -c user.name=t -c user.email=t@t commit -q --allow-empty -m n && git ls-remote " + nested + " HEAD"}, 5*time.Second)
+	if run, err := gitInTests.Test(ctx, nil, workflow.Target{}); err != nil || !run.Passed {
+		t.Fatalf("a test that runs git in its own repository: %+v, %v", run, err)
+	}
+
 	if _, err := worktree.NewWorkspace(w, project.Config{}, time.Second).Test(ctx, nil, workflow.Target{Tests: []string{"t"}}); !errors.Is(err, worktree.ErrNoCommand) {
 		t.Fatalf("no command: %v", err)
 	}

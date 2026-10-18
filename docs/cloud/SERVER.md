@@ -44,6 +44,7 @@ a stable `code` from `internal/apperror` and the `request_id`.
 | `internal/checkout` | The clone of the pull request                                             |
 | `internal/harness`  | One review: checkout, `local/app.Review`, publish, the `published` record |
 | `internal/runs`     | `workflow.Archive` over the Worker's R2 entrypoint                        |
+| `internal/sandbox`  | The sandbox server (`cmd/eyeful-sandbox`) and its client                  |
 
 `packages/worker` holds the Worker, the Durable Object and the entrypoints the Container reaches
 ([Deployment](DEPLOYMENT.md)).

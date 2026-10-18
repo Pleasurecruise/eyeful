@@ -122,4 +122,4 @@ From [umputun/revmux](https://github.com/umputun/revmux):
 | What is reviewed          | Bugs                          | What the profile's lenses cover    | Design, functionality, security, tests, usability, readability |
 | How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code       | The verifier runs a test; the rest is marked `review`          |
 | Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text | Conventional Comments in a ranked report                       |
-| Where it runs             | Anthropic's cloud             | Inside the reviewed repository     | The user's machine; a cloud sandbox is planned                 |
+| Where it runs             | Anthropic's cloud             | Inside the reviewed repository     | The user's machine, or a sandbox per pull request              |

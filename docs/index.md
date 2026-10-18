@@ -34,6 +34,6 @@ features:
     link: /LOCAL#local-risks
 ---
 
-Local reviews work today. A cloud review runs each pull request on Cloudflare with read-only
-verification; the sandbox is not built yet. Start with the
+Local reviews work today. A cloud review runs each pull request on Cloudflare and verifies its
+findings in a sandbox. Start with the
 [overview](/overview) or the [roadmap](/ROADMAP).

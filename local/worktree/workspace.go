@@ -24,7 +24,7 @@ func (s *Workspace) run(ctx context.Context, command string) (bool, string, erro
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, "sh", "-c", command)
 	group(cmd)
-	cmd.Env = append(os.Environ(), s.tree.env...)
+	cmd.Env = append(os.Environ(), "GIT_ALTERNATE_OBJECT_DIRECTORIES="+s.tree.objects)
 	cmd.Dir = s.tree.dir
 	cmd.WaitDelay = 5 * time.Second
 	out := tail.New(outputLimit)

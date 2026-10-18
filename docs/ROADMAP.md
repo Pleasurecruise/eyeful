@@ -70,7 +70,8 @@ The workflow on pull requests through a self-hosted GitHub App
 | One Durable Object and Container per review, running the local workflow    | Built |
 | Models and Jev through AI Gateway; stages in R2, so a review resumes       | Built |
 | A `COMMENT` review for line comments, and the ranked report as one comment | Built |
-| The sandbox, so the project's commands run only there                      | To do |
+| The sandbox, so the project's commands run only there                      | Built |
+| The sandbox reaching only package registries                               | To do |
 | The outbox, so a comment GitHub has accepted is posted once                | To do |
 | The `eyeful` Check Run, required before merging                            | Built |
 | Waiting for CI in the Durable Object instead of the Container              | To do |

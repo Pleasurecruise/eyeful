@@ -29,7 +29,7 @@ func Open(ctx context.Context, log *slog.Logger, snap subject.Snapshot, objects 
 	if _, err := git.Run(ctx, snap.Root, []string{"GIT_OBJECT_DIRECTORY=" + objects}, slices.Concat(safe, []string{"worktree", "add", "--detach", dir, snap.Commit})...); err != nil {
 		return nil, errors.Join(err, os.RemoveAll(dir))
 	}
-	w := &Worktree{root: snap.Root, dir: dir, base: snap.Base, env: []string{"GIT_OBJECT_DIRECTORY=" + objects}, log: log.With(slog.String("worktree", dir))}
+	w := &Worktree{root: snap.Root, dir: dir, base: snap.Base, env: []string{"GIT_OBJECT_DIRECTORY=" + objects}, objects: objects, log: log.With(slog.String("worktree", dir))}
 	if w.change, err = w.settle(ctx); err != nil {
 		return nil, errors.Join(err, w.Close(context.WithoutCancel(ctx)))
 	}
