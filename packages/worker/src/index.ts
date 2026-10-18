@@ -1,4 +1,3 @@
-import * as containers from '@cloudflare/containers';
 import { App } from '@octokit/app';
 import type { Endpoints } from '@octokit/types';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
@@ -101,56 +100,83 @@ export class Jev extends WorkerEntrypoint<Env> {
 	}
 }
 
-export { ContainerProxy } from '@cloudflare/containers';
-
-export class Sandbox extends containers.Container<Env> {
-	defaultPort = PORT;
-	sleepAfter = '10m';
-	enableInternet = true;
-	interceptHttps = true;
-
-	static outboundHandlers = {
-		async github(
-			request: Request,
-			env: Env,
-			ctx: containers.OutboundHandlerContext<Repository>
-		): Promise<Response> {
-			const url = new URL(request.url);
-			const repository = `/${ctx.params.repo}.git`;
-			const fetches =
-				(request.method === 'GET' &&
-					url.pathname === `${repository}/info/refs` &&
-					url.search === '?service=git-upload-pack') ||
-				(request.method === 'POST' && url.pathname === `${repository}/git-upload-pack`);
-			if (!fetches) {
-				return new Response('Forbidden', { status: 403 });
-			}
-			const app = new App({
-				appId: env.EYEFUL_GITHUB_APP_ID,
-				privateKey: env.EYEFUL_GITHUB_APP_PRIVATE_KEY
-			});
-			const { data } = await app.octokit.request(
-				'POST /app/installations/{installation_id}/access_tokens',
-				{
-					installation_id: ctx.params.installation,
-					repositories: [ctx.params.repo.split('/')[1]],
-					permissions: { contents: 'read' }
-				}
-			);
-			const headers = new Headers(request.headers);
-			headers.set('Authorization', `Basic ${btoa(`x-access-token:${data.token}`)}`);
-			return fetch(new Request(request, { headers }));
+export class Git extends WorkerEntrypoint<Env, Repository> {
+	async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		const repository = `/${this.ctx.props.repo}.git`;
+		const fetches =
+			(request.method === 'GET' &&
+				url.pathname === `${repository}/info/refs` &&
+				url.search === '?service=git-upload-pack') ||
+			(request.method === 'POST' && url.pathname === `${repository}/git-upload-pack`);
+		if (!fetches) {
+			return new Response('Forbidden', { status: 403 });
 		}
-	};
+		const app = new App({
+			appId: this.env.EYEFUL_GITHUB_APP_ID,
+			privateKey: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
+		});
+		const { data } = await app.octokit.request(
+			'POST /app/installations/{installation_id}/access_tokens',
+			{
+				installation_id: this.ctx.props.installation,
+				repositories: [this.ctx.props.repo.split('/')[1]],
+				permissions: { contents: 'read' }
+			}
+		);
+		const headers = new Headers(request.headers);
+		headers.set('Authorization', `Basic ${btoa(`x-access-token:${data.token}`)}`);
+		return fetch(new Request(request, { headers }));
+	}
+}
 
-	async allow(repository: Repository): Promise<void> {
-		await this.setOutboundByHost('github.com', 'github', repository);
+export class Workspace extends WorkerEntrypoint<Env, Repository & { review: string }> {
+	async fetch(request: Request): Promise<Response> {
+		return this.ctx.exports.Sandbox.getByName(this.ctx.props.review).forward(request, {
+			repo: this.ctx.props.repo,
+			installation: this.ctx.props.installation
+		});
+	}
+}
+
+export class Sandbox extends DurableObject<Env> {
+	readonly #container: Container;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		if (ctx.container === undefined) {
+			throw new Error('no container is configured for this durable object');
+		}
+		this.#container = ctx.container;
+	}
+
+	async forward(request: Request, repository: Repository): Promise<Response> {
+		const container = this.#container;
+		const port = container.getTcpPort(PORT);
+		if (!container.running) {
+			await container.interceptOutboundHttps(
+				'github.com',
+				this.ctx.exports.Git({ props: repository })
+			);
+			container.start({ enableInternet: true });
+			await container.setInactivityTimeout(IDLE_MS);
+			for (const started = Date.now(); ; await scheduler.wait(1000)) {
+				try {
+					await port.fetch('http://container/health');
+					break;
+				} catch (error) {
+					if (!(error instanceof Error) || Date.now() - started > START_MS) {
+						throw error;
+					}
+				}
+			}
+		}
+		return port.fetch(request);
 	}
 
 	async release(): Promise<void> {
-		const { status } = await this.getState();
-		if (status === 'running' || status === 'healthy') {
-			await this.destroy();
+		if (this.#container.running) {
+			await this.#container.destroy();
 		}
 	}
 }
@@ -274,9 +300,12 @@ export class Server extends DurableObject<Env> {
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
 		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
 		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
-		const sandbox = this.ctx.exports.Sandbox.getByName(review);
-		await sandbox.allow({ repo: kept.source.repo, installation: kept.source.installation_id });
-		await container.interceptOutboundHttp(SANDBOX_HOST, sandbox);
+		await container.interceptOutboundHttp(
+			SANDBOX_HOST,
+			this.ctx.exports.Workspace({
+				props: { review, repo: kept.source.repo, installation: kept.source.installation_id }
+			})
+		);
 		const current = this.ctx.storage.kv.get<Stored>('review');
 		if (current === undefined || current.status === 'done') {
 			return;

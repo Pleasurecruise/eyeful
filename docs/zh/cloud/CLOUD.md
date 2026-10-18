@@ -43,6 +43,7 @@ pi --mode json --no-session \
 | Webhook secret            | Worker                                  | 校验 `X-Hub-Signature-256`        |
 | App ID、私钥              | Worker；Container 启动时传给它          | 为每次审查签发 installation token |
 | Installation token        | 服务端，只在内存里                      | 克隆、读取 CI、发布审查           |
+| 只读 token                | `Git` 入口，每次请求签发                | 沙箱克隆                          |
 | AI Gateway token、账号 ID | Worker                                  | `Models` 入口                     |
 | Provider 密钥             | AI Gateway，存在账号的 Secrets Store 里 | 调用上游模型                      |
 | R2 和 Workers AI          | Worker 的 binding                       | 阶段存档、Jev                     |

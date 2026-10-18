@@ -26,8 +26,8 @@ flowchart TB
     server -->|"models.eyeful"| models["Models entrypoint"] --> gateway["AI Gateway<br/>default"]
     server -->|"jev.eyeful"| jev["Jev entrypoint"] --> gateway
     server -->|clone, publish| github["GitHub"]
-    server -->|"sandbox.eyeful"| sandbox["Sandbox Container<br/>one per review"]
-    sandbox -->|"github.com, read-only token"| github
+    server -->|"sandbox.eyeful"| workspace["Workspace entrypoint"] --> sandbox["Sandbox Container<br/>one per review"]
+    sandbox -->|"github.com"| git["Git entrypoint<br/>read-only token"] --> github
 ```
 
 `packages/worker/cloudflare.config.ts` 声明了全部内容：Worker `eyeful` 挂在自定义域名 `eyeful.you-find.me` 上，`workers.dev` 和 Preview URL 都关闭；Container `eyeful-server` 和 `eyeful-sandbox`（`standard-1`，各最多五个）；R2 bucket `eyeful-runs`；Workers AI binding；gateway id（`default`）；以及六个必填 secret。Durable Object 在启动 Container 之前把三个内部地址路由到 Worker 的各个入口，所以 Container 里没有 gateway token、R2 凭据或 webhook secret（见[云端运行](CLOUD.md#credentials)）。

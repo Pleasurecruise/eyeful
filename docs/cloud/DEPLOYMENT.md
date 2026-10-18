@@ -36,8 +36,8 @@ flowchart TB
     server -->|"models.eyeful"| models["Models entrypoint"] --> gateway["AI Gateway<br/>default"]
     server -->|"jev.eyeful"| jev["Jev entrypoint"] --> gateway
     server -->|clone, publish| github["GitHub"]
-    server -->|"sandbox.eyeful"| sandbox["Sandbox Container<br/>one per review"]
-    sandbox -->|"github.com, read-only token"| github
+    server -->|"sandbox.eyeful"| workspace["Workspace entrypoint"] --> sandbox["Sandbox Container<br/>one per review"]
+    sandbox -->|"github.com"| git["Git entrypoint<br/>read-only token"] --> github
 ```
 
 `packages/worker/cloudflare.config.ts` declares everything: the Worker `eyeful` on the custom domain

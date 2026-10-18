@@ -60,6 +60,7 @@ each test on a fresh copy, as `eyeful review` does.
 | Webhook secret               | The Worker                                         | Checking `X-Hub-Signature-256`           |
 | App ID, private key          | The Worker; passed to the Container when it starts | Minting an installation token per review |
 | Installation token           | The server, in memory                              | Cloning, reading CI, posting the review  |
+| Read-only token              | The `Git` entrypoint, per request                  | The sandbox's clone                      |
 | AI Gateway token, account ID | The Worker                                         | The `Models` entrypoint                  |
 | Provider keys                | AI Gateway, in the account's Secrets Store         | Upstream model calls                     |
 | R2 and Workers AI            | The Worker's bindings                              | Stages, Jev                              |

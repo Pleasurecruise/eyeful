@@ -355,9 +355,6 @@ importers:
 
   packages/worker:
     dependencies:
-      '@cloudflare/containers':
-        specifier: 0.3.7
-        version: 0.3.7
       '@octokit/app':
         specifier: 16.1.4
         version: 16.1.4
@@ -617,9 +614,6 @@ packages:
 
   '@cloudflare/config@0.27.0':
     resolution: {integrity: sha512-wNnL0z4lj5Gm2fze5qXTOvRPbUOi4jlMmwPk7ArCUakI5oVxgjfl3Rhnfd/Mmzo3g86x/ofH75yPIhsa5msqdQ==}
-
-  '@cloudflare/containers@0.3.7':
-    resolution: {integrity: sha512-DM9dm3FnIBSyiSJ1FLavKwl/lk3oAmTaynCzZQ9pZR0ncRPquSxkxd8Nu2MFILxmDDsPkxKsSNEh9mHHMty4Fw==}
 
   '@cloudflare/runtime-types@0.1.12':
     resolution: {integrity: sha512-eYF5teHQ+Jss4sbSVINM5tNPHxo/kJ2gKcMs7omyy7gO9PEkgUbGPZCYl06SxbBWTcJFF2vrX4epB775QTE4BQ==}
@@ -4717,8 +4711,6 @@ snapshots:
   '@cloudflare/config@0.27.0':
     dependencies:
       zod: 4.6.5
-
-  '@cloudflare/containers@0.3.7': {}
 
   '@cloudflare/runtime-types@0.1.12(@types/node@26.6.5)':
     dependencies:

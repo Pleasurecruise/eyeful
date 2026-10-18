@@ -7,7 +7,6 @@
 		"allowImportingTsExtensions": true,
 		"types": ["./.cloudflare/types/index.d.ts"],
 		"strict": true,
-		"useDefineForClassFields": false,
 		"noEmit": true,
 		"skipLibCheck": true
 	},

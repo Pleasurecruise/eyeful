@@ -39,7 +39,8 @@ const worker = defineWorker({
 	exports: {
 		Server: exports.durableObject({ storage: 'sqlite', container: server }),
 		Sandbox: exports.durableObject({ storage: 'sqlite', container: sandbox }),
-		ContainerProxy: exports.worker(),
+		Workspace: exports.worker(),
+		Git: exports.worker(),
 		Runs: exports.worker(),
 		Models: exports.worker(),
 		Jev: exports.worker()
