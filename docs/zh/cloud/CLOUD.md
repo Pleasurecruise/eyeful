@@ -11,13 +11,13 @@
 1. GitHub 把 `pull_request` 事件（`opened`、`synchronize`、`reopened` 或 `ready_for_review`）发给 Worker。Worker 用 `@octokit/webhooks` 校验 `X-Hub-Signature-256`，draft 在转为可审查之前一律忽略，并立即返回 `202`。
 2. Worker 把 pull request 交给以仓库、编号和 head 提交命名的 Durable Object，所以同一次投递发两遍也会落到同一次审查（见[审查生命周期](SCHEDULING.md)）。
 3. Durable Object 启动这次审查的 Container，里面运行 `eyeful-server serve`，pull request 放在 `EYEFUL_REVIEW` 里。
-4. 服务端签发 installation token，clone 仓库，等 head 提交的 GitHub Actions 全部跑完。如果有失败的，审查以诊断结束（见[规划与分流](../PLANNER.md#ci-check)）。
-5. 服务端用只读验证调用 `local/app.Review`：分流、计划、专家、裁判和报告与 `eyeful review --verification read_only` 完全一样。每个阶段都存进 R2，重新启动的 Container 从最后完成的阶段继续（见[存储](PERSISTENCE.md)）。
+4. 服务端签发 installation token，克隆仓库，等 head 提交的 GitHub Actions 全部跑完。如果有失败的，审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
+5. 服务端用只读验证调用 `local/app.Review`：分拣、计划、专家、裁判和报告与 `eyeful review --verification read_only` 完全一样。每个阶段都存进 R2，重新启动的 Container 从最后完成的阶段继续（见[存储](PERSISTENCE.md)）。
 6. eyeful 的 GitHub App 把行内意见作为一条 `COMMENT` review 发布，排序报告作为一条评论发布（见[审查反馈](../REPORT.md)），然后在 R2 里记下 `published`。此后重新开始的审查直接返回，不再发布。如果 GitHub 已接受发布、记录还没写入时崩溃，可能会发布两次；outbox 还在规划中。
 
-## agent 与模型 {#agents-in-pi}
+## agent 与模型 {#agents-and-models}
 
-每个专家是 Container 里的一个 pi 进程，对 checkout 只有只读工具：
+每个专家是 Container 里的一个 pi 进程，对检出的代码只有只读工具：
 
 ```sh
 pi --mode json --no-session \
@@ -44,7 +44,7 @@ pi --mode json --no-session \
 | ------------------------- | --------------------------------------- | --------------------------------- |
 | Webhook secret            | Worker                                  | 校验 `X-Hub-Signature-256`        |
 | App ID、私钥              | Worker；Container 启动时传给它          | 为每次审查签发 installation token |
-| Installation token        | 服务端，只在内存里                      | clone、读取 CI、发布审查          |
+| Installation token        | 服务端，只在内存里                      | 克隆、读取 CI、发布审查           |
 | AI Gateway token、账号 ID | Worker                                  | `Models` 入口                     |
 | Provider 密钥             | AI Gateway，存在账号的 Secrets Store 里 | 调用上游模型                      |
 | R2 和 Workers AI          | Worker 的 binding                       | 阶段存档、Jev                     |

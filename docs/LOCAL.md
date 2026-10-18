@@ -132,9 +132,9 @@ No MCP server is configured for the agent.
 
 ## The classifier {#classifier}
 
-`local/classify` asks [Jev](ARCHITECTURE.md#jev) on Workers AI through the AI Gateway of
-[`EYEFUL_CLOUDFLARE_ACCOUNT_ID`, with `EYEFUL_AI_GATEWAY_TOKEN`](CONFIGURATION.md#secrets). Without them findings
-are not merged. A request carries each finding's file, line, subject and discussion, and no code.
+`local/classify` asks [Jev](ARCHITECTURE.md#jev) on Workers AI through AI Gateway, with the account
+and token in [`EYEFUL_CLOUDFLARE_ACCOUNT_ID` and `EYEFUL_AI_GATEWAY_TOKEN`](CONFIGURATION.md#secrets). Without them
+findings are not merged. A request carries each finding's file, line, subject and discussion, and no code.
 
 ## Local risks {#local-risks}
 

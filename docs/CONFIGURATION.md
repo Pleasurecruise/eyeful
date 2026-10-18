@@ -93,4 +93,4 @@ server the rest come from the platform's environment.
 | `EYEFUL_RUNS_URL`       | Where a cloud review keeps its stages. The Durable Object sets it to `http://runs.eyeful`.    |
 
 `--shutdown-timeout` (`30s`) is a flag only. The model a cloud review uses is set in pi's own
-settings in `packages/worker/pi/`, not by a variable ([Agents and models](cloud/CLOUD.md#agents-in-pi)).
+settings in `packages/worker/pi/`, not by a variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).

@@ -25,19 +25,19 @@ Durable Object 轮询这个路由。所有错误都是 [RFC 9457](https://www.rf
 
 ## 布局 {#layout}
 
-| 路径                | 负责                                                           |
-| ------------------- | -------------------------------------------------------------- |
-| `cmd/eyeful-server` | 二进制（kong）：`serve`                                        |
-| `internal/app`      | 组合根：fx 装配和生命周期                                      |
-| `internal/config`   | `Config` 结构体，由 kong 填充                                  |
-| `internal/server`   | echo、中间件、Problem 渲染                                     |
-| `internal/handlers` | `GET /review`                                                  |
-| `internal/apperror` | Problem 结构和错误码                                           |
-| `internal/review`   | `Source`，Worker 交过来的 pull request                         |
-| `internal/github`   | App token、Actions、pull request 描述、发布                    |
-| `internal/checkout` | pull request 的 clone                                          |
-| `internal/harness`  | 一次审查：checkout、`local/app.Review`、发布、`published` 记录 |
-| `internal/runs`     | 基于 Worker 的 R2 入口实现的 `workflow.Archive`                |
+| 路径                | 负责                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| `cmd/eyeful-server` | 二进制（kong）：`serve`                                    |
+| `internal/app`      | 组合根：fx 装配和生命周期                                  |
+| `internal/config`   | `Config` 结构体，由 kong 填充                              |
+| `internal/server`   | echo、中间件、Problem 渲染                                 |
+| `internal/handlers` | `GET /review`                                              |
+| `internal/apperror` | Problem 结构和错误码                                       |
+| `internal/review`   | `Source`，Worker 交过来的 pull request                     |
+| `internal/github`   | App token、Actions、pull request 描述、发布                |
+| `internal/checkout` | pull request 的克隆                                        |
+| `internal/harness`  | 一次审查：检出、`local/app.Review`、发布、`published` 记录 |
+| `internal/runs`     | 基于 Worker 的 R2 入口实现的 `workflow.Archive`            |
 
 `packages/worker` 里是 Worker、Durable Object 和 Container 访问的各个入口（见[部署](DEPLOYMENT.md)）。
 

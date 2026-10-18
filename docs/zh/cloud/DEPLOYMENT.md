@@ -1,4 +1,4 @@
-# 部署
+# 部署上线
 
 这一页说明 eyeful 发布了什么、各部分运行在哪里，以及生产部署需要什么。从源码运行 eyeful 见[开发](../DEVELOPMENT.md)，所有变量见[配置](../CONFIGURATION.md#server)，发布时间见[路线图](../ROADMAP.md)。
 

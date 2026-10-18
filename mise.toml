@@ -17,7 +17,7 @@ run = ["go mod download", "pnpm install"]
 [tasks."dev:cloud"]
 description = "Run the Worker and the review Containers locally with cf dev (needs Docker)"
 dir = "packages/worker"
-run = "ln -sf ../../.env .env && pnpm exec cf dev"
+run = "[ -e .env ] || ln -s ../../.env .env; pnpm exec cf dev"
 
 [tasks."generate:pulls"]
 description = "Rebuild workflow/pulls/core.js from @pulls.review/core"

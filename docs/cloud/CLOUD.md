@@ -32,7 +32,7 @@ commits and uncommitted changes are reviewed locally ([Running locally](../LOCAL
    after that returns without posting. A crash after GitHub accepts the posts and before the record
    is written can post them twice; an outbox is planned.
 
-## Agents and models {#agents-in-pi}
+## Agents and models {#agents-and-models}
 
 Each expert is one pi process in the Container, with read-only tools over the checkout:
 
