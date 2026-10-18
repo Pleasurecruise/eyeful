@@ -29,7 +29,7 @@ eyeful 从项目的清单文件里找出命令（见[项目命令](CONFIGURATION
 
 某个阶段失败只损失它自己的工作，反馈会说明哪里失败了。CI 检查失败时审查以 `ci_failed` 结束，克隆失败时以 `none` 结束。setup 失败不会结束审查：专家照常审查，所有发现都是未验证的。
 
-每个阶段完成时把输出写入运行存档。工作进程挂掉后，下一个工作进程从最后完成的阶段继续。agent 调用失败、或被预算拒绝的步骤不会保存，会重新运行。计划总是保存的，因为专家的工作建立在它之上。
+每个阶段完成时把输出写入运行存档。进程中途停止后，重新开始的审查从最后完成的阶段继续。agent 调用失败、或被预算拒绝的步骤不会保存，会重新运行。计划总是保存的，因为专家的工作建立在它之上。
 
 ## 评审标准 {#review-standard}
 
@@ -53,7 +53,7 @@ eyeful 遵循 Google [Standard of Code Review](https://google.github.io/eng-prac
 | `ci_failed` | CI 检查失败，反馈给出诊断           |
 | `partial`   | 预算用完，或有专家没有交报告        |
 
-工作进程怎样领取和完成审查，见[调度与租约](cloud/SCHEDULING.md#reviews-over-workers)。
+云端审查怎样接收和重试，见[审查生命周期](cloud/SCHEDULING.md)。
 
 ## 审查规则 {#rules}
 

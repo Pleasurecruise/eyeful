@@ -12,7 +12,6 @@ flowchart LR
 
 ## v0：基础（已完成）
 
-- 带租约、fencing 和回收器的 D1 队列；提供商路由已写好但未接入（见[调度](cloud/SCHEDULING.md)）。
 - 桌面窗口，以及运行 `mise run check` 的 CI。
 
 ## v1.0：本地审查（基本完成）
@@ -52,20 +51,21 @@ flowchart LR
 
 通过自行部署的 GitHub App 在 pull request 上运行工作流（见[云端运行](cloud/CLOUD.md)）。
 
-| 部分                                                       | 状态   |
-| ---------------------------------------------------------- | ------ |
-| webhook，每个 head 提交一次审查                            | 已完成 |
-| 检出 pull request，命令取自 base 提交                      | 已完成 |
-| 针对 GitHub Actions 的 CI 检查                             | 已完成 |
-| 工作进程运行同一套工作流；agent 在 pi 里，密钥由运维方持有 | 已完成 |
-| 行内评论作为一条 `COMMENT` review，排序报告作为一条评论    | 已完成 |
-| 沙箱，让项目命令只在里面运行                               | 待做   |
-| outbox，让 GitHub 已接受的评论只发布一次                   | 待做   |
-| 可选的 Check Run                                           | 待做   |
-| 端到端运行，以及 `runner` 命令                             | 待做   |
-| 首次发布之后，每次改动一个迁移文件                         | 待做   |
+| 部分                                                           | 状态   |
+| -------------------------------------------------------------- | ------ |
+| webhook，每个 head 提交一次审查                                | 已完成 |
+| 检出 pull request，命令取自 base 提交                          | 已完成 |
+| 针对 GitHub Actions 的 CI 检查                                 | 已完成 |
+| 每个 review 一个 Durable Object 和 Container，运行本地的工作流 | 已完成 |
+| 模型和 Jev 经 AI Gateway；阶段存进 R2，审查可以续跑            | 已完成 |
+| 行内评论作为一条 `COMMENT` review，排序报告作为一条评论        | 已完成 |
+| 沙箱，让项目命令只在里面运行                                   | 待做   |
+| outbox，让 GitHub 已接受的评论只发布一次                       | 待做   |
+| 可选的 Check Run                                               | 待做   |
+| 在 Durable Object 而不是 Container 里等待 CI                   | 待做   |
+| 在真实 pull request 上端到端运行一次                           | 待做   |
 
-退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途被杀掉的工作进程不丢任何东西，也不重复运行任何东西。
+退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途停掉的 Container 不丢任何东西，也不重复发布任何东西。
 
 ## 之后
 

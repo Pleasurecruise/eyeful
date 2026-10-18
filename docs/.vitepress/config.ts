@@ -102,13 +102,7 @@ export default defineConfig({
 							'Code style and review',
 							'Configuration reference'
 						],
-						[
-							'Running in the cloud',
-							'The server',
-							'Scheduling and leases',
-							'Database and migrations',
-							'Deployment'
-						],
+						['Running in the cloud', 'The server', 'Review lifecycle', 'Storage', 'Deployment'],
 						['Roadmap'],
 						['Evaluation']
 					]
@@ -139,7 +133,7 @@ export default defineConfig({
 							'参考文献'
 						],
 						['整体架构', '本地开发', '代码规范与评审', '配置项参考'],
-						['云端运行', '服务器', '任务调度与租约', '数据库与迁移', '部署上线'],
+						['云端运行', '服务器', '审查生命周期', '存储', '部署上线'],
 						['版本路线图'],
 						['效果评测']
 					]

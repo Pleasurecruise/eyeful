@@ -22,14 +22,14 @@ section, and the review steps at the end are how a change is checked before it i
 | Go exported / unexported         | `PascalCase` / `camelCase`                           | `NewWorkerPool`, `errorHandler` |
 | Go initialisms                   | one case                                             | `ID`, `URL`, `reviewID`         |
 | Go receivers                     | one or two letters, consistent per type              | `s *MemoryStore`                |
-| Go tests                         | `TestXxx`, one to three words; scenarios in subtests | `TestFencing`                   |
+| Go tests                         | `TestXxx`, one to three words; scenarios in subtests | `TestExecuteResumes`            |
 | JSON fields, query parameters    | `snake_case`                                         | `created_at`                    |
 | URL paths                        | lowercase nouns, `kebab-case`                        | `/webhook`                      |
 | Schemas, TS types, components    | `PascalCase`                                         | `Review`, `ReviewTable.svelte`  |
 | TS variables, functions          | `camelCase`                                          | `tokenKey`                      |
 | Error codes, SQL                 | `snake_case`                                         | `method_not_allowed`            |
-| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_D1_API_TOKEN`           |
-| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--max-attempts`                |
+| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_WEBHOOK_SECRET`         |
+| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--shutdown-timeout`            |
 | Docs                             | `UPPERCASE.md`                                       | `SCHEDULING.md`                 |
 
 Names are short and unambiguous, and let the package carry context (`review.Store`, not
@@ -90,7 +90,7 @@ time. Secrets do not enter sandboxes, logs, error responses or the desktop bundl
 
 Go tests sit next to the code (`*_test.go`, `go help test`), black-box (`package x_test`) unless a
 seam is unexported, table-driven, with plain `if` assertions. Handlers are tested through
-`httptest` against the real server. Network, credentials and databases are opt-in. A bug fix starts
+`httptest` against the real server. Network and credentials are opt-in. A bug fix starts
 with a failing test; concurrency tests cover the orderings that matter.
 
 ## Review

@@ -34,8 +34,8 @@ The server, `cmd/eyeful-server`, is a separate program with one more outcome and
 - No credential enters a sandbox.
 - Code under review runs only inside its review's sandbox, which reaches only package registries;
   agents read the code with read-only tools outside it.
-- A result from a superseded lease is never written; a review is never lost or run twice to
-  completion because a worker died.
+- A result from a replaced Container is never written; a review is never lost or run twice to
+  completion because its Container stopped.
 
 A change may improve one outcome without a numeric before/after result. Hard measures are release
 gates and may never regress. Outcomes are measured as [Evaluation](../docs/EVALUATION.md) describes;

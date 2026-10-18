@@ -40,7 +40,7 @@ A failed stage loses only its own work, and the feedback says what failed. A fai
 the review with `ci_failed`; a failed clone ends it with `none`. A failed setup does not end it: the
 experts still review and every finding is unverified.
 
-Each stage writes its output to the run archive when it finishes. If a worker dies, the next one
+Each stage writes its output to the run archive when it finishes. If the process stops, a review started again
 resumes from the last finished stage. A step whose agent call failed, or that the budget refused,
 is not kept and runs again. The plan is always kept, because the experts' work rests on it.
 
@@ -68,8 +68,7 @@ A review moves from `queued` to `running` to `done`, and ends with one result:
 | `ci_failed` | The CI check failed, and the feedback diagnoses it  |
 | `partial`   | The budget ran out or an expert handed in no report |
 
-How workers claim and finish reviews is in
-[Scheduling and leases](cloud/SCHEDULING.md#reviews-over-workers).
+How a cloud review is admitted and retried is in [Review lifecycle](cloud/SCHEDULING.md).
 
 ## Rules {#rules}
 

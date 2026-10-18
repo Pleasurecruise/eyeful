@@ -13,6 +13,9 @@ const worker = defineWorker({
 	compatibilityDate: '2026-10-16',
 	entrypoint,
 	observability: { enabled: true },
+	domains: ['eyeful.you-find.me'],
+	workersDev: false,
+	previewUrls: false,
 	env: {
 		RUNS: bindings.r2({ name: 'eyeful-runs' }),
 		AI: bindings.ai(),

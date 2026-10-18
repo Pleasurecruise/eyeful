@@ -102,7 +102,7 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 
 ## 分类器 {#classifier}
 
-`local/classify` 通过 [go-jev](https://github.com/mattn/go-jev) 向 [Jev](ARCHITECTURE.md#jev) 提问，密钥取自 [`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets)。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
+`local/classify` 通过 AI Gateway 向 Workers AI 上的 [Jev](ARCHITECTURE.md#jev) 提问，账号和 token 取自 [`EYEFUL_CLOUDFLARE_ACCOUNT_ID` 和 `EYEFUL_AI_GATEWAY_TOKEN`](CONFIGURATION.md#secrets)。没有它们时不合并发现。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
 
 ## 本地风险 {#local-risks}
 

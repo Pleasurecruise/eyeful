@@ -19,14 +19,14 @@
 | Go 导出 / 未导出标识符        | `PascalCase` / `camelCase`            | `NewWorkerPool`、`errorHandler` |
 | Go 缩写词                     | 保持同一大小写                        | `ID`、`URL`、`reviewID`         |
 | Go 接收者                     | 一到两个字母，同一类型保持一致        | `s *MemoryStore`                |
-| Go 测试                       | `TestXxx`，一到三个词；场景放进子测试 | `TestFencing`                   |
+| Go 测试                       | `TestXxx`，一到三个词；场景放进子测试 | `TestExecuteResumes`            |
 | JSON 字段、查询参数           | `snake_case`                          | `created_at`                    |
 | URL 路径                      | 小写名词，`kebab-case`                | `/webhook`                      |
 | Schema、TS 类型、组件         | `PascalCase`                          | `Review`、`ReviewTable.svelte`  |
 | TS 变量、函数                 | `camelCase`                           | `tokenKey`                      |
 | 错误码、SQL                   | `snake_case`                          | `method_not_allowed`            |
-| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_D1_API_TOKEN`           |
-| CLI 参数、mise 任务、npm 包名 | `kebab-case`（任务变体用 `:`）        | `--max-attempts`                |
+| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_WEBHOOK_SECRET`         |
+| CLI 参数、mise 任务、npm 包名 | `kebab-case`（任务变体用 `:`）        | `--shutdown-timeout`            |
 | 文档                          | `UPPERCASE.md`                        | `SCHEDULING.md`                 |
 
 名字要短且没有歧义，让包名承担上下文（`review.Store`，而不是 `review.ReviewStore`）。
@@ -70,7 +70,7 @@
 
 ## 测试要求
 
-Go 测试与代码放在一起（`*_test.go`，见 `go help test`），默认黑盒（`package x_test`），除非要用到未导出的接缝；采用表驱动，断言就是普通的 `if`。handler 通过 `httptest` 针对真实的服务端测试。网络、凭据和数据库都是可选启用的。修 bug 从一个失败的测试开始；并发测试要覆盖关键的执行顺序。
+Go 测试与代码放在一起（`*_test.go`，见 `go help test`），默认黑盒（`package x_test`），除非要用到未导出的接缝；采用表驱动，断言就是普通的 `if`。handler 通过 `httptest` 针对真实的服务端测试。网络和凭据都是可选启用的。修 bug 从一个失败的测试开始；并发测试要覆盖关键的执行顺序。
 
 ## 如何评审改动 {#review}
 

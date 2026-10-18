@@ -17,8 +17,8 @@ flowchart LR
 - **Works:** local reviews. `eyeful review`, `provider`, `connect`, `commit` and the desktop app run
   the whole workflow with your own coding agent ([Running locally](LOCAL.md)).
 - **In progress:** the evaluation, whose tooling is built and whose experiment has not run
-  ([Evaluation](EVALUATION.md)). Cloud reviews queue from a GitHub webhook and run the workflow; the
-  sandbox is not built ([Running in the cloud](cloud/CLOUD.md)).
+  ([Evaluation](EVALUATION.md)). Cloud reviews run each pull request on Cloudflare with read-only
+  verification; the sandbox is not built ([Running in the cloud](cloud/CLOUD.md)).
 - **Planned:** the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
 
 ## Limits {#limits}
@@ -63,15 +63,15 @@ How the code is built:
 | [Local development](DEVELOPMENT.md)    | Setup, commands, code generation          |
 | [Code style and review](STYLEGUIDE.md) | Coding rules and how changes are reviewed |
 
-The cloud server, which is separate. A review can be queued; the sandbox is not built:
+The cloud, which is separate. A pull request is reviewed with read-only verification; the sandbox is not built:
 
-| Document                                        | Covers                                   |
-| ----------------------------------------------- | ---------------------------------------- |
-| [Running in the cloud](cloud/CLOUD.md)          | Pull requests, agents in pi, the sandbox |
-| [The server](cloud/SERVER.md)                   | Components, layout, lifecycle            |
-| [Scheduling and leases](cloud/SCHEDULING.md)    | Leases, retries, provider routing        |
-| [Database and migrations](cloud/PERSISTENCE.md) | Schema, migrations, queries              |
-| [Deployment](cloud/DEPLOYMENT.md)               | Running the server                       |
+| Document                                | Covers                                        |
+| --------------------------------------- | --------------------------------------------- |
+| [Running in the cloud](cloud/CLOUD.md)  | Pull requests, agents and models, the sandbox |
+| [The server](cloud/SERVER.md)           | Components, layout, lifecycle                 |
+| [Review lifecycle](cloud/SCHEDULING.md) | The Durable Object, its alarm, retries        |
+| [Storage](cloud/PERSISTENCE.md)         | Durable Object storage and R2                 |
+| [Deployment](cloud/DEPLOYMENT.md)       | Cloudflare, AI Gateway, the GitHub App        |
 
 Every setting is in [Configuration](CONFIGURATION.md). What comes next: the [Roadmap](ROADMAP.md).
 
