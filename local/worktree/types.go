@@ -9,12 +9,13 @@ import (
 )
 
 type Worktree struct {
-	root   string
-	dir    string
-	env    []string
-	base   string
-	change string
-	log    *slog.Logger
+	root    string
+	dir     string
+	env     []string
+	objects string
+	base    string
+	change  string
+	log     *slog.Logger
 }
 
 type Workspace struct {
