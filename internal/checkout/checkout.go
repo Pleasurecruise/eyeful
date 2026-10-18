@@ -68,15 +68,6 @@ func Clone(ctx context.Context, dir, token string, src review.Source) error {
 	return nil
 }
 
-func Run(ctx context.Context, dir string, args ...string) (string, error) {
-	env, cleanup, err := environ("")
-	if err != nil {
-		return "", err
-	}
-	defer cleanup()
-	return git(ctx, dir, "", env, args...)
-}
-
 func validate(src review.Source) error {
 	if src.Number < 1 || !shaPattern.MatchString(src.HeadSHA) || !shaPattern.MatchString(src.BaseSHA) || !safeRef(src.Base) || !safeURL(src.CloneURL) {
 		return fmt.Errorf("refused checkout of %s#%d", src.Repo, src.Number)

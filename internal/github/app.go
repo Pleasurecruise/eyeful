@@ -237,6 +237,13 @@ func (e *statusError) Error() string {
 	return fmt.Sprintf("github %d: %s", e.code, e.body)
 }
 
+func (a *App) React(ctx context.Context, token string, src review.Source) error {
+	owner, name, _ := strings.Cut(src.Repo, "/")
+	path := fmt.Sprintf("/repos/%s/%s/issues/%d/reactions", owner, name, src.Number)
+	_, err := a.call(ctx, http.MethodPost, path, token, []byte(`{"content":"eyes"}`))
+	return err
+}
+
 func (a *App) comment(ctx context.Context, token, owner, name string, number int64, markdown string) error {
 	body, err := json.Marshal(map[string]string{"body": markdown})
 	if err != nil {

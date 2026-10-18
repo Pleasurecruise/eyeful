@@ -49,8 +49,8 @@ test below fails on this change and passes with the suggested fix.
 On a pull request, eyeful posts one review with the event `COMMENT`, never `REQUEST_CHANGES` or
 `APPROVE`. Only an `issue` that names a file and a line, and that the judge does not dispute, is
 posted on that line; questions, suggestions and nitpicks are listed, folded, at the end of the summary and not posted.
-When a posted comment has one fix for that same file, the fix is included as a suggested change. A Check Run that fails while an `issue (blocking)` remains is planned, and off
-by default.
+When a posted comment has one fix for that same file, the fix is included as a suggested change. The `eyeful` Check Run says whether a review was posted, not whether the change is right
+([Running in the cloud](cloud/CLOUD.md)).
 
 ## The ranked report {#ranked-report}
 
@@ -80,7 +80,7 @@ The report closes with:
 | SARIF          | Another agent, a script, GitHub code scanning, the evaluation |
 | GitHub review  | Line comments on the pull request                             |
 | GitHub comment | A short summary: counts, the posted issues, the rest folded   |
-| Check Run      | An optional gate (planned)                                    |
+| Check Run      | Whether a review was posted, for a required check             |
 
 The GitHub posts happen in the review's Container. The outbox is planned
 ([Architecture](ARCHITECTURE.md#data-flow)).

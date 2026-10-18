@@ -63,8 +63,9 @@ because `cf deploy` builds the image.
    the R2 bucket on the first deploy, and uploads the Worker, the Container and the secrets.
 3. In the GitHub App, turn the webhook on, set its URL to `https://eyeful.you-find.me/webhook` and
    its secret to `EYEFUL_WEBHOOK_SECRET`, subscribe to the Pull request and Issue comment events, and grant Contents
-   (read), Pull requests (read and write), Issues (read and write), Actions (read) and Metadata
-   (read). Install the App on the repositories to review.
+   (read), Pull requests (read and write), Issues (read and write), Checks (read and write), Actions
+   (read) and Metadata (read). Install the App on the repositories to review.
+4. In each repository's rules for `main`, require the `eyeful` status check.
 
 `pnpm exec cf workers secrets update` changes one secret later; a running Container sees the new
 value when the next one starts.

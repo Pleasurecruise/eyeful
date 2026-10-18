@@ -41,7 +41,8 @@ flowchart TB
 
 1. 按 `.env.example` 填好根目录的 `.env`。`EYEFUL_AI_GATEWAY_TOKEN` 是对该账号有 AI Gateway Run 和 Workers AI Read 权限的 Cloudflare API token；`EYEFUL_GITHUB_APP_PRIVATE_KEY` 是 App 的 PEM，写成一行、每个换行写成 `\n`，用双引号包起来。
 2. 在 `packages/worker` 下，`pnpm exec cf deploy --secrets-file ../../.env` 会构建镜像，首次部署时创建 R2 bucket，并上传 Worker、Container 和 secret。
-3. 在 GitHub App 里启用 webhook，URL 设为 `https://eyeful.you-find.me/webhook`，secret 设为 `EYEFUL_WEBHOOK_SECRET`，订阅 Pull request 和 Issue comment 事件，并授予 Contents（只读）、Pull requests（读写）、Issues（读写）、Actions（只读）和 Metadata（只读）。把 App 安装到要审查的仓库上。
+3. 在 GitHub App 里启用 webhook，URL 设为 `https://eyeful.you-find.me/webhook`，secret 设为 `EYEFUL_WEBHOOK_SECRET`，订阅 Pull request 和 Issue comment 事件，并授予 Contents（只读）、Pull requests（读写）、Issues（读写）、Checks（读写）、Actions（只读）和 Metadata（只读）。把 App 安装到要审查的仓库上。
+4. 在每个仓库 `main` 的规则里，把 `eyeful` 设为必需的状态检查。
 
 之后用 `pnpm exec cf workers secrets update` 修改单个 secret；运行中的 Container 在下一个启动时才看到新值。
 

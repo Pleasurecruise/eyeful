@@ -362,6 +362,9 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: 2.0.0-beta.v.1
         version: 2.0.0-beta.v.1(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@1.2.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(workerd@1.20261012.1)
+      '@octokit/types':
+        specifier: 18.0.0
+        version: 18.0.0
       '@typescript/native':
         specifier: npm:typescript@7.0.2
         version: typescript@7.0.2

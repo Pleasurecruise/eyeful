@@ -5,6 +5,7 @@ const server = defineContainer({
 	name: 'eyeful-server',
 	image: { dockerfile: '../../Dockerfile', buildContext: '../..' },
 	instanceType: 'standard-1',
+	observability: { logs: { enabled: true } },
 	maxInstances: 5
 });
 

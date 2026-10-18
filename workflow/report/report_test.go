@@ -77,7 +77,8 @@ func TestSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"**eyeful** · `complete` · 3 findings: 1 reproduced, 1 to review, 1 disputed.",
+		"### ⚠️ 1 issue found",
+		"Outcome `complete`, 3 findings: 1 reproduced, 1 to review, 1 disputed.",
 		"The change breaks `tests/test_login.py::test_remember_me`.",
 		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
 		"<details><summary>Not posted (2)</summary>",
@@ -92,6 +93,22 @@ func TestSummary(t *testing.T) {
 		if strings.Contains(md, unwanted) {
 			t.Errorf("%q in\n%s", unwanted, md)
 		}
+	}
+
+	clean := result()
+	clean.Comments = clean.Comments[1:]
+	clean.Regression = &workflow.TestRun{}
+	md, err = report.Summary(clean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"### ✅ No issues found", "None was reproduced by running a test.", "The project's tests pass on the base commit and fail on the change."} {
+		if !strings.Contains(md, want) {
+			t.Errorf("missing %q in\n%s", want, md)
+		}
+	}
+	if strings.Contains(md, "| Severity |") {
+		t.Errorf("a table without issues in\n%s", md)
 	}
 }
 

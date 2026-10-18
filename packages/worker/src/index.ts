@@ -1,4 +1,5 @@
 import { App } from '@octokit/app';
+import type { Endpoints } from '@octokit/types';
 import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 
 type Source = {
@@ -12,6 +13,11 @@ type Source = {
 	installation_id: number;
 };
 
+type Conclusion =
+	Endpoints['PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}']['parameters']['conclusion'];
+
+type CheckRun = Endpoints['POST /repos/{owner}/{repo}/check-runs']['response']['data']['id'];
+
 type Stored = {
 	source: Source;
 	run: number;
@@ -20,6 +26,8 @@ type Stored = {
 	started_at: number;
 	outcome: string;
 	reason: string;
+	conclusion: Conclusion;
+	checks: CheckRun[];
 };
 
 type Status = {
@@ -30,22 +38,19 @@ type Status = {
 
 type Admission = { review: string } | { busy: string } | { skipped: string };
 
-type RunsProps = { review: string };
-
-type JevRequest = { state: Record<string, unknown>; questions: Record<string, unknown> };
-
 const PORT = 8080;
 const RUNS_HOST = 'runs.eyeful';
 const MODELS_HOST = 'models.eyeful';
 const JEV_HOST = 'jev.eyeful';
 const MENTION = '@eyeful-review';
+const CHECK = 'eyeful';
 const BODY_LIMIT = 5 << 20;
 const WATCH_MS = 30 * 1000;
 const START_MS = 5 * 60 * 1000;
 const IDLE_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 
-export class Runs extends WorkerEntrypoint<Env, RunsProps> {
+export class Runs extends WorkerEntrypoint<Env, { review: string }> {
 	async fetch(request: Request): Promise<Response> {
 		const segments = new URL(request.url).pathname.slice(1).split('/').map(decodeURIComponent);
 		if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
@@ -85,7 +90,7 @@ export class Models extends WorkerEntrypoint<Env> {
 export class Jev extends WorkerEntrypoint<Env> {
 	async fetch(request: Request): Promise<Response> {
 		return Response.json(
-			await this.env.AI.run('typesafe/jev', await request.json<JevRequest>(), {
+			await this.env.AI.run('typesafe/jev', await request.json<Record<string, unknown>>(), {
 				gateway: { id: this.env.EYEFUL_AI_GATEWAY_ID }
 			})
 		);
@@ -112,6 +117,7 @@ export class Server extends DurableObject<Env> {
 			return { skipped: 'this pull request was reviewed once; mention the App to review it again' };
 		}
 		const run = kept === undefined ? 1 : kept.run + 1;
+		const check = await this.#check(source, `Reviewing ${source.head_sha.slice(0, 7)}`);
 		this.ctx.storage.kv.put<Stored>('review', {
 			source,
 			run,
@@ -119,10 +125,28 @@ export class Server extends DurableObject<Env> {
 			attempts: 0,
 			started_at: 0,
 			outcome: '',
-			reason: ''
+			reason: '',
+			conclusion: undefined,
+			checks: [check]
 		});
 		await this.ctx.storage.setAlarm(Date.now());
 		return { review: `${this.ctx.id.toString()}/${run}` };
+	}
+
+	async push(source: Source): Promise<void> {
+		const kept = this.ctx.storage.kv.get<Stored>('review');
+		if (kept === undefined) {
+			return;
+		}
+		const check = await this.#check(
+			source,
+			`Waiting for the review of ${kept.source.head_sha.slice(0, 7)}`
+		);
+		if (kept.status !== 'done') {
+			this.ctx.storage.kv.put<Stored>('review', { ...kept, checks: [...kept.checks, check] });
+			return;
+		}
+		await this.#complete({ ...kept, checks: [check] });
 	}
 
 	async cancel(reason: string): Promise<void> {
@@ -133,7 +157,9 @@ export class Server extends DurableObject<Env> {
 		if (this.#container.running) {
 			await this.#container.destroy(reason);
 		}
-		this.ctx.storage.kv.put<Stored>('review', { ...kept, status: 'done', reason });
+		const done: Stored = { ...kept, status: 'done', reason, conclusion: 'cancelled' };
+		this.ctx.storage.kv.put<Stored>('review', done);
+		await this.#complete(done);
 	}
 
 	async alarm(): Promise<void> {
@@ -161,16 +187,16 @@ export class Server extends DurableObject<Env> {
 			}
 			const status = res === undefined ? undefined : await res.json<Status>();
 			if (status !== undefined && status.state !== 'running') {
-				this.ctx.storage.kv.put<Stored>('review', {
+				const done: Stored = {
 					...kept,
 					status: 'done',
 					outcome: status.outcome,
-					reason: status.reason
-				});
+					reason: status.reason,
+					conclusion: status.outcome === '' ? 'failure' : 'success'
+				};
+				this.ctx.storage.kv.put<Stored>('review', done);
 				await container.destroy();
-				if (status.outcome === '') {
-					await this.#report(kept.source, status.reason);
-				}
+				await this.#complete(done);
 				return;
 			}
 			if (status === undefined && Date.now() - kept.started_at > START_MS) {
@@ -180,15 +206,30 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (kept.attempts >= MAX_ATTEMPTS) {
-			const reason = `the review's Container was lost ${kept.attempts} times`;
-			this.ctx.storage.kv.put<Stored>('review', { ...kept, status: 'done', reason });
-			await this.#report(kept.source, reason);
+			const done: Stored = {
+				...kept,
+				status: 'done',
+				reason: `the review's Container was lost ${kept.attempts} times`,
+				conclusion: 'failure'
+			};
+			this.ctx.storage.kv.put<Stored>('review', done);
+			await this.#complete(done);
 			return;
 		}
+		this.ctx.storage.kv.put<Stored>('review', {
+			...kept,
+			status: 'running',
+			attempts: kept.attempts + 1,
+			started_at: Date.now()
+		});
 		const review = `${this.ctx.id.toString()}/${kept.run}`;
 		await container.interceptOutboundHttp(RUNS_HOST, this.ctx.exports.Runs({ props: { review } }));
 		await container.interceptOutboundHttp(MODELS_HOST, this.ctx.exports.Models({ props: {} }));
 		await container.interceptOutboundHttp(JEV_HOST, this.ctx.exports.Jev({ props: {} }));
+		const current = this.ctx.storage.kv.get<Stored>('review');
+		if (current === undefined || current.status === 'done') {
+			return;
+		}
 		container.start({
 			enableInternet: true,
 			env: {
@@ -198,29 +239,63 @@ export class Server extends DurableObject<Env> {
 				EYEFUL_GITHUB_APP_PRIVATE_KEY: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
 			}
 		});
-		this.ctx.storage.kv.put<Stored>('review', {
-			...kept,
-			status: 'running',
-			attempts: kept.attempts + 1,
-			started_at: Date.now()
-		});
 		await container.setInactivityTimeout(IDLE_MS);
 		await this.ctx.storage.setAlarm(Date.now() + WATCH_MS);
 	}
 
-	async #report(source: Source, reason: string): Promise<void> {
+	async #check(source: Source, title: string): Promise<CheckRun> {
 		const app = new App({
 			appId: this.env.EYEFUL_GITHUB_APP_ID,
 			privateKey: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
 		});
 		const octokit = await app.getInstallationOctokit(source.installation_id);
 		const [owner, repo] = source.repo.split('/');
-		await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+		const { data } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
 			owner,
 			repo,
-			issue_number: source.number,
-			body: `**eyeful** did not post a review of \`${source.head_sha.slice(0, 7)}\`: ${reason}.`
+			name: CHECK,
+			head_sha: source.head_sha,
+			status: 'in_progress',
+			output: { title, summary: title }
 		});
+		return data.id;
+	}
+
+	async #complete(record: Stored): Promise<void> {
+		const app = new App({
+			appId: this.env.EYEFUL_GITHUB_APP_ID,
+			privateKey: this.env.EYEFUL_GITHUB_APP_PRIVATE_KEY
+		});
+		const octokit = await app.getInstallationOctokit(record.source.installation_id);
+		const [owner, repo] = record.source.repo.split('/');
+		const head = record.source.head_sha.slice(0, 7);
+		let output: { title: string; summary: string };
+		switch (record.conclusion) {
+			case 'success':
+				output = {
+					title: `Review posted for ${head}`,
+					summary: `Outcome \`${record.outcome}\`. Mention ${MENTION} to review a later commit.`
+				};
+				break;
+			case 'failure':
+				output = { title: `No review posted for ${head}`, summary: record.reason };
+				break;
+			case 'cancelled':
+				output = { title: `Review of ${head} cancelled`, summary: record.reason };
+				break;
+			default:
+				throw new Error(`a check run cannot complete with ${record.conclusion}`);
+		}
+		for (const check of record.checks) {
+			await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+				owner,
+				repo,
+				check_run_id: check,
+				status: 'completed',
+				conclusion: record.conclusion,
+				output
+			});
+		}
 	}
 }
 
@@ -257,7 +332,7 @@ export default {
 		if (!(await app.webhooks.verify(payload, signature))) {
 			return problem(401, 'unauthorized', 'the webhook signature is invalid');
 		}
-		const allowed = env.EYEFUL_ALLOWED_USERS.split(',');
+		const allowed = env.EYEFUL_ALLOWED_USERS.split(',').map((user) => user.trim());
 		let response = Response.json({ ignored: name });
 		app.webhooks.on(
 			['pull_request.opened', 'pull_request.reopened', 'pull_request.ready_for_review'],
@@ -297,11 +372,33 @@ export default {
 				response = Response.json(admission, { status: 202 });
 			}
 		);
+		app.webhooks.on('pull_request.synchronize', async ({ payload: event }) => {
+			if (event.installation === undefined) {
+				response = problem(
+					400,
+					'bad_request',
+					'the delivery is not from a GitHub App installation'
+				);
+				return;
+			}
+			const pr = event.pull_request;
+			await ctx.exports.Server.getByName(`${event.repository.full_name}#${pr.number}`).push({
+				repo: event.repository.full_name,
+				base: pr.base.ref,
+				head: pr.head.ref,
+				number: pr.number,
+				base_sha: pr.base.sha,
+				head_sha: pr.head.sha,
+				clone_url: event.repository.clone_url,
+				installation_id: event.installation.id
+			});
+			response = Response.json({ pushed: pr.head.sha }, { status: 202 });
+		});
 		app.webhooks.on('issue_comment.created', async ({ payload: event, octokit }) => {
 			const commenter = event.comment.user;
 			if (
 				event.issue.pull_request === undefined ||
-				!event.comment.body.includes(MENTION) ||
+				!event.comment.body.trimStart().startsWith(MENTION) ||
 				commenter === null ||
 				!allowed.includes(commenter.login)
 			) {

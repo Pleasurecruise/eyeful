@@ -59,35 +59,46 @@ func Summary(r workflow.Result) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	var posted, rest []Finding
+	for _, f := range out.Findings {
+		if Posted(f.Label, f.Kind) {
+			posted = append(posted, f)
+		} else {
+			rest = append(rest, f)
+		}
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "**eyeful** · `%s` · %d findings: %d reproduced, %d to review, %d disputed.\n", out.Outcome, len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open)
+	switch len(posted) {
+	case 0:
+		b.WriteString("### ✅ No issues found\n")
+	case 1:
+		b.WriteString("### ⚠️ 1 issue found\n")
+	default:
+		fmt.Fprintf(&b, "### ⚠️ %d issues found\n", len(posted))
+	}
+	fmt.Fprintf(&b, "\nOutcome `%s`, %d findings: %d reproduced, %d to review, %d disputed.", out.Outcome, len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open)
 	if out.Counts.Fail == 0 {
-		b.WriteString("None was reproduced by running a test.\n")
+		b.WriteString(" None was reproduced by running a test.")
 	}
 	if out.Reason != "" {
-		fmt.Fprintf(&b, "%s.\n", out.Reason)
+		fmt.Fprintf(&b, " %s.", out.Reason)
 	}
+	b.WriteString("\n")
 	for _, f := range out.Diagnosis.Failures {
 		fmt.Fprintf(&b, "\nCI failed: `%s` %s %s: %s Fix: %s\n", f.Workflow, f.Job, f.Step, f.Cause, f.Fix)
 	}
-	if r.Regression != nil && len(r.Regression.Failed) > 0 {
+	switch {
+	case r.Regression == nil:
+	case len(r.Regression.Failed) == 0:
+		b.WriteString("\nThe project's tests pass on the base commit and fail on the change.\n")
+	default:
 		fmt.Fprintf(&b, "\nThe change breaks `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
 	}
-	var rest []Finding
-	first := true
-	for _, f := range out.Findings {
-		if !Posted(f.Label, f.Kind) {
-			rest = append(rest, f)
-			continue
+	if len(posted) > 0 {
+		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
+		for _, f := range posted {
+			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
 		}
-		if first {
-			b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
-			first = false
-		}
-		fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
-	}
-	if first {
-		b.WriteString("\nNo issue to post.\n")
 	}
 	if len(rest) > 0 {
 		fmt.Fprintf(&b, "\n<details><summary>Not posted (%d)</summary>\n\n", len(rest))

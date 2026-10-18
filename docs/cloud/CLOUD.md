@@ -1,41 +1,28 @@
 # Running in the cloud
 
-A cloud review runs on Cloudflare against a GitHub pull request. One deployment serves one GitHub
-App and has no user accounts. Each pull request head commit gets one review, and each review runs
-the same workflow as a local review, in its own Container. The sandbox is not built, so a cloud
-review does not run the project's commands and its findings are checked by a judge.
+A cloud review runs on Cloudflare against a GitHub pull request, with the same workflow as a local
+review, in its own Container. The sandbox is not built, so it runs none of the project's commands
+and a judge checks its findings.
 
 ## What can be reviewed {#what-can-be-reviewed}
 
-A pull request in a repository where eyeful's GitHub App is installed, and nothing else. Branches,
-commits and uncommitted changes are reviewed locally ([Running locally](../LOCAL.md)).
+A pull request in a repository where eyeful's GitHub App is installed, opened or mentioned by a user
+in `EYEFUL_ALLOWED_USERS`. Branches, commits and uncommitted changes are reviewed locally
+([Running locally](../LOCAL.md)).
 
 ## How a cloud review runs
 
-1. A pull request is reviewed once by itself, when it is opened, reopened or marked ready for
-   review. After that a review starts only when someone mentions `@eyeful-review` in a comment on it; eyeful
-   reacts with 👀 and reviews the head at that moment. Pushes start nothing.
-2. The Worker checks `X-Hub-Signature-256` with `@octokit/app`, acts only for the pull request's
-   author or the commenter in `EYEFUL_ALLOWED_USERS`, answers `202` at once, and hands the pull
-   request to the Durable Object of that pull request. While a review runs, a mention gets a reply
-   that one is running, and nothing else ([Review lifecycle](SCHEDULING.md)).
-3. The Durable Object starts the review's Container, which runs `eyeful-server serve` with the pull
-   request in `EYEFUL_REVIEW`.
-4. The server mints an installation token, clones the repository and waits until the GitHub Actions
-   runs of the head commit finish. If one failed, the review ends with a diagnosis
-   ([Planning and triage](../PLANNER.md#ci-check)).
-5. The server calls `local/app.Review` with read-only verification: triage, the plan, the experts,
-   the judge and the report run exactly as in `eyeful review --verification read_only`. Each stage
-   is saved to R2, so a Container started again resumes from the last finished stage
-   ([Storage](PERSISTENCE.md)).
-6. eyeful's GitHub App posts each undisputed `issue` as a line comment in one `COMMENT` review, and
-   a short summary as one comment ([Review feedback](../REPORT.md#line-comments)), then records `published` in R2. A Container started again
-   after that returns without posting. A crash after GitHub accepts the posts and before the record
-   is written can post them twice; an outbox is planned.
-
-If the review fails, its Container is lost three times, or the change is empty, the Durable Object
-comments the reason on the pull request. Closing the pull request or turning it back into a draft
-cancels a running review.
+1. A pull request is reviewed once when it is opened or ready for review, and again each time
+   someone comments `@eyeful-review`. When and how often is in [Review lifecycle](SCHEDULING.md).
+2. The Worker checks the webhook signature and hands the pull request to its Durable Object, which
+   starts the review's Container running `eyeful-server serve`.
+3. The server clones the repository, waits for the head commit's GitHub Actions and reacts with 👀.
+   A failed run ends the review with a diagnosis ([Planning and triage](../PLANNER.md#ci-check)).
+4. The server calls `local/app.Review` with read-only verification, as in
+   `eyeful review --verification read_only`, saving each stage to R2 ([Storage](PERSISTENCE.md)).
+5. The App posts each undisputed `issue` as a line comment in one `COMMENT` review, and a short
+   summary as a comment ([Review feedback](../REPORT.md#line-comments)), then records `published`
+   in R2. A crash between the two can post twice; an outbox is planned.
 
 ## Agents and models {#agents-and-models}
 

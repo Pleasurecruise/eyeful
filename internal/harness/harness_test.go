@@ -98,7 +98,7 @@ func TestExecute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 {
+	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 || host.reactions != 1 {
 		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
 	}
 	if !strings.Contains(host.body, "<details><summary>Not posted (1)</summary>") || !strings.Contains(host.body, "- suggestion · `changed.txt:1`") || strings.Contains(host.body, "What this change does") {
@@ -177,11 +177,12 @@ func TestNotes(t *testing.T) {
 }
 
 type fakeHost struct {
-	actions  github.Actions
-	fail     error
-	tokens   int
-	comments int
-	body     string
+	actions   github.Actions
+	fail      error
+	tokens    int
+	reactions int
+	comments  int
+	body      string
 }
 
 func (h *fakeHost) Token(context.Context, int64) (string, error) {
@@ -191,6 +192,11 @@ func (h *fakeHost) Token(context.Context, int64) (string, error) {
 
 func (h *fakeHost) Wait(context.Context, string, review.Source) (github.Actions, error) {
 	return h.actions, nil
+}
+
+func (h *fakeHost) React(context.Context, string, review.Source) error {
+	h.reactions++
+	return nil
 }
 
 func (h *fakeHost) Description(context.Context, string, review.Source) (string, error) {

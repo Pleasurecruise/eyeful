@@ -36,6 +36,7 @@ type Host interface {
 	Token(ctx context.Context, installation int64) (string, error)
 	Wait(ctx context.Context, token string, src review.Source) (github.Actions, error)
 	Description(ctx context.Context, token string, src review.Source) (string, error)
+	React(ctx context.Context, token string, src review.Source) error
 	Publish(ctx context.Context, src review.Source, markdown string, notes []github.Note) error
 }
 
@@ -79,6 +80,9 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	actions, err := r.Host.Wait(ctx, token, src)
 	if err != nil {
 		return Status{}, fmt.Errorf("actions: %w", err)
+	}
+	if err := r.Host.React(ctx, token, src); err != nil {
+		return Status{}, fmt.Errorf("reaction: %w", err)
 	}
 	description, err := r.Host.Description(ctx, token, src)
 	if err != nil {

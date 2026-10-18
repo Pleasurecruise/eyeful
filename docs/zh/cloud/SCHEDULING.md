@@ -11,21 +11,22 @@ stateDiagram-v2
     done --> queued: mentioned
 ```
 
-| 机制     | 行为                                                                                                   |
-| -------- | ------------------------------------------------------------------------------------------------------ |
-| 一次     | 打开、重新打开或可审查的 pull request，从未审查过时自动审查；之后需要 @。                              |
-| @        | 允许名单里的用户 @ 时，审查当前 head，编号比上一次加一。                                               |
-| 忙碌     | 审查在排队或运行时被 @，只回复一句，不启动任何东西。                                                   |
-| 已关闭   | 在已关闭的 pull request 上 @ 会被忽略。                                                                |
-| Alarm    | 接收时设置，审查运行期间每 30 秒一次。每次都读取存储的记录。                                           |
-| 启动     | 没有 Container 在运行时，alarm 带着 pull request 启动一个，并计一次尝试。                              |
-| 观察     | 有 Container 在运行时，alarm 读取它的 `GET /review`；`done` 或 `failed` 会被记录，Container 随即销毁。 |
-| 启动超时 | 启动五分钟后仍未应答的 Container 会被销毁，记为丢失。                                                  |
-| 丢失     | 三次尝试之后审查以 `done` 结束，原因会评论在 pull request 上。                                         |
-| 说明     | 没有发布就结束的审查（失败、丢失或改动为空）会在 pull request 上评论原因。                             |
-| 取消     | 关闭 pull request 或转回 draft 会销毁正在运行的 Container。                                            |
-| 空闲     | Container 十分钟没有请求就停止；alarm 的轮询会让运行中的审查保持活跃。                                 |
-| 容量     | 同时最多五个 Container（`maxInstances`）。                                                             |
+| 机制     | 行为                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| 一次     | 打开、重新打开或可审查的 pull request，从未审查过时自动审查；之后需要 @。                                          |
+| @        | 允许名单里的用户 @ 时，审查当前 head，编号比上一次加一。                                                           |
+| 忙碌     | 审查在排队或运行时被 @，只回复一句，不启动任何东西。                                                               |
+| 已关闭   | 在已关闭的 pull request 上 @ 会被忽略。                                                                            |
+| Alarm    | 接收时设置，审查运行期间每 30 秒一次。每次都读取存储的记录。                                                       |
+| 启动     | 没有 Container 在运行时，alarm 带着 pull request 启动一个，并计一次尝试。                                          |
+| 观察     | 有 Container 在运行时，alarm 读取它的 `GET /review`；`done` 或 `failed` 会被记录，Container 随即销毁。             |
+| 启动超时 | 启动五分钟后仍未应答的 Container 会被销毁，记为丢失。                                                              |
+| 丢失     | 三次尝试之后审查以 `done` 结束，它的 Check Run 以失败结束并写明原因。                                              |
+| 检查     | 每次审查在 head 上创建一个 `eyeful` Check Run，审查结束时完成它。                                                  |
+| 推送     | push 会在新 head 上加一个 `eyeful` Check Run：审查已结束时直接沿用上次结果完成，审查还在运行时等它结束后一起完成。 |
+| 取消     | 关闭 pull request 或转回 draft 会销毁正在运行的 Container，并取消它的 Check Run。                                  |
+| 空闲     | Container 十分钟没有请求就停止；alarm 的轮询会让运行中的审查保持活跃。                                             |
+| 容量     | 同时最多五个 Container（`maxInstances`）。                                                                         |
 
 发布新版本或任何 `SIGTERM` 都会让 Container 停止；alarm 把它记为丢失，下一个从 R2 里的阶段继续（见[存储](PERSISTENCE.md)）。
 

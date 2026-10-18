@@ -40,7 +40,7 @@ test below fails on this change and passes with the suggested fix.
 
 ## 行内评论 {#line-comments}
 
-在 pull request 上，eyeful 以事件 `COMMENT` 提交一条 review，从不使用 `REQUEST_CHANGES` 或 `APPROVE`。只有写明了文件和行、且裁判没有否定的 `issue` 会发在那一行上；question、suggestion 和 nitpick 折叠列在总结末尾，不发布。发出的评论里只有一处针对同一文件的修复时，这处修复作为 suggested change 附上。只要还有 `issue (blocking)` 就失败的 Check Run 还在规划中，默认关闭。
+在 pull request 上，eyeful 以事件 `COMMENT` 提交一条 review，从不使用 `REQUEST_CHANGES` 或 `APPROVE`。只有写明了文件和行、且裁判没有否定的 `issue` 会发在那一行上；question、suggestion 和 nitpick 折叠列在总结末尾，不发布。发出的评论里只有一处针对同一文件的修复时，这处修复作为 suggested change 附上。`eyeful` Check Run 只表示有没有发布审查，不表示改动是否正确（见[云端运行](cloud/CLOUD.md)）。
 
 ## 排序报告 {#ranked-report}
 
@@ -67,7 +67,7 @@ test below fails on this change and passes with the suggested fix.
 | SARIF          | 其他 agent、脚本、GitHub code scanning、评估 |
 | GitHub review  | pull request 上的行内评论                    |
 | GitHub comment | 简短总结：计数、发出的 issue，其余折叠       |
-| Check Run      | 可选的关卡（规划中）                         |
+| Check Run      | 是否发布了审查，用作必需检查                 |
 
 发到 GitHub 的内容由审查的 Container 提交。outbox 还在规划中（见[架构](ARCHITECTURE.md#data-flow)）。
 

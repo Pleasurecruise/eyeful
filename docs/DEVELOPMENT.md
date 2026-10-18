@@ -30,9 +30,7 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 | `mise run generate`                        | The pulls.review core bundle, the desktop bindings and the Worker types                       |
 | `mise run check`                           | lint + test + generate, failing if generated files drift                                      |
 
-The GitHub App needs Pull requests and Issues read and write, so it can post the review and the
-report, Contents and Metadata read-only, and Actions read-only for the [CI check](PLANNER.md#ci-check)
-([Deploy](cloud/DEPLOYMENT.md#deploy)).
+The GitHub App's permissions and events are in [Deploy](cloud/DEPLOYMENT.md#deploy).
 
 ## Configuration
 

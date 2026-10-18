@@ -27,7 +27,7 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 | `mise run generate`                        | 生成 pulls.review core 打包文件、桌面端绑定和 Worker 类型                                 |
 | `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 
-GitHub App 需要 Pull requests 和 Issues 读写，用来发布评审意见和报告；Contents 和 Metadata 只读；Actions 只读，用于 [CI 校验](PLANNER.md#ci-check)（见[部署](cloud/DEPLOYMENT.md#deploy)）。
+GitHub App 的权限和事件见[部署](cloud/DEPLOYMENT.md#deploy)。
 
 ## 配置
 

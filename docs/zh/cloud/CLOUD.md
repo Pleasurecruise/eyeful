@@ -1,21 +1,18 @@
 # 云端运行
 
-云端审查在 Cloudflare 上针对 GitHub pull request 运行。一个部署对应一个 GitHub App，没有用户账号。每个 pull request 的 head 提交对应一次审查，每次审查都在自己的 Container 里运行和本地审查相同的工作流。沙箱还没有实现，所以云端审查不运行项目的命令，发现由裁判核查。
+云端审查在 Cloudflare 上针对 GitHub pull request 运行，在自己的 Container 里运行和本地审查相同的工作流。沙箱还没有实现，所以它不运行项目的任何命令，发现由裁判核查。
 
 ## 能审查什么 {#what-can-be-reviewed}
 
-只能审查装了 eyeful GitHub App 的仓库里的 pull request。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
+装了 eyeful GitHub App 的仓库里、由 `EYEFUL_ALLOWED_USERS` 里的用户打开或 @ 的 pull request。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
 
 ## 云端审查怎样运行
 
-1. pull request 在打开、重新打开或标记为可审查时自动审查一次。之后只有在评论里 `@eyeful-review` 才会再审；eyeful 先回一个 👀，再审查那一刻的 head。push 不会触发任何审查。
-2. Worker 用 `@octokit/app` 校验 `X-Hub-Signature-256`，只为 `EYEFUL_ALLOWED_USERS` 里的 PR 作者或评论者行动，立即返回 `202`，并把 pull request 交给这个 PR 的 Durable Object。审查进行中时被 @，只回复"正在审查"，不做别的（见[审查生命周期](SCHEDULING.md)）。
-3. Durable Object 启动这次审查的 Container，里面运行 `eyeful-server serve`，pull request 放在 `EYEFUL_REVIEW` 里。
-4. 服务端签发 installation token，克隆仓库，等 head 提交的 GitHub Actions 全部跑完。如果有失败的，审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
-5. 服务端用只读验证调用 `local/app.Review`：分拣、计划、专家、裁判和报告与 `eyeful review --verification read_only` 完全一样。每个阶段都存进 R2，重新启动的 Container 从最后完成的阶段继续（见[存储](PERSISTENCE.md)）。
-6. eyeful 的 GitHub App 把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)），然后在 R2 里记下 `published`。此后重新启动的 Container 直接返回，不再发布。如果 GitHub 已接受发布、记录还没写入时崩溃，可能会发布两次；outbox 还在规划中。
-
-审查失败、Container 连续丢失三次，或改动为空时，Durable Object 会在 pull request 上评论原因。关闭 pull request 或把它转回 draft 会取消正在进行的审查。
+1. pull request 在打开或转为可审查时审查一次，之后每次有人评论 `@eyeful-review` 再审一次。何时审、审几次见[审查生命周期](SCHEDULING.md)。
+2. Worker 校验 webhook 签名，把 pull request 交给它的 Durable Object，由后者启动运行 `eyeful-server serve` 的 Container。
+3. 服务端克隆仓库，等 head 提交的 GitHub Actions 跑完，然后回一个 👀。有失败时审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
+4. 服务端用只读验证调用 `local/app.Review`，和 `eyeful review --verification read_only` 一样，每个阶段都存进 R2（见[存储](PERSISTENCE.md)）。
+5. App 把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)），然后在 R2 里记下 `published`。两者之间崩溃可能会发布两次；outbox 还在规划中。
 
 ## agent 与模型 {#agents-and-models}
 
