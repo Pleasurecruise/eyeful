@@ -36,10 +36,11 @@ type Host interface {
 	Wait(ctx context.Context, token string, src review.Source) (github.Actions, error)
 	Description(ctx context.Context, token string, src review.Source) (string, error)
 	React(ctx context.Context, token string, src review.Source) error
-	Publish(ctx context.Context, src review.Source, markdown string, notes []github.Note) error
+	Publish(ctx context.Context, src review.Source, id, markdown string, notes []github.Note) error
 }
 
 type Runner struct {
+	ID         string
 	Log        *slog.Logger
 	Experts    []string
 	Classifier workflow.Classifier
@@ -97,7 +98,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err != nil {
 		return Status{}, fmt.Errorf("report: %w", err)
 	}
-	if err := r.Host.Publish(ctx, src, markdown, notesFrom(res.Comments)); err != nil {
+	if err := r.Host.Publish(ctx, src, r.ID, markdown, notesFrom(res.Comments)); err != nil {
 		return Status{}, fmt.Errorf("publish: %w", err)
 	}
 	if err := r.Runs.Save(ctx, "published", []byte(res.Outcome)); err != nil {

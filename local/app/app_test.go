@@ -25,10 +25,10 @@ import (
 )
 
 var replies = map[string]string{
-	"`submit_plan`":      `{"overallSummary":"Writes two to app.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["app.txt"]}]}`,
-	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
-	"`submit_judgement`": `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
-	"`submit_commit`":    `{"message":"fix: write two\n\nThe value changed."}`,
+	`"overallSummary"`:            `{"overallSummary":"Writes two to app.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["app.txt"]}]}`,
+	`"properties":{"findings":`:   `{"findings":[{"skill":"other","category":"naming","path":"app.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
+	`"properties":{"judgements":`: `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
+	`"properties":{"message":`:    `{"message":"fix: write two\n\nThe value changed."}`,
 }
 
 func fakeClaude() error {
@@ -48,8 +48,8 @@ func fakeClaude() error {
 			return err
 		}
 	}
-	for _, m := range regexp.MustCompile("`([^`]+/SKILL.md)`").FindAllStringSubmatch(string(prompt), -1) {
-		if _, err := os.Stat(m[1]); err != nil {
+	for _, m := range regexp.MustCompile("Directory: `([^`]+)`").FindAllStringSubmatch(string(prompt), -1) {
+		if _, err := os.Stat(filepath.Join(m[1], "SKILL.md")); err != nil {
 			return fmt.Errorf("a listed skill cannot be read: %w", err)
 		}
 	}
@@ -58,8 +58,8 @@ func fakeClaude() error {
 			return fmt.Errorf("the patch the planner is pointed at cannot be read: %w", err)
 		}
 	}
-	for submit, reply := range replies {
-		if strings.Contains(string(prompt), "call "+submit) {
+	for schema, reply := range replies {
+		if strings.Contains(string(prompt), schema) {
 			text, err := json.Marshal("```json\n" + reply + "\n```")
 			if err != nil {
 				return err

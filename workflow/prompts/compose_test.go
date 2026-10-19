@@ -25,7 +25,8 @@ func TestCompose(t *testing.T) {
 
 	review := workflow.ReviewTask{Expert: workflow.Expert{Name: "security"}, Skills: []string{"security-review"}}
 	listed, err := s.Review(review, "/skills", "/run/history.md")
-	if err != nil || !strings.Contains(listed, "- `security-review`, `/skills/security-review/SKILL.md`: ") || strings.Contains(listed, "name: security-review") || !strings.Contains(listed, "do not use evidence `test`") {
+	skill, _ := s.Skill("security-review")
+	if err != nil || !strings.Contains(listed, "### Skill `security-review`\n\nDirectory: `/skills/security-review`\n\n"+skill.Body) || skill.Body == "" || strings.Contains(listed, "name: security-review") || !strings.Contains(listed, "do not use evidence `test`") {
 		t.Fatalf("listed %v:\n%s", err, listed)
 	}
 	if !strings.Contains(listed, "## History") || !strings.Contains(listed, "`/run/history.md`") {
@@ -38,7 +39,7 @@ func TestCompose(t *testing.T) {
 	}
 	retest := workflow.RetestTask{Finding: workflow.Finding{Claim: workflow.Claim{Path: "app/session.py"}}}
 	offered, err := s.Retest(retest, "/skills")
-	if err != nil || !strings.Contains(offered, "- `python-testing-patterns`, `/skills/python-testing-patterns/SKILL.md`: ") || strings.Contains(offered, "golang-testing") {
+	if err != nil || !strings.Contains(offered, "### Skill `python-testing-patterns`\n\nDirectory: `/skills/python-testing-patterns`") || strings.Contains(offered, "golang-testing") {
 		t.Fatalf("retest %v:\n%s", err, offered)
 	}
 	retest.Finding.Path = "README.md"

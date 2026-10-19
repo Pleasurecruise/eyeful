@@ -88,7 +88,7 @@ How a cloud review is admitted and retried is in [Review lifecycle](cloud/SCHEDU
   measured ([Evaluation](EVALUATION.md)).
 - No tool runs. The checks planned to run before and beside the experts are not built
   ([Levels](LEVELS.md#planned)).
-- The skills are unmeasured. About a third of the correctness and skeptic experts opened one in the
-  runs inspected, and no run has been made without them.
+- The skills are unmeasured. Every expert now gets its skills in the prompt, and no run has been
+  made without them.
 - Whether each expert should give an overall verdict, and whether "coverage does not decrease"
   should be a hard rule, are undecided.

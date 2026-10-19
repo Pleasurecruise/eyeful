@@ -1,7 +1,6 @@
 package prompts
 
 import (
-	"bytes"
 	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
@@ -58,15 +57,6 @@ func Load() (Set, error) {
 }
 
 func loadRoles(s *Set) error {
-	data, err := fs.ReadFile(files, "tools.yaml")
-	if err != nil {
-		return fmt.Errorf("tools: %w", err)
-	}
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&s.Tools); err != nil {
-		return fmt.Errorf("%w: tools.yaml: %w", ErrInvalidPrompt, err)
-	}
 	paths, err := fs.Glob(files, "roles/*.md")
 	if err != nil {
 		return fmt.Errorf("roles: %w", err)
@@ -77,11 +67,6 @@ func loadRoles(s *Set) error {
 			return err
 		}
 		r.Body = body
-		for _, name := range append(slices.Clone(r.Tools), r.Submit) {
-			if !slices.ContainsFunc(s.Tools, func(t Tool) bool { return t.Name == name }) {
-				return fmt.Errorf("%w: %s names %q", ErrUnknownTool, p, name)
-			}
-		}
 		for _, sk := range r.Skills {
 			if _, ok := s.Skill(sk.Name); !ok {
 				return fmt.Errorf("%w: %s names %q", ErrUnknownSkill, p, sk.Name)
@@ -122,14 +107,14 @@ func loadSkills(s *Set) error {
 		if sum != s.Lock.Skills[name].ComputedHash {
 			return fmt.Errorf("%w: %s", ErrSkillModified, name)
 		}
-		sk, _, err := parse[Skill](path.Join(dir, "SKILL.md"), false)
+		sk, body, err := parse[Skill](path.Join(dir, "SKILL.md"), false)
 		if err != nil {
 			return err
 		}
 		if sk.Name != name || sk.Description == "" {
 			return fmt.Errorf("%w: %s needs a name matching its directory and a description", ErrInvalidPrompt, name)
 		}
-		sk.Path = dir
+		sk.Path, sk.Body = dir, body
 		s.Skills = append(s.Skills, sk)
 	}
 	return nil

@@ -22,7 +22,8 @@ after each green CI run on `main` (`docs.yml`), and a `v*` tag runs CI and then 
 | `eyeful`                | `mise run install`, or a `v*` tag (GoReleaser)  | The user's machine              |
 | Documentation site      | `mise run build:docs` (VitePress)               | GitHub Pages at `DOCS_URL`      |
 
-The image holds `eyeful-server`, git, pi `1.3.0`, and pi's settings from `packages/worker/pi/`.
+The image holds `eyeful-server`, git, pi `1.3.0` under `/opt/pi`, the user `agent` with pi's settings
+from `packages/worker/pi/`, and `/usr/local/bin/pi`, which runs pi as `agent`.
 `Dockerfile.sandbox` builds the sandbox.
 
 ## Cloud

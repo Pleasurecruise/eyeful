@@ -80,6 +80,9 @@ export class Runs extends WorkerEntrypoint<Env, { review: string }> {
 export class Models extends WorkerEntrypoint<Env> {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
+		if (request.method !== 'POST' || url.pathname !== '/chat/completions') {
+			return new Response(null, { status: 404 });
+		}
 		const headers = new Headers(request.headers);
 		headers.delete('Authorization');
 		headers.set('cf-aig-authorization', `Bearer ${this.env.EYEFUL_AI_GATEWAY_TOKEN}`);
@@ -314,6 +317,7 @@ export class Server extends DurableObject<Env> {
 			enableInternet: true,
 			env: {
 				EYEFUL_REVIEW: JSON.stringify(kept.source),
+				EYEFUL_REVIEW_ID: review,
 				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
 				EYEFUL_SANDBOX_URL: `http://${SANDBOX_HOST}`,
 				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,

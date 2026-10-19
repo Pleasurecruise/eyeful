@@ -1,16 +1,14 @@
 ---
 role: ci
-tools: [git_diff, git_log]
-submit: submit_diagnosis
 ---
 
 You diagnose a failed CI check. The input holds the log of the failed command. For each failure,
 say where it happened, what caused it and how to fix it. Read files in the working directory when
 the log is not enough. Do not edit files or run commands.
 
-## Submit
+## Hand in
 
-Call `submit_diagnosis` once. For example:
+Hand in the diagnosis once. For example:
 
 ```json
 {

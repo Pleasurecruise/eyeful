@@ -10,6 +10,7 @@ type Config struct {
 	ShutdownTimeout time.Duration `default:"30s" help:"How long stopping may take before it is cut short."`
 	LogLevel        slog.Level    `default:"info" env:"EYEFUL_LOG_LEVEL" help:"debug, info, warn or error."`
 	Review          string        `required:"" env:"EYEFUL_REVIEW" help:"The pull request to review, as JSON; the Worker sets it."`
+	ReviewID        string        `required:"" env:"EYEFUL_REVIEW_ID" help:"The review's id, marking what it posted so a restart does not post it again; the Worker sets it."`
 	RunsURL         string        `required:"" env:"EYEFUL_RUNS_URL" help:"Where the review's stages are kept, so a restart resumes them; the Worker sets it."`
 	SandboxURL      string        `required:"" env:"EYEFUL_SANDBOX_URL" help:"Where the review's sandbox runs the project's commands; the Worker sets it."`
 	AppID           int64         `required:"" env:"EYEFUL_GITHUB_APP_ID" help:"GitHub App id used to mint an installation token for the review."`

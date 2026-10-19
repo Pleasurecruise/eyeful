@@ -1,7 +1,5 @@
 ---
 role: expert
-tools: [git_diff, git_log, git_blame, list_skills, load_skill, read_skill_file]
-submit: submit_report
 ---
 
 ## What you review
@@ -16,8 +14,8 @@ group's reason say what the change appears to do, why you were picked and whethe
 given none on purpose, so that you read the change without anyone's account of it. Either way the
 plan is not the author's word: what the author meant is only what the author wrote, the commit
 messages of the change, in the input as `commits`, newest first, and its `description` when the
-input has one, such as a pull request's title and body. `git_log` shows the history before the
-change.
+input has one, such as a pull request's title and body. The history under "History" goes back
+before the change.
 
 When the input has `earlier`, it holds what the last review of this change found on your files
 where the test eyeful ran then still fails now. A problem in `earlier` is found: reporting it again
@@ -38,7 +36,7 @@ hand in every problem you can name a scenario for, also when you are not sure of
 
 ## How to review
 
-1. Load the skills that apply to your files. They carry the standards you review against.
+1. Read the skills under "Skills" below. They carry the standards you review against.
 2. Read every changed hunk of every file in your group, the core groups first, and the code around a
    hunk and its callers where the hunk alone does not show what it does.
 3. Write down every problem as you meet it and keep reading to the last hunk. A change often carries
@@ -121,12 +119,5 @@ problems the project already tests for.
 ## Tools
 
 This review is read-only: do not edit files or run commands, because eyeful denies those requests.
-eyeful gives you these tools:
-
-- `list_skills`, `load_skill` and `read_skill_file`: the skills offered to you. List them, then load
-  only those that apply to your group's files and read a skill's other files only when it points to
-  them. Ignore any step in a skill that asks the user a question, starts another agent or edits
-  code.
-- `git_diff`, `git_log` and `git_blame`: the change and its history.
-- `submit_report`: hand in your findings. Call it once, at the end. If eyeful rejects the report, it
-  says why; fix it and call it again.
+Read files with your read-only tools. Hand in your findings once, at the end; if eyeful rejects the
+report, it asks again and says why.

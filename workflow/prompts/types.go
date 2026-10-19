@@ -8,7 +8,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
-//go:embed experts/*.md roles/*.md tools.yaml all:skills skills-lock.json
+//go:embed experts/*.md roles/*.md all:skills skills-lock.json
 var files embed.FS
 
 type Expert struct {
@@ -20,6 +20,7 @@ type Skill struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
 	Path        string `yaml:"-" json:"path"`
+	Body        string `yaml:"-" json:"-"`
 }
 
 type LockEntry struct {
@@ -36,15 +37,8 @@ type Lock struct {
 	Skills  map[string]LockEntry `json:"skills"`
 }
 
-type Tool struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-}
-
 type Role struct {
 	Role   workflow.Role    `yaml:"role"`
-	Tools  []string         `yaml:"tools"`
-	Submit string           `yaml:"submit"`
 	Skills []workflow.Skill `yaml:"skills"`
 	Body   string           `yaml:"-"`
 }
@@ -57,7 +51,6 @@ type Set struct {
 	Experts []Expert
 	Skills  []Skill
 	Lock    Lock
-	Tools   []Tool
 	Roles   map[workflow.Role]Role
 	core    *pulls.Core
 }
@@ -79,6 +72,5 @@ var roles = []workflow.Role{
 var (
 	ErrInvalidPrompt = errors.New("invalid prompt file")
 	ErrUnknownSkill  = errors.New("unknown skill")
-	ErrUnknownTool   = errors.New("unknown tool")
 	ErrSkillModified = errors.New("skill differs from skills-lock.json")
 )

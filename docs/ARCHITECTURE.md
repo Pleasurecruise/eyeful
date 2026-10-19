@@ -110,9 +110,9 @@ Producers and consumers attach at the two ends of the pipeline and do not know a
 flowchart LR
     producers["CLI, plugin,<br/>webhook, schedule"] -->|source| subject["Subject"]
     subject --> pipeline["Review pipeline"]
-    pipeline --> outbox["Outbox"]
-    outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
+    pipeline --> publish["Publish"]
+    publish -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
 The webhook admits a review, and the review's Container posts a `COMMENT` review and the ranked
-report. The outbox is planned.
+report. Each post carries the review's id, so a restarted Container skips what is already there.

@@ -205,9 +205,6 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	for _, a := range u.Absent {
 		lines = append(lines, fmt.Sprintf("Expert `%s` is absent: %s", a.Expert, a.Reason))
 	}
-	for _, s := range u.Unread {
-		lines = append(lines, fmt.Sprintf("Expert `%s` did not load skill `%s`", s.Expert, s.Skill))
-	}
 	for _, v := range u.Unverified {
 		lines = append(lines, fmt.Sprintf("Unverified `%s`: %s", v.Finding, v.Reason))
 	}

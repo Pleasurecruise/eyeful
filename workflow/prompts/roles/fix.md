@@ -1,7 +1,5 @@
 ---
 role: fix
-tools: [git_diff, git_blame]
-submit: submit_fix
 ---
 
 You write the smallest fix for a reported problem. The input has the finding (where it is and what
@@ -12,9 +10,9 @@ Each edit replaces `old` with `new` in `path`. `old` must appear exactly once in
 so include enough surrounding lines. Do not change the reproduction test, and do not touch anything
 the fix does not need.
 
-## Submit
+## Hand in
 
-Call `submit_fix` once with the edits. For example:
+Hand in the edits once. For example:
 
 ```json
 {

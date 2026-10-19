@@ -188,7 +188,7 @@ func TestProviders(t *testing.T) {
 					t.Errorf("args lack %q: %s", want, joined)
 				}
 			}
-			if !strings.Contains(c.Stdin, "- `security-review`, `"+filepath.Join(skills, "security-review", "SKILL.md")+"`: ") || strings.Contains(c.Stdin, "name: security-review") || !strings.Contains(c.Stdin, "`submit_report`") || strings.Contains(joined, "security-review") {
+			if !strings.Contains(c.Stdin, "### Skill `security-review`\n\nDirectory: `"+filepath.Join(skills, "security-review")+"`") || strings.Contains(c.Stdin, "name: security-review") || !strings.Contains(c.Stdin, "## Reply") || strings.Contains(joined, "security-review") {
 				t.Errorf("the prompt did not go in on stdin: args %s", joined)
 			}
 			if resolved, _ := filepath.EvalSymlinks(repo); c.Dir != resolved {

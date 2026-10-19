@@ -272,8 +272,7 @@ type Finding struct {
 }
 
 type Report struct {
-	Findings []Claim  `json:"findings"`
-	Loaded   []string `json:"-"`
+	Findings []Claim `json:"findings"`
 }
 
 type Failure struct {
@@ -371,12 +370,6 @@ type Absence struct {
 	Reason string `json:"reason"`
 }
 
-type Unread struct {
-	Expert string `json:"expert"`
-	Group  int    `json:"group"`
-	Skill  string `json:"skill"`
-}
-
 type Unverified struct {
 	Finding string `json:"finding"`
 	Reason  string `json:"reason"`
@@ -384,7 +377,6 @@ type Unverified struct {
 
 type Uncertainty struct {
 	Absent          []Absence    `json:"absent"`
-	Unread          []Unread     `json:"unread"`
 	Unverified      []Unverified `json:"unverified"`
 	Skipped         []string     `json:"skipped"`
 	Notes           []string     `json:"notes"`
@@ -512,7 +504,6 @@ type planState struct {
 
 type expertState struct {
 	Findings []Claim  `json:"findings"`
-	Unread   []string `json:"unread"`
 	Dropped  []string `json:"dropped,omitempty"`
 	Absent   string   `json:"absent,omitempty"`
 	Runs     []Run    `json:"runs"`

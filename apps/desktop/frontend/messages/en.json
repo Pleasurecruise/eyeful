@@ -88,7 +88,6 @@
 	"empty_log": "Output from the review appears here.",
 	"uncertainty": "Uncertainty",
 	"absent": "{expert} did not review: {reason}",
-	"unread": "{expert} did not load {skill}",
 	"unverified": "{finding} was not verified: {reason}",
 	"budget_exhausted": "The token budget ran out; only what was verified is listed.",
 	"theme": "Theme",

@@ -23,7 +23,6 @@
 		return [
 			...(u.budget_exhausted ? [m.budget_exhausted()] : []),
 			...u.absent.map((a) => m.absent(a)),
-			...u.unread.map((r) => m.unread(r)),
 			...u.unverified.map((v) => m.unverified(v)),
 			...u.skipped,
 			...u.notes

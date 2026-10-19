@@ -70,9 +70,8 @@ func newGitHub(cfg config.Config) (*github.App, error) {
 }
 
 func newHarness(log *slog.Logger, cfg config.Config, gh *github.App) harness.Runner {
-	// TODO(sink): an outbox, so a crash after GitHub accepts a comment cannot post it twice.
 	return harness.Runner{
-		Log: log, Clone: checkout.Clone, Classifier: classify.New(log, "http://jev.eyeful", nil),
+		ID: cfg.ReviewID, Log: log, Clone: checkout.Clone, Classifier: classify.New(log, "http://jev.eyeful", nil),
 		Dir: filepath.Join(os.TempDir(), "eyeful-review"), Runs: runs.New(cfg.RunsURL), Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
 	}
 }

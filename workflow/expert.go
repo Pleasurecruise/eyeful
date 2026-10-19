@@ -72,7 +72,7 @@ func checkEvidence(t ReviewTask, f Claim) []string {
 }
 
 func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task ReviewTask) (expertState, error) {
-	st := expertState{Findings: []Claim{}, Unread: []string{}, Runs: []Run{}}
+	st := expertState{Findings: []Claim{}, Runs: []Run{}}
 	for attempt := range 2 {
 		report, r, err := invoke(ctx, l, Run{Role: RoleExpert, Expert: task.Expert.Name}, s.Agents.Review, task)
 		if err != nil {
@@ -95,9 +95,6 @@ func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task Review
 				continue
 			}
 			st.Findings = append(st.Findings, f)
-		}
-		if report.Loaded != nil {
-			st.Unread = slices.DeleteFunc(slices.Clone(task.Skills), func(s string) bool { return slices.Contains(report.Loaded, s) })
 		}
 		return st, nil
 	}
@@ -146,7 +143,7 @@ func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan,
 
 func gather(seats []*seat, plan Plan) ([]Finding, Uncertainty, error) {
 	findings := []Finding{}
-	u := Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Notes: []string{}}
+	u := Uncertainty{Absent: []Absence{}, Notes: []string{}}
 	for _, st := range seats {
 		group := st.groups[0]
 		if st.err != nil {
@@ -156,9 +153,6 @@ func gather(seats []*seat, plan Plan) ([]Finding, Uncertainty, error) {
 			u.Absent = append(u.Absent, Absence{Expert: st.pick.Name, Group: group, Reason: st.state.Absent})
 		}
 		u.Notes = append(u.Notes, st.state.Dropped...)
-		for _, skill := range st.state.Unread {
-			u.Unread = append(u.Unread, Unread{Expert: st.pick.Name, Group: group, Skill: skill})
-		}
 		for i, c := range st.state.Findings {
 			f := Finding{ID: fmt.Sprintf("%d/%s/%d", group, st.pick.Name, i), Expert: st.pick.Name, Group: group, Claim: c}
 			if gi := slices.IndexFunc(st.groups, func(gi int) bool { return slices.Contains(plan.Groups[gi].Files, c.Path) }); gi >= 0 {

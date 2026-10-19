@@ -21,11 +21,14 @@ in `EYEFUL_ALLOWED_USERS`. Branches, commits and uncommitted changes are reviewe
    each stage to R2 ([Storage](PERSISTENCE.md)).
 5. The App posts each undisputed `issue` as a line comment in one `COMMENT` review, and a short
    summary as a comment ([Review feedback](../REPORT.md#line-comments)), then records `published`
-   in R2. A crash between the two can post twice; an outbox is planned.
+   in R2. Both carry the review's id, `EYEFUL_REVIEW_ID`, in a hidden marker, and the server lists
+   what is already on the pull request before it posts, so a Container started again after a crash
+   posts neither twice.
 
 ## Agents and models {#agents-and-models}
 
-Each expert is one pi process in the Container, with read-only tools over the checkout:
+Each expert is one pi process in the Container, run as the unprivileged user `agent`, with read-only
+tools over the checkout:
 
 ```sh
 pi --mode json --no-session \
@@ -36,8 +39,8 @@ pi --mode json --no-session \
 The image carries pi's `settings.json` and `models.json` from `packages/worker/pi/`: the model is
 DeepSeek V4.1 Flash on the `volcengine` custom provider of the account's `default` AI Gateway. pi
 calls `http://models.eyeful`, which the Durable Object routes to the Worker's `Models` entrypoint;
-it forwards the request to AI Gateway with `cf-aig-authorization`. The Container holds no model key
-and no gateway token.
+it forwards `POST /chat/completions`, and nothing else, to AI Gateway with `cf-aig-authorization`. The
+Container holds no model key and no gateway token.
 
 [Jev](../ARCHITECTURE.md#jev) runs as `typesafe/jev` on Workers AI. The server's classifier calls
 `http://jev.eyeful`, and the Worker's `Jev` entrypoint answers through its AI binding and the same
@@ -66,6 +69,7 @@ each test on a fresh copy, as `eyeful review` does.
 | R2 and Workers AI            | The Worker's bindings                              | Stages, Jev                              |
 
 The server removes every `EYEFUL_` variable from its own environment once it has read its
-configuration, so git and pi do not inherit the App key. The Container's start environment still
-holds it, and an agent's `read` tool could reach `/proc/1/environ`.
-TODO(security): fetch the App key into memory instead of passing it in the start environment.
+configuration, so git and pi do not inherit the App key. The Container's start environment, which
+`/proc/1/environ` shows, still holds it, so pi runs as the user `agent` through `setpriv`. The
+kernel lets only the server's own user read that file and the server's memory; `agent` keeps the
+`dac_override` capability, so it can still read the checkout and the files eyeful writes for it.

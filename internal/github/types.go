@@ -13,4 +13,9 @@ type Note struct {
 	Body string
 }
 
+const (
+	listPage  = 30
+	bodyLimit = 16 << 20
+)
+
 var ErrNoKey = errors.New("GitHub App private key is not configured")

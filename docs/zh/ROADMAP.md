@@ -62,7 +62,7 @@ flowchart LR
 | 行内评论作为一条 `COMMENT` review，排序报告作为一条评论        | 已完成 |
 | 沙箱，让项目命令只在里面运行                                   | 已完成 |
 | 沙箱只能访问包仓库                                             | 待做   |
-| outbox，让 GitHub 已接受的评论只发布一次                       | 待做   |
+| 只发布一次，重新启动的 Container 跳过 GitHub 上已有的内容      | 已完成 |
 | `eyeful` Check Run，合并前必需                                 | 已完成 |
 | 在 Durable Object 而不是 Container 里等待 CI                   | 待做   |
 | 在真实 pull request 上端到端运行一次                           | 待做   |

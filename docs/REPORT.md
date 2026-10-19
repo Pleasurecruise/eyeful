@@ -49,6 +49,8 @@ test below fails on this change and passes with the suggested fix.
 On a pull request, eyeful posts one review with the event `COMMENT`, never `REQUEST_CHANGES` or
 `APPROVE`. Only an `issue` that names a file and a line, and that the judge does not dispute, is
 posted on that line; questions, suggestions and nitpicks are listed, folded, at the end of the summary and not posted.
+GitHub takes a line comment only on a line its diff of the pull request shows, so an `issue` on any
+other line goes, in full, into the summary instead.
 When a posted comment has one fix for that same file, the fix is included as a suggested change. The `eyeful` Check Run says whether a review was posted, not whether the change is right
 ([Running in the cloud](cloud/CLOUD.md)).
 
@@ -68,7 +70,7 @@ The report closes with:
 
 - the [scopes](PLANNER.md#large) of a split change, with their files and findings;
 - the files triage set aside;
-- the uncertainty checklist: absent experts, skills not loaded, findings not reproduced, commands
+- the uncertainty checklist: absent experts, findings not reproduced, commands
   that did not run, and whether the budget ran out.
 
 ## Outputs
@@ -82,7 +84,7 @@ The report closes with:
 | GitHub comment | A short summary: counts, the posted issues, the rest folded   |
 | Check Run      | Whether a review was posted, for a required check             |
 
-The GitHub posts happen in the review's Container. The outbox is planned
+The GitHub posts happen in the review's Container, and each is posted once
 ([Architecture](ARCHITECTURE.md#data-flow)).
 
 ## In the terminal {#terminal}

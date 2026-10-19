@@ -98,8 +98,8 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 flowchart LR
     producers["CLI, plugin,<br/>webhook, schedule"] -->|source| subject["Subject"]
     subject --> pipeline["Review pipeline"]
-    pipeline --> outbox["Outbox"]
-    outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
+    pipeline --> publish["Publish"]
+    publish -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
-webhook 接收审查，review 的 Container 发布一条 `COMMENT` review 和排序报告。outbox 还在规划中。
+webhook 接收审查，review 的 Container 发布一条 `COMMENT` review 和排序报告。每次发布都带着审查的 id，重新启动的 Container 会跳过已经发过的内容。

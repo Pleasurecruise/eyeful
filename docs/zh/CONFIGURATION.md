@@ -72,6 +72,7 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 | `EYEFUL_GITHUB_API_URL` | GitHub API 根地址。默认 `https://api.github.com`。                              |
 | `EYEFUL_AGENT`          | 云端审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
 | `EYEFUL_REVIEW`         | 云端审查要处理的 pull request，JSON 格式，由 Durable Object 设置。              |
+| `EYEFUL_REVIEW_ID`      | 这次审查的 id，标记它发布过的内容，重启后不会再发一次。由 Durable Object 设置。 |
 | `EYEFUL_RUNS_URL`       | 云端审查存放阶段存档的地址，由 Durable Object 设为 `http://runs.eyeful`。       |
 | `EYEFUL_SANDBOX_URL`    | 这次审查的沙箱，由 Durable Object 设为 `http://sandbox.eyeful`。                |
 

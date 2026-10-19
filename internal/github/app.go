@@ -12,9 +12,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sourcegraph/go-diff/diff"
 
 	"github.com/Pleasurecruise/eyeful/internal/review"
 )
@@ -99,19 +102,96 @@ func (a *App) Wait(ctx context.Context, token string, src review.Source) (Action
 	}
 }
 
-func (a *App) Publish(ctx context.Context, src review.Source, markdown string, notes []Note) error {
+func (a *App) Publish(ctx context.Context, src review.Source, id, markdown string, notes []Note) error {
 	token, err := a.Token(ctx, src.InstallationID)
 	if err != nil {
 		return err
 	}
 	owner, name, _ := strings.Cut(src.Repo, "/")
+	marker := fmt.Sprintf("<!-- eyeful review %s -->", id)
 	if len(notes) > 0 {
-		err := a.review(ctx, token, owner, name, src, notes)
+		hunks, err := a.hunks(ctx, token, owner, name, src)
 		if err != nil {
 			return err
 		}
+		var inline []Note
+		var outside strings.Builder
+		for _, n := range notes {
+			if slices.ContainsFunc(hunks[n.Path], func(h *diff.Hunk) bool {
+				return n.Line >= int(h.NewStartLine) && n.Line < int(h.NewStartLine+h.NewLines)
+			}) {
+				inline = append(inline, n)
+				continue
+			}
+			fmt.Fprintf(&outside, "\n\n**`%s:%d`** %s", n.Path, n.Line, n.Body)
+		}
+		if outside.Len() > 0 {
+			markdown += "\n\n#### Issues on lines the diff does not show" + outside.String()
+		}
+		notes = inline
 	}
-	return a.comment(ctx, token, owner, name, src.Number, markdown)
+	if len(notes) > 0 {
+		done, err := a.posted(ctx, token, fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, name, src.Number), marker)
+		if err != nil {
+			return err
+		}
+		if !done {
+			if err := a.review(ctx, token, owner, name, src, notes, marker); err != nil {
+				return err
+			}
+		}
+	}
+	done, err := a.posted(ctx, token, fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, name, src.Number), marker)
+	if err != nil || done {
+		return err
+	}
+	return a.comment(ctx, token, owner, name, src.Number, markdown+"\n\n"+marker)
+}
+
+func (a *App) hunks(ctx context.Context, token, owner, name string, src review.Source) (map[string][]*diff.Hunk, error) {
+	var compare struct {
+		Files []struct {
+			Filename string `json:"filename"`
+			Patch    string `json:"patch"`
+		} `json:"files"`
+	}
+	data, err := a.call(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/compare/%s...%s?per_page=1", owner, name, src.BaseSHA, src.HeadSHA), token, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &compare); err != nil {
+		return nil, fmt.Errorf("compare %.12s...%.12s: %w", src.BaseSHA, src.HeadSHA, err)
+	}
+	out := map[string][]*diff.Hunk{}
+	for _, f := range compare.Files {
+		if out[f.Filename], err = diff.ParseHunks([]byte(f.Patch)); err != nil {
+			return nil, fmt.Errorf("the patch of %s: %w", f.Filename, err)
+		}
+	}
+	return out, nil
+}
+
+func (a *App) posted(ctx context.Context, token, path, marker string) (bool, error) {
+	for page := 1; ; page++ {
+		var bodies []struct {
+			Body string `json:"body"`
+		}
+		data, err := a.call(ctx, http.MethodGet, fmt.Sprintf("%s?per_page=%d&page=%d", path, listPage, page), token, nil)
+		if err != nil {
+			return false, err
+		}
+		if err := json.Unmarshal(data, &bodies); err != nil {
+			return false, fmt.Errorf("list %s: %w", path, err)
+		}
+		for _, b := range bodies {
+			if strings.Contains(b.Body, marker) {
+				return true, nil
+			}
+		}
+		if len(bodies) < listPage {
+			return false, nil
+		}
+	}
 }
 
 func (a *App) actions(ctx context.Context, token string, src review.Source) (Actions, bool, error) {
@@ -212,13 +292,13 @@ type reviewComment struct {
 	Body string `json:"body"`
 }
 
-func (a *App) review(ctx context.Context, token, owner, name string, src review.Source, notes []Note) error {
+func (a *App) review(ctx context.Context, token, owner, name string, src review.Source, notes []Note, marker string) error {
 	comments := make([]reviewComment, 0, len(notes))
 	for _, n := range notes {
 		comments = append(comments, reviewComment{Path: n.Path, Line: n.Line, Side: "RIGHT", Body: n.Body})
 	}
 	body, err := json.Marshal(reviewRequest{
-		CommitID: src.HeadSHA, Event: "COMMENT", Body: "eyeful posted the ranked report as a comment.", Comments: comments,
+		CommitID: src.HeadSHA, Event: "COMMENT", Body: "eyeful posted the ranked report as a comment.\n\n" + marker, Comments: comments,
 	})
 	if err != nil {
 		return fmt.Errorf("encode review: %w", err)
@@ -274,7 +354,7 @@ func (a *App) call(ctx context.Context, method, path, token string, body []byte)
 		return nil, fmt.Errorf("github %s %s: %w", method, path, err)
 	}
 	defer func() { _ = res.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(res.Body, bodyLimit))
 	if err != nil {
 		return nil, fmt.Errorf("github %s %s: %w", method, path, err)
 	}
