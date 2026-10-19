@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"html"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,10 +55,10 @@ func Markdown(r workflow.Result) (string, error) {
 	return b.String(), nil
 }
 
-func Summary(r workflow.Result) (string, error) {
+func Summary(r workflow.Result) ([]string, error) {
 	out, err := Findings(r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var posted, rest []Finding
 	for _, f := range out.Findings {
@@ -101,13 +102,17 @@ func Summary(r workflow.Result) (string, error) {
 		}
 	}
 	if len(rest) > 0 {
-		fmt.Fprintf(&b, "\n<details><summary>Not posted (%d)</summary>\n\n", len(rest))
-		for _, f := range rest {
-			finding(&b, f)
-		}
-		b.WriteString("\n</details>\n")
+		fmt.Fprintf(&b, "\n#### Not posted (%d)\n", len(rest))
 	}
-	return b.String(), nil
+	blocks := []string{b.String()}
+	for _, f := range rest {
+		var item strings.Builder
+		fmt.Fprintf(&item, "<details><summary>%s · %s · <code>%s:%d</code> %s</summary>\n", markers[f.Severity], f.Label, html.EscapeString(f.File), f.Line, html.EscapeString(f.Summary))
+		finding(&item, f)
+		item.WriteString("\n</details>\n")
+		blocks = append(blocks, item.String())
+	}
+	return blocks, nil
 }
 
 func Posted(label workflow.Label, kind workflow.Kind) bool {
@@ -148,6 +153,7 @@ func findings(b *strings.Builder, all []Finding) {
 		}
 	}
 	for _, f := range shown {
+		fmt.Fprintf(b, "\n## %s · %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Label, f.Category, f.Kind, f.File, f.Line, f.Summary)
 		finding(b, f)
 	}
 	if len(disputed) > 0 {
@@ -167,7 +173,6 @@ func findings(b *strings.Builder, all []Finding) {
 }
 
 func finding(b *strings.Builder, f Finding) {
-	fmt.Fprintf(b, "\n## %s · %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Label, f.Category, f.Kind, f.File, f.Line, f.Summary)
 	if len(f.Related) > 0 {
 		places := make([]string, len(f.Related))
 		for i, r := range f.Related {

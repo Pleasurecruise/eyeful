@@ -36,7 +36,7 @@ type Host interface {
 	Wait(ctx context.Context, token string, src review.Source) (github.Actions, error)
 	Description(ctx context.Context, token string, src review.Source) (string, error)
 	React(ctx context.Context, token string, src review.Source) error
-	Publish(ctx context.Context, src review.Source, id, markdown string, notes []github.Note) error
+	Publish(ctx context.Context, src review.Source, id string, blocks []string, notes []github.Note) error
 }
 
 type Runner struct {
@@ -94,11 +94,11 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if res.Outcome == "" {
 		return Status{State: StateDone, Reason: "the change is empty"}, nil
 	}
-	markdown, err := report.Summary(res)
+	blocks, err := report.Summary(res)
 	if err != nil {
 		return Status{}, fmt.Errorf("report: %w", err)
 	}
-	if err := r.Host.Publish(ctx, src, r.ID, markdown, notesFrom(res.Comments)); err != nil {
+	if err := r.Host.Publish(ctx, src, r.ID, blocks, notesFrom(res.Comments)); err != nil {
 		return Status{}, fmt.Errorf("publish: %w", err)
 	}
 	if err := r.Runs.Save(ctx, "published", []byte(res.Outcome)); err != nil {

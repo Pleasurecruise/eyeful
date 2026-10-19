@@ -102,7 +102,7 @@ func (a *App) Wait(ctx context.Context, token string, src review.Source) (Action
 	}
 }
 
-func (a *App) Publish(ctx context.Context, src review.Source, id, markdown string, notes []Note) error {
+func (a *App) Publish(ctx context.Context, src review.Source, id string, blocks []string, notes []Note) error {
 	token, err := a.Token(ctx, src.InstallationID)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func (a *App) Publish(ctx context.Context, src review.Source, id, markdown strin
 			return err
 		}
 		var inline []Note
-		var outside strings.Builder
+		heading := "#### Issues on lines the diff does not show\n\n"
 		for _, n := range notes {
 			if slices.ContainsFunc(hunks[n.Path], func(h *diff.Hunk) bool {
 				return n.Line >= int(h.NewStartLine) && n.Line < int(h.NewStartLine+h.NewLines)
@@ -123,29 +123,50 @@ func (a *App) Publish(ctx context.Context, src review.Source, id, markdown strin
 				inline = append(inline, n)
 				continue
 			}
-			fmt.Fprintf(&outside, "\n\n**`%s:%d`** %s", n.Path, n.Line, n.Body)
-		}
-		if outside.Len() > 0 {
-			markdown += "\n\n#### Issues on lines the diff does not show" + outside.String()
+			blocks = append(blocks, fmt.Sprintf("%s**`%s:%d`** %s", heading, n.Path, n.Line, n.Body))
+			heading = ""
 		}
 		notes = inline
 	}
 	if len(notes) > 0 {
-		done, err := a.posted(ctx, token, fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, name, src.Number), marker)
-		if err != nil {
+		if err := a.once(ctx, token, fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, name, src.Number), marker, func() error {
+			return a.review(ctx, token, owner, name, src, notes, marker)
+		}); err != nil {
 			return err
 		}
-		if !done {
-			if err := a.review(ctx, token, owner, name, src, notes, marker); err != nil {
-				return err
-			}
-		}
 	}
-	done, err := a.posted(ctx, token, fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, name, src.Number), marker)
-	if err != nil || done {
+	parts, err := pages(blocks, commentLimit-markerRoom)
+	if err != nil {
 		return err
 	}
-	return a.comment(ctx, token, owner, name, src.Number, markdown+"\n\n"+marker)
+	for i, page := range parts {
+		mark := fmt.Sprintf("<!-- eyeful review %s part %d -->", id, i+1)
+		if err := a.once(ctx, token, fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, name, src.Number), mark, func() error {
+			return a.comment(ctx, token, owner, name, src.Number, page+"\n\n"+mark)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pages(blocks []string, limit int) ([]string, error) {
+	var out []string
+	var page strings.Builder
+	for _, b := range blocks {
+		if len(b) > limit {
+			return nil, fmt.Errorf("%w: a block of %d bytes, GitHub takes %d", ErrTooLong, len(b), limit)
+		}
+		if page.Len() > 0 && page.Len()+len("\n\n")+len(b) > limit {
+			out = append(out, page.String())
+			page.Reset()
+		}
+		if page.Len() > 0 {
+			page.WriteString("\n\n")
+		}
+		page.WriteString(b)
+	}
+	return append(out, page.String()), nil
 }
 
 func (a *App) hunks(ctx context.Context, token, owner, name string, src review.Source) (map[string][]*diff.Hunk, error) {
@@ -171,25 +192,25 @@ func (a *App) hunks(ctx context.Context, token, owner, name string, src review.S
 	return out, nil
 }
 
-func (a *App) posted(ctx context.Context, token, path, marker string) (bool, error) {
+func (a *App) once(ctx context.Context, token, path, marker string, post func() error) error {
 	for page := 1; ; page++ {
 		var bodies []struct {
 			Body string `json:"body"`
 		}
 		data, err := a.call(ctx, http.MethodGet, fmt.Sprintf("%s?per_page=%d&page=%d", path, listPage, page), token, nil)
 		if err != nil {
-			return false, err
+			return err
 		}
 		if err := json.Unmarshal(data, &bodies); err != nil {
-			return false, fmt.Errorf("list %s: %w", path, err)
+			return fmt.Errorf("list %s: %w", path, err)
 		}
 		for _, b := range bodies {
 			if strings.Contains(b.Body, marker) {
-				return true, nil
+				return nil
 			}
 		}
 		if len(bodies) < listPage {
-			return false, nil
+			return post()
 		}
 	}
 }

@@ -14,8 +14,13 @@ type Note struct {
 }
 
 const (
-	listPage  = 30
-	bodyLimit = 16 << 20
+	listPage     = 30
+	bodyLimit    = 16 << 20
+	commentLimit = 65536
+	markerRoom   = 256
 )
 
-var ErrNoKey = errors.New("GitHub App private key is not configured")
+var (
+	ErrNoKey   = errors.New("GitHub App private key is not configured")
+	ErrTooLong = errors.New("longer than a GitHub comment can be")
+)

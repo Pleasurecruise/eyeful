@@ -72,19 +72,30 @@ func TestMarkdown(t *testing.T) {
 }
 
 func TestSummary(t *testing.T) {
-	md, err := report.Summary(result())
+	r := result()
+	r.Comments[1].Subject = "Name the <T> token."
+	blocks, err := report.Summary(r)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(blocks) != 3 {
+		t.Fatalf("%d blocks, want the summary and one per comment not posted:\n%q", len(blocks), blocks)
+	}
+	for _, b := range blocks {
+		if strings.Count(b, "<details>") != strings.Count(b, "</details>") || strings.Count(b, "```")%2 != 0 {
+			t.Errorf("a block does not stand alone:\n%s", b)
+		}
+	}
+	md := strings.Join(blocks, "\n\n")
 	for _, want := range []string{
 		"### ⚠️ 1 issue found",
 		"Outcome `complete`, 3 findings: 1 reproduced, 1 to review, 1 disputed.",
 		"The change breaks `tests/test_login.py::test_remember_me`.",
 		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
-		"<details><summary>Not posted (2)</summary>",
-		"## 🟡 note · nitpick · security · review\n\n`app/login.py:3` Name the token.\n",
+		"#### Not posted (2)",
+		"<details><summary>🟡 note · nitpick · <code>app/login.py:3</code> Name the &lt;T&gt; token.</summary>\n",
 		"`t` says nothing;\ncall it `session`.",
-		"## 🟠 warning · question · correctness · open\n\n`app/session.py:40` Refresh skips the expiry check.\n",
+		"<details><summary>🟠 warning · question · <code>app/session.py:40</code> Refresh skips the expiry check.</summary>\n",
 		"A judge agent read the code and disputes this finding: refresh is only reached after is_expired.",
 	} {
 		if !strings.Contains(md, want) {
@@ -100,10 +111,11 @@ func TestSummary(t *testing.T) {
 	clean := result()
 	clean.Comments = clean.Comments[1:]
 	clean.Regression = &workflow.TestRun{}
-	md, err = report.Summary(clean)
+	blocks, err = report.Summary(clean)
 	if err != nil {
 		t.Fatal(err)
 	}
+	md = strings.Join(blocks, "\n\n")
 	for _, want := range []string{"### ✅ No issues found", "None was reproduced by running a test.", "The project's tests pass on the base commit and fail on the change."} {
 		if !strings.Contains(md, want) {
 			t.Errorf("missing %q in\n%s", want, md)

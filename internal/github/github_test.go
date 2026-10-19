@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -65,7 +67,7 @@ func TestPublish(t *testing.T) {
 	}{
 		{"first attempt", `[]`, `[]`, 4, false, "POST /repos/acme/eyeful/pulls/3/reviews\nPOST /repos/acme/eyeful/issues/3/comments"},
 		{"review posted before a restart", `[{"body":"x"},{"body":"eyeful posted the ranked report as a comment.\n\n` + marker + `"}]`, `[]`, 4, false, "POST /repos/acme/eyeful/issues/3/comments"},
-		{"everything posted", `[{"body":"` + marker + `"}]`, `[{"body":"# report\n\n` + marker + `"}]`, 4, false, ""},
+		{"everything posted", `[{"body":"` + marker + `"}]`, `[{"body":"# report\n\n<!-- eyeful review do/2 part 1 -->"}]`, 4, false, ""},
 		{"another review's marker", `[{"body":"<!-- eyeful review do/1 -->"}]`, `[]`, 4, false, "POST /repos/acme/eyeful/pulls/3/reviews\nPOST /repos/acme/eyeful/issues/3/comments"},
 		{"a line the diff does not show", `[]`, `[]`, 40, false, "POST /repos/acme/eyeful/issues/3/comments"},
 		{"GitHub refuses the review", `[]`, `[]`, 4, true, "POST /repos/acme/eyeful/pulls/3/reviews"},
@@ -99,20 +101,67 @@ func TestPublish(t *testing.T) {
 			app := New(srv.URL, 12, key)
 			app.HTTP = srv.Client()
 			src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40), InstallationID: 9}
-			err := app.Publish(t.Context(), src, "do/2", "# report", []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
+			err := app.Publish(t.Context(), src, "do/2", []string{"# report"}, []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
 			if tt.reject != (err != nil && strings.Contains(err.Error(), "422")) {
 				t.Fatalf("publish: %v", err)
 			}
 			if strings.Join(posts, "\n") != tt.want {
 				t.Fatalf("posted %v", posts)
 			}
-			if tt.want != "" && !tt.reject && strings.Count(body, "eyeful review do/2 --") != strings.Count(tt.want, "POST") {
+			if tt.want != "" && !tt.reject && strings.Count(body, "eyeful review do/2") != strings.Count(tt.want, "POST") {
 				t.Fatalf("every post carries the marker: %s", body)
 			}
 			if outside := strings.Contains(body, "**`a.go:40`** issue: fix"); outside != (tt.line == 40) {
 				t.Fatalf("a note off the diff is not in the comment: %s", body)
 			}
 		})
+	}
+}
+
+func TestPages(t *testing.T) {
+	got, err := pages([]string{"aaaa", "bb", "cccccc", "d"}, 8)
+	if err != nil || !slices.Equal(got, []string{"aaaa\n\nbb", "cccccc", "d"}) {
+		t.Fatalf("pages %q, %v", got, err)
+	}
+	if _, err := pages([]string{"a", "too long for a page"}, 8); !errors.Is(err, ErrTooLong) {
+		t.Fatalf("a block over the limit: %v", err)
+	}
+}
+
+func TestPublishPages(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
+			_, _ = w.Write([]byte(`{"token":"ghs_abc"}`))
+		case r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`[{"body":"first\n\n<!-- eyeful review do/2 part 1 -->"}]`))
+		default:
+			var c struct {
+				Body string `json:"body"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+				t.Error(err)
+			}
+			bodies = append(bodies, c.Body)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer srv.Close()
+	app := New(srv.URL, 12, key)
+	app.HTTP = srv.Client()
+	src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40), InstallationID: 9}
+	half := strings.Repeat("x", commentLimit/2)
+	if err := app.Publish(t.Context(), src, "do/2", []string{half, half}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], "<!-- eyeful review do/2 part 2 -->") || len(bodies[0]) > commentLimit {
+		t.Fatalf("posted %d comments; a restart must post only the page GitHub does not have", len(bodies))
 	}
 }
 
