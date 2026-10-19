@@ -45,7 +45,7 @@ var outputs = map[string]string{
 {"type":"agent_end","messages":[]}`,
 }
 
-const piLimited = `{"type":"message_end","message":{"role":"assistant","content":[],"provider":"volcengine","model":"m","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"cost":{"total":0}},"stopReason":"error","errorMessage":"429: {\"code\":\"AccountRateLimitExceeded\"}"}}
+const piLimited = `{"type":"message_end","message":{"role":"assistant","content":[],"provider":"volcengine","model":"m","usage":{"input":7,"output":0,"cacheRead":0,"cacheWrite":0,"cost":{"total":0}},"stopReason":"error","errorMessage":"429: {\"code\":\"AccountRateLimitExceeded\"}"}}
 {"type":"agent_end","messages":[]}`
 
 var piStreams = map[string]string{
@@ -218,7 +218,7 @@ func TestProviders(t *testing.T) {
 func TestPiRetry(t *testing.T) {
 	a, _, _ := setup(t, "pi", "recovered")
 	r, usage, err := a.Review(t.Context(), task)
-	if err != nil || r.Findings == nil || usage.Tokens != 50 {
+	if err != nil || r.Findings == nil || usage.Tokens != 57 {
 		t.Fatalf("pi recovered from a rate limit, yet: report %+v, usage %+v, %v", r, usage, err)
 	}
 	a, _, _ = setup(t, "pi", "exhausted")
