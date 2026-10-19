@@ -26,7 +26,7 @@ func result() workflow.Result {
 		},
 		Comments: []workflow.Comment{
 			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Short: "Session valid at expires_at", Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
-			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
+			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Discussion: "`t` says nothing;\ncall it `session`.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
 			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Short: "Refresh skips the expiry check", Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
 		},
 		Uncertainty: workflow.Uncertainty{Absent: []workflow.Absence{{Expert: "security", Group: 1, Reason: "timeout"}}},
@@ -43,7 +43,7 @@ func TestMarkdown(t *testing.T) {
 		"## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `tests/test_login.py::test_remember_me`.",
 		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
 		"<details><summary>Nitpicks (1)</summary>\n\n- `app/login.py:3` Name the token.",
-		"## 🔴 error · correctness · fail",
+		"## 🔴 error · issue · correctness · fail",
 		"Failure scenario: is_expired(100, now=100) is False",
 		"<details><summary>Why this was flagged</summary>",
 		"failed on the change in every run, not on the base commit, and passed with the suggested fix",
@@ -63,7 +63,7 @@ func TestMarkdown(t *testing.T) {
 	if strings.Contains(md, "No blocking issues") {
 		t.Error("a review with a fail finding says it has no blocking issues")
 	}
-	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 note · security") {
+	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 note · nitpick") {
 		t.Error("a nitpick is listed outside the folded section")
 	}
 	if strings.Contains(md, "| `app/session.py:40` |") || strings.Contains(md, "· open") {
@@ -82,8 +82,10 @@ func TestSummary(t *testing.T) {
 		"The change breaks `tests/test_login.py::test_remember_me`.",
 		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
 		"<details><summary>Not posted (2)</summary>",
-		"- nitpick · `app/login.py:3` Name the token",
-		"- question · `app/session.py:40` Refresh skips the expiry check",
+		"## 🟡 note · nitpick · security · review\n\n`app/login.py:3` Name the token.\n",
+		"`t` says nothing;\ncall it `session`.",
+		"## 🟠 warning · question · correctness · open\n\n`app/session.py:40` Refresh skips the expiry check.\n",
+		"A judge agent read the code and disputes this finding: refresh is only reached after is_expired.",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("missing %q in\n%s", want, md)

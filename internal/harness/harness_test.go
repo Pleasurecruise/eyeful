@@ -111,7 +111,7 @@ func TestExecute(t *testing.T) {
 	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 || host.reactions != 1 {
 		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
 	}
-	if !strings.Contains(host.body, "<details><summary>Not posted (1)</summary>") || !strings.Contains(host.body, "- suggestion · `changed.txt:1`") || strings.Contains(host.body, "What this change does") {
+	if !strings.Contains(host.body, "<details><summary>Not posted (1)</summary>") || !strings.Contains(host.body, "· suggestion · ") || !strings.Contains(host.body, "`changed.txt:1` Say what changed.") || strings.Contains(host.body, "What this change does") {
 		t.Fatalf("report %s", host.body)
 	}
 	again, err := runner.Execute(t.Context(), src)

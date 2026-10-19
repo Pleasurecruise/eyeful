@@ -177,6 +177,12 @@ export class Sandbox extends DurableObject<Env> {
 		return port.fetch(request);
 	}
 
+	async keep(): Promise<void> {
+		if (this.#container.running) {
+			await this.#container.setInactivityTimeout(IDLE_MS);
+		}
+	}
+
 	async release(): Promise<void> {
 		if (this.#container.running) {
 			await this.#container.destroy();
@@ -254,6 +260,8 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (container.running) {
+			await container.setInactivityTimeout(IDLE_MS);
+			await this.ctx.exports.Sandbox.getByName(`${this.ctx.id.toString()}/${kept.run}`).keep();
 			let res: Response | undefined;
 			try {
 				res = await container.getTcpPort(PORT).fetch('http://container/review', {

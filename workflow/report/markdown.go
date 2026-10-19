@@ -103,7 +103,7 @@ func Summary(r workflow.Result) (string, error) {
 	if len(rest) > 0 {
 		fmt.Fprintf(&b, "\n<details><summary>Not posted (%d)</summary>\n\n", len(rest))
 		for _, f := range rest {
-			fmt.Fprintf(&b, "- %s · `%s:%d` %s\n", f.Label, f.File, f.Line, f.ShortSummary)
+			finding(&b, f)
 		}
 		b.WriteString("\n</details>\n")
 	}
@@ -167,7 +167,7 @@ func findings(b *strings.Builder, all []Finding) {
 }
 
 func finding(b *strings.Builder, f Finding) {
-	fmt.Fprintf(b, "\n## %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Category, f.Kind, f.File, f.Line, f.Summary)
+	fmt.Fprintf(b, "\n## %s · %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Label, f.Category, f.Kind, f.File, f.Line, f.Summary)
 	if len(f.Related) > 0 {
 		places := make([]string, len(f.Related))
 		for i, r := range f.Related {
