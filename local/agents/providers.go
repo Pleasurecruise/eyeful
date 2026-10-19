@@ -106,6 +106,7 @@ var Providers = []Provider{
 		parse: func(stdout []byte) (answer, error) {
 			a := answer{usage: workflow.Usage{Model: "pi"}}
 			cost := 0.0
+			failure := ""
 			lines := bufio.NewScanner(bytes.NewReader(stdout))
 			lines.Buffer(nil, len(stdout)+1)
 			for lines.Scan() {
@@ -117,9 +118,15 @@ var Providers = []Provider{
 				if e.Type != "message_end" || m.Role != "assistant" {
 					continue
 				}
+				a.usage.Model = m.Provider + "/" + m.Model
+				a.usage.Tokens += m.Usage.Input + m.Usage.Output + m.Usage.CacheWrite
+				a.usage.Cached += m.Usage.CacheRead
+				cost += m.Usage.Cost.Total
 				if m.StopReason == "error" {
-					return a, fmt.Errorf("%w: %s", ErrFailed, m.ErrorMessage)
+					failure = m.ErrorMessage
+					continue
 				}
+				failure = ""
 				var blocks []piContent
 				if err := json.Unmarshal(m.Content, &blocks); err != nil {
 					return a, fmt.Errorf("read pi's message: %w", err)
@@ -131,12 +138,11 @@ var Providers = []Provider{
 					}
 				}
 				a.text = text.String()
-				a.usage.Model = m.Provider + "/" + m.Model
-				a.usage.Tokens += m.Usage.Input + m.Usage.Output + m.Usage.CacheWrite
-				a.usage.Cached += m.Usage.CacheRead
-				cost += m.Usage.Cost.Total
 			}
 			a.usage.MicroUSD = int64(cost * 1e6)
+			if failure != "" {
+				return a, fmt.Errorf("%w: %s", ErrFailed, failure)
+			}
 			return a, lines.Err()
 		},
 	},

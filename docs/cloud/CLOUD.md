@@ -40,7 +40,9 @@ The image carries pi's `settings.json` and `models.json` from `packages/worker/p
 DeepSeek V4.1 Flash on the `volcengine` custom provider of the account's `default` AI Gateway. pi
 calls `http://models.eyeful`, which the Durable Object routes to the Worker's `Models` entrypoint;
 it forwards `POST /chat/completions`, and nothing else, to AI Gateway with `cf-aig-authorization`. The
-Container holds no model key and no gateway token.
+Container holds no model key and no gateway token. When the provider answers 429 or a server error,
+pi waits and resumes the same turn, up to eight times, 5 s doubling to at most 60 s each; eyeful
+reads only pi's last answer, so a run that recovered counts.
 
 [Jev](../ARCHITECTURE.md#jev) runs as `typesafe/jev` on Workers AI. The server's classifier calls
 `http://jev.eyeful`, and the Worker's `Jev` entrypoint answers through its AI binding and the same

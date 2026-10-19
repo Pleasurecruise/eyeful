@@ -24,7 +24,7 @@ pi --mode json --no-session \
   --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve
 ```
 
-镜像里带着 `packages/worker/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是账号 `default` AI Gateway 上 `volcengine` 自定义 provider 的 DeepSeek V4.1 Flash。pi 请求 `http://models.eyeful`，Durable Object 把它路由到 Worker 的 `Models` 入口，由它带上 `cf-aig-authorization` 把 `POST /chat/completions` 转发到 AI Gateway，其他请求一律不转发。Container 里没有模型密钥，也没有 gateway token。
+镜像里带着 `packages/worker/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是账号 `default` AI Gateway 上 `volcengine` 自定义 provider 的 DeepSeek V4.1 Flash。pi 请求 `http://models.eyeful`，Durable Object 把它路由到 Worker 的 `Models` 入口，由它带上 `cf-aig-authorization` 把 `POST /chat/completions` 转发到 AI Gateway，其他请求一律不转发。Container 里没有模型密钥，也没有 gateway token。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。
 
 [Jev](../ARCHITECTURE.md#jev) 以 Workers AI 上的 `typesafe/jev` 运行。服务端的分类器请求 `http://jev.eyeful`，Worker 的 `Jev` 入口通过 AI binding 经同一个 gateway 作答。
 

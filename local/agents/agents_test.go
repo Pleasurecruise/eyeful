@@ -45,6 +45,18 @@ var outputs = map[string]string{
 {"type":"agent_end","messages":[]}`,
 }
 
+const piLimited = `{"type":"message_end","message":{"role":"assistant","content":[],"provider":"volcengine","model":"m","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"cost":{"total":0}},"stopReason":"error","errorMessage":"429: {\"code\":\"AccountRateLimitExceeded\"}"}}
+{"type":"agent_end","messages":[]}`
+
+var piStreams = map[string]string{
+	"recovered": piLimited + `
+{"type":"auto_retry_start","attempt":1,"maxAttempts":8,"delayMs":5000,"errorMessage":"429"}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"` + "```json\\n" + `{\"findings\":[]}` + "\\n```" + `"}],"provider":"volcengine","model":"m","usage":{"input":40,"output":10,"cacheRead":0,"cacheWrite":0,"cost":{"total":0.01}},"stopReason":"stop"}}
+{"type":"auto_retry_end","success":true,"attempt":1}
+{"type":"agent_end","messages":[]}`,
+	"exhausted": piLimited,
+}
+
 func fake() error {
 	name := filepath.Base(os.Args[0])
 	if slices.Contains(os.Args, "--version") {
@@ -98,6 +110,8 @@ func fake() error {
 	case "fail":
 		fmt.Fprintln(os.Stderr, "Invalid API key")
 		os.Exit(1)
+	case "recovered", "exhausted":
+		_, err = fmt.Println(piStreams[mode])
 	default:
 		_, err = fmt.Println(outputs[name])
 	}
@@ -198,6 +212,18 @@ func TestProviders(t *testing.T) {
 				t.Errorf("ANTHROPIC_API_KEY passed: %v", c.Key)
 			}
 		})
+	}
+}
+
+func TestPiRetry(t *testing.T) {
+	a, _, _ := setup(t, "pi", "recovered")
+	r, usage, err := a.Review(t.Context(), task)
+	if err != nil || r.Findings == nil || usage.Tokens != 50 {
+		t.Fatalf("pi recovered from a rate limit, yet: report %+v, usage %+v, %v", r, usage, err)
+	}
+	a, _, _ = setup(t, "pi", "exhausted")
+	if _, _, err := a.Review(t.Context(), task); !errors.Is(err, agents.ErrFailed) || !strings.Contains(err.Error(), "AccountRateLimitExceeded") {
+		t.Fatalf("pi gave up after its retries: %v", err)
 	}
 }
 
