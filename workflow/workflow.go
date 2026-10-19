@@ -451,7 +451,6 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	if err != nil {
 		return res, err
 	}
-	// TODO(workflow): hand the last round's findings that no test showed to the judge again.
 	carried, rechecked, known, err := w.recheck(ctx, s, l, req, prep.SetupError)
 	if err != nil {
 		return res, err

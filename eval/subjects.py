@@ -1,4 +1,4 @@
-"""Builds review subjects: one change that holds one known defect, in a repository whose tests run in a container."""
+"""Builds review subjects: a SWE-bench task reverted so that the change removes its reference fix, with tests that run in the task's container, or a Code Review Bench pull request."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from model import Region, Subject
+from model import Subject
 
 PULL = re.compile(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)")
-HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+PATCHED = re.compile(r"^--- a/(\S+)", re.MULTILINE)
 IDENTITY = ["-c", "user.name=eyeful", "-c", "user.email=eyeful@localhost", "-c", "commit.gpgsign=false"]
 PLATFORMS = {"arm64": "linux/arm64", "x86_64": "linux/amd64"}
 SUITE = 300
@@ -49,32 +49,6 @@ def sh(args: list[str], cwd: Path | None = None, stdin: str | None = None) -> st
 
 def git(repo: Path, *args: str, stdin: str | None = None) -> str:
     return sh(["git", *IDENTITY, *args], cwd=repo, stdin=stdin)
-
-
-def regions(patch: str, side: str) -> tuple[Region, ...]:
-    other, header, prefix, group = ("+", "--- ", "a/", 1) if side == "-" else ("-", "+++ ", "b/", 3)
-    found: list[Region] = []
-    path, line, start, end = "", 0, 0, 0
-    for row in [*patch.splitlines(), "diff "]:
-        hunk = HUNK.match(row)
-        meta = row.startswith(("diff ", "index ", "--- ", "+++ "))
-        if start and (hunk or meta or not row.startswith((side, other))):
-            found.append(Region(path, start, end))
-            start = end = 0
-        if row.startswith(header):
-            path = row[4:].removeprefix(prefix)
-        elif hunk:
-            line = int(hunk.group(group))
-        elif meta:
-            continue
-        elif row.startswith(side):
-            start, end = start or line, line
-            line += 1
-        elif row.startswith(other):
-            start, end = start or line, end or line
-        elif path and line:
-            line += 1
-    return tuple(dict.fromkeys(found))
 
 
 def labels(tests: list[str], label: bool) -> list[str]:
@@ -140,11 +114,10 @@ def swebench(row: dict[str, str], out: Path, repos: Path, arch: str) -> Subject:
     git(repo, "commit", "--quiet", "--no-verify", "-m", "Prepare the release branch")
     base = git(repo, "rev-parse", "HEAD").strip()
     git(repo, "apply", "--reverse", "--whitespace=nowarn", stdin=row["patch"])
-    defect = regions(row["patch"], "-")
-    touched = ", ".join(dict.fromkeys(r.path for r in defect))
+    touched = ", ".join(dict.fromkeys(PATCHED.findall(row["patch"])))
     git(repo, "commit", "--quiet", "--no-verify", "--all", "-m", f"Rework {touched}")
     head = git(repo, "rev-parse", "HEAD").strip()
-    subject = Subject(name, "swebench", row.get("difficulty", ""), str(repo), base, head, image, defect)
+    subject = Subject(name, "swebench", row.get("difficulty", ""), str(repo), base, head, image)
     subject.save(home / "subject.json")
     return subject
 
@@ -162,7 +135,7 @@ def benchmarked(name: str, owner: str, project: str, number: str, out: Path, rep
     git(repo, "fetch", "--quiet", f"--depth={pull['commits'] + HISTORY}", remote, pull["base"]["sha"], pull["head"]["sha"])
     base = git(repo, "merge-base", pull["base"]["sha"], pull["head"]["sha"]).strip()
     git(repo, "checkout", "--quiet", "--detach", pull["head"]["sha"])
-    subject = Subject(name, "crb", "", str(repo), base, pull["head"]["sha"], "", ())
+    subject = Subject(name, "crb", "", str(repo), base, pull["head"]["sha"], "")
     subject.save(home / "subject.json")
     return subject
 
@@ -192,7 +165,7 @@ def main() -> None:
         except RuntimeError as err:
             print(name, "skipped:", err, flush=True)
             continue
-        print(subject.id, subject.base[:12], subject.head[:12], [(r.path, r.start, r.end) for r in subject.defect], flush=True)
+        print(subject.id, subject.base[:12], subject.head[:12], flush=True)
 
 
 if __name__ == "__main__":

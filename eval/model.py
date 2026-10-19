@@ -8,19 +8,9 @@ from typing import Literal
 Dataset = Literal["swebench", "crb", "reviewbench"]
 Tool = Literal["eyeful", "revmux"]
 Condition = Literal["execution", "read_only", "none", "revmux"]
-Verdict = Literal["actionable", "noise"]
 
-NEAR = 3
-MERGE = 2
 SEED = 20616304
 ALL_GATES = "fix_verified"
-
-
-@dataclass(frozen=True)
-class Region:
-    path: str
-    start: int
-    end: int
 
 
 @dataclass(frozen=True)
@@ -32,23 +22,18 @@ class Subject:
     base: str
     head: str
     image: str
-    defect: tuple[Region, ...]
 
     @staticmethod
     def load(path: Path) -> Subject:
-        raw = json.loads(path.read_text())
-        raw["defect"] = tuple(Region(**r) for r in raw["defect"])
-        return Subject(**raw)
+        return Subject(**json.loads(path.read_text()))
 
     def save(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2) + "\n")
 
-    def hit(self, path: str, line: int) -> bool:
-        return any(r.path == path and r.start - NEAR <= line <= r.end + NEAR for r in self.defect)
-
 
 @dataclass(frozen=True)
 class Finding:
+    id: str
     path: str
     line: int
     severity: str
@@ -61,6 +46,11 @@ class Finding:
     gate: str
     oracle: str
     blocking: bool
+    reported: bool
+
+    @property
+    def text(self) -> str:
+        return f"{self.title}\n\n{self.body}"
 
 
 @dataclass(frozen=True)
@@ -79,6 +69,14 @@ class Review:
     @property
     def key(self) -> str:
         return f"{self.subject}/{self.tool}/{self.config}/{self.rep}/{self.condition}"
+
+    @property
+    def run(self) -> str:
+        return f"{self.subject}/{self.tool}/{self.config}/{self.rep}"
+
+    @property
+    def name(self) -> str:
+        return f"{self.tool}-{self.config}-{self.rep}-{self.condition}"
 
 
 def load_reviews(path: Path) -> list[Review]:

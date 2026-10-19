@@ -43,7 +43,6 @@ func Experts() ([]workflow.Expert, error) {
 
 func Review(ctx context.Context, o Options) (workflow.Result, error) {
 	var none workflow.Result
-	// TODO(app): warn when the branch under review belongs to someone else.
 	set, err := prompts.Load()
 	if err != nil {
 		return none, err

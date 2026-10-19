@@ -58,7 +58,7 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 | `EYEFUL_CLOUDFLARE_ACCOUNT_ID`  | 用其 AI Gateway 运行模型和 Jev 的 Cloudflare 账号。                                                 |
 | `EYEFUL_AI_GATEWAY_TOKEN`       | 带 AI Gateway Run 和 Workers AI Read 权限的 Cloudflare API token。                                  |
 
-这六个都是 Worker 的 secret：`cf deploy --secrets-file ../../.env` 会上传它们（见[部署](cloud/DEPLOYMENT.md#deploy)）。在本地，`eyeful review` 和 `eval/score.py` 用账号 id 和 token 调用 [Jev](ARCHITECTURE.md#jev)；没有它们时 `eyeful review` 不合并发现。
+这六个都是 Worker 的 secret：`cf deploy --secrets-file ../../.env` 会上传它们（见[部署](cloud/DEPLOYMENT.md#deploy)）。在本地，`eyeful review` 用账号 id 和 token 调用 [Jev](ARCHITECTURE.md#jev)；没有它们时 `eyeful review` 不合并发现。
 
 ### 变量：`mise.toml` 和命令行参数 {#variables}
 

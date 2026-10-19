@@ -71,7 +71,7 @@ The standards eyeful reviews against, and the two projects it builds on.
   smells.
 - Y. Jia and M. Harman, "An Analysis and Survey of the Development of Mutation Testing", _IEEE TSE_, 2011.
 - Martian, "Code Review Bench", 2026, <https://github.com/withmartian/code-review-benchmark>. The
-  offline set and the scoring [`match.py`](EVALUATION.md#tooling) follows.
+  offline set and the judge [`match.py`](EVALUATION.md#tooling) runs.
 
 ## Usability and accessibility
 

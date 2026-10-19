@@ -1,66 +1,36 @@
 from __future__ import annotations
 
-import json
-import tempfile
 import unittest
-from pathlib import Path
 
-from analyze import bootstrap, difference, mcnemar
-from label import distinct, kappa
-from match import tally
-from model import Finding, Region, Review, Subject
-from reviewbench import candidate, held, key, scored, standing
+from analyze import Score, bootstrap, detected, difference, mcnemar
+from model import Finding, Review
+from reviewbench import candidate, key, sample
 from run import stopped
-from subjects import labels, regions
+from subjects import PATCHED, labels
 
 PATCH = """diff --git a/app/session.py b/app/session.py
 --- a/app/session.py
 +++ b/app/session.py
 @@ -9,7 +9,8 @@ def is_expired(session, now):
-     if session is None:
-         return True
- 
 -    return now > session.expires_at
-+    limit = session.expires_at
-+    return now >= limit
- 
- 
- def renew(session):
-@@ -30,6 +31,7 @@ def close(session):
-     session.closed = True
- 
- 
-+    session.flush()
- def reopen(session):
-     session.closed = False
++    return now >= session.expires_at
+diff --git a/app/store.py b/app/store.py
+--- a/app/store.py
++++ b/app/store.py
+@@ -1 +1 @@
+-x = 1
++x = 2
 """
 
 
-def finding(path: str, line: int, status: str = "") -> Finding:
-    return Finding(path, line, "error", "t", "b", "correctness", "test", "", status, "", "", False)
+def review(subject: str, rep: int, config: str = "panel") -> Review:
+    finding = Finding("0/correctness/0", "a.py", 1, "error", "t", "b", "correctness", "test", "", "", "", "", False, True)
+    return Review(subject, "eyeful", config, rep, "none", "complete", (finding,), 1000, 10, 1.0)
 
 
-def review(subject: str, findings: tuple[Finding, ...]) -> Review:
-    return Review(subject, "eyeful", "panel", 1, "none", "complete", findings, 1000, 10, 1.0)
-
-
-class Regions(unittest.TestCase):
-    def test_removed(self) -> None:
-        self.assertEqual(regions(PATCH, "-"), (Region("app/session.py", 12, 12), Region("app/session.py", 33, 33)))
-
-    def test_added(self) -> None:
-        self.assertEqual(regions(PATCH, "+"), (Region("app/session.py", 12, 13), Region("app/session.py", 34, 34)))
-
-    def test_file_end(self) -> None:
-        patch = "--- a/a.py\n+++ b/a.py\n@@ -5,2 +5,2 @@\n keep\n-old\n+new\n--- a/b.py\n+++ b/b.py\n@@ -1,2 +1,2 @@\n-first\n+other\n keep\n"
-        for side in ("-", "+"):
-            self.assertEqual(regions(patch, side), (Region("a.py", 6, 6), Region("b.py", 1, 1)))
-
-    def test_hit(self) -> None:
-        subject = Subject("s", "swebench", "", "/r", "b", "h", "i", regions(PATCH, "-"))
-        self.assertTrue(subject.hit("app/session.py", 15))
-        self.assertFalse(subject.hit("app/session.py", 20))
-        self.assertFalse(subject.hit("app/other.py", 12))
+class Subjects(unittest.TestCase):
+    def test_patched(self) -> None:
+        self.assertEqual(PATCHED.findall(PATCH), ["app/session.py", "app/store.py"])
 
     def test_labels(self) -> None:
         self.assertEqual(labels(["test_a (auth.tests.Login)", "odd name"], True), ["auth.tests.Login.test_a"])
@@ -105,34 +75,11 @@ class Statistics(unittest.TestCase):
         estimate = difference(arm, arm)
         self.assertEqual((estimate.value, estimate.low, estimate.high), (0.0, 0.0, 0.0))
 
-    def test_kappa(self) -> None:
-        first = {"a": "actionable", "b": "noise", "c": "actionable", "d": "noise"}
-        self.assertEqual(kappa(first, first), (1.0, 4))
-        value, n = kappa(first, {"a": "actionable", "b": "actionable", "c": "noise", "d": "noise", "e": "noise"})
-        self.assertEqual((value, n), (0.0, 4))
-
-
-class Labelling(unittest.TestCase):
-    def test_distinct(self) -> None:
-        reviews = [
-            review("s", (finding("a.py", 10), finding("a.py", 12), finding("a.py", 20))),
-            review("s", (finding("a.py", 11), finding("b.py", 10))),
-            review("t", (finding("a.py", 10),)),
-        ]
-        items = distinct(reviews)
-        self.assertEqual(items[("s", "a.py", 10)], items[("s", "a.py", 12)])
-        self.assertEqual(items[("s", "a.py", 10)], items[("s", "a.py", 11)])
-        self.assertEqual(len({i.id for i in items.values()}), 4)
-
-
-class Golden(unittest.TestCase):
-    def test_tally(self) -> None:
-        comments = [{"comment": "expires a second late"}, {"comment": "leaks the session"}]
-        found = review("s", (finding("a.py", 10), finding("a.py", 12), finding("a.py", 40), finding("b.py", 3)))
-        kept = {json.dumps([c["comment"], "t\n\nb"]): {"match": c["comment"] == "expires a second late"} for c in comments}
-        self.assertEqual(tally(found, comments, kept), (1, 4, 3, 0))
-        kept = {key: {"match": False} for key in kept}
-        self.assertEqual(tally(found, comments, kept), (0, 4, 3, 3))
+    def test_detected(self) -> None:
+        reviews = [review("s", rep) for rep in (1, 2, 3)]
+        scores = {r.key: Score({"a": "bug", "b": "bug"}, frozenset({"a"} if r.rep < 3 else {"b"}), frozenset()) for r in reviews}
+        self.assertEqual(detected(reviews, scores, 2), {("s", "a"): True, ("s", "b"): False})
+        self.assertEqual(detected(reviews, scores, 1), {("s", "a"): True, ("s", "b"): True})
 
 
 class ReviewBench(unittest.TestCase):
@@ -140,50 +87,24 @@ class ReviewBench(unittest.TestCase):
         row = {"repo": "https://github.com/owner/repo", "pr_number": 12, "base": "b" * 40, "head": "a1b2c3d4" + "0" * 32}
         result = {
             "comments": [
-                {"path": "src/pool.ts", "line": 42, "label": "question", "subject": "conns is read without the mutex.", "discussion": "Two requests can lose a write.", "scenario": ""},
-                {"path": "src/pool.ts", "line": 7, "label": "nitpick", "subject": "Name the constant.", "discussion": ""},
+                {"path": "src/pool.ts", "line": 42, "kind": "review", "subject": "conns is read without the mutex.", "discussion": "Two requests can lose a write.", "scenario": ""},
+                {"path": "src/pool.ts", "line": 7, "kind": "open", "subject": "Name the constant.", "discussion": ""},
             ],
             "runs": [{"usage": {"tokens": 900}}, {"usage": {"tokens": 100}}],
         }
         self.assertEqual(key(row), "owner_repo_12-a1b2c3d4")
-        shown = candidate(row, "panel", result, 1.5, False)
+        shown = candidate(row, "eyeful-panel-1-read_only", result, 1.5)
         self.assertEqual(shown["pr"], {"repo": row["repo"], "pr_number": 12, "base": row["base"], "head": row["head"]})
-        self.assertEqual(shown["findings"], [{"producer": "eyeful-panel", "file": "src/pool.ts", "start_line": 42, "end_line": 42, "message": "conns is read without the mutex.\n\nTwo requests can lose a write."}])
+        self.assertEqual(shown["findings"], [{"producer": "eyeful-panel-1-read_only", "file": "src/pool.ts", "start_line": 42, "end_line": 42, "message": "conns is read without the mutex.\n\nTwo requests can lose a write."}])
         self.assertEqual(shown["usage"], {"time_in_ms": 1500, "total_tokens": 1000})
-        self.assertEqual(len(candidate(row, "panel", result, 1.5, True)["findings"]), 2)
 
-    def test_held(self) -> None:
-        rows = {name: {} for name in ("a_b_1-00000000", "c_d_2-11111111", "e_f_3-22222222", "g_h_4-33333333")}
-        part = held(rows, {"c_d_2-11111111"}, 2)
-        self.assertEqual(len(part), 2)
-        self.assertNotIn("c_d_2-11111111", part)
-        self.assertEqual(list(part), list(held(dict(reversed(list(rows.items()))), {"c_d_2-11111111"}, 2)))
-
-    def test_scored(self) -> None:
-        golden = [{"tp_fp": "tp"}, {"tp_fp": "fp"}, {"tp_fp": "tp"}]
-        overall, details = scored([{"file": "a"}, {"file": "a"}, {"file": "a"}], golden, {0: [0, 2], 1: [0], 2: [1]})
-        self.assertEqual([d["matched_truth_label"] for d in details], ["tp", None, "fp"])
-        self.assertEqual([d["matched_to_ground_truth"] for d in details], [True, False, True])
-        self.assertEqual(overall, {
-            "candidate_count": 3, "golden_tp_count": 2, "golden_covered_count": 2, "matched_count": 2, "matched_tp_count": 1,
-            "grounded_recall": 1.0, "grounded_precision": 0.5,
-        })
-        self.assertEqual(scored([], golden, {})[0]["grounded_precision"], None)
-
-    def test_standing(self) -> None:
-        hit = {"matched_to_ground_truth": True, "matched_truth_label": "tp", "covered_golden_indices": [0]}
-        miss = {"matched_to_ground_truth": False, "matched_truth_label": "", "covered_golden_indices": []}
-        judged = {
-            "completed": {name: {"metrics": {"overall": {"golden_tp_count": 2}}} for name in ("reviewed", "unreviewed")},
-            "details": {"reviewed": {"candidate_findings": [miss, hit]}, "unreviewed": {"candidate_findings": []}},
-        }
-        with tempfile.TemporaryDirectory() as golden:
-            for name in judged["completed"]:
-                (Path(golden) / f"{name}.json").write_text(json.dumps({"findings": [{"tp_fp": "tp"}, {"tp_fp": "tp"}, {"tp_fp": "fp"}]}))
-            whole = standing("run", "panel", judged, Path(golden), 0)
-            first = standing("run", "panel", judged, Path(golden), 1)
-        self.assertEqual(whole, {"run": "run", "config": "panel", "first": "all", "pulls": 2, "comments": 1.0, "grounded_recall": 0.25, "grounded_precision": 1.0})
-        self.assertEqual((first["comments"], first["grounded_recall"], first["grounded_precision"]), (0.5, 0.0, ""))
+    def test_sample(self) -> None:
+        rows = {f"r_{i}-0": {"language": "Go" if i < 6 else "Rust" if i < 9 else "C"} for i in range(10)}
+        part = sample(rows, {"r_0-0"}, 4)
+        self.assertEqual(len(part), 4)
+        self.assertNotIn("r_0-0", part)
+        self.assertEqual(sorted(r["language"] for r in part.values()), ["C", "Go", "Go", "Rust"])
+        self.assertEqual(part, sample(dict(reversed(list(rows.items()))), {"r_0-0"}, 4))
 
 
 if __name__ == "__main__":

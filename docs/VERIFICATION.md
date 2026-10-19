@@ -177,8 +177,9 @@ findings no test showed. It calls a finding valid when all three hold:
 
 One judge reads the findings of one plan group together, at most eight at a time, and up to four
 judges run at once. A rejected finding is not removed: it stays in the feedback as `open`, folded
-under "Disputed" with the judge's reason. The [evaluation](EVALUATION.md#labelling) labels findings
-by the same three points.
+under "Disputed" with the judge's reason. Execution tests the same claim, so the
+[evaluation](EVALUATION.md#configurations-and-conditions)'s conditions differ in evidence, not in what
+counts as a defect.
 
 ## Findings as SARIF {#sarif}
 

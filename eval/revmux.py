@@ -1,4 +1,4 @@
-"""Reviews every subject with revmux, the external reference whose findings an agent validates by reading."""
+"""Reviews every subject with revmux, the optional external reference whose findings an agent validates by reading."""
 
 from __future__ import annotations
 
@@ -49,11 +49,11 @@ def read(subject: Subject, profile: str, rep: int, home: Path, seconds: float) -
         return Review(subject.id, "revmux", profile, rep, "revmux", "error", (), 0, 0, seconds)
     findings = tuple(
         Finding(
-            path=f["file"], line=f["line"], severity=f["severity"], title=f["title"], body=f["body"],
+            id=str(i), path=f["file"], line=f["line"], severity=f["severity"], title=f["title"], body=f["body"],
             source=",".join(f.get("sources", [])), evidence="inspection", cwe="", status=f.get("verdict", ""),
-            gate="", oracle="", blocking=f["severity"] in ("critical", "major"),
+            gate="", oracle="", blocking=f["severity"] in ("critical", "major"), reported=True,
         )
-        for f in raw.get("findings", [])
+        for i, f in enumerate(raw.get("findings", []))
     )
     stats = raw.get("stats", {})
     outcome = "leaked" if json.loads((home / "outside.json").read_text()) else "complete"

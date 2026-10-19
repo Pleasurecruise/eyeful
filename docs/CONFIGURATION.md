@@ -75,7 +75,7 @@ own configuration file. When a required value is missing, the tool fails instead
 | `EYEFUL_AI_GATEWAY_TOKEN`       | Cloudflare API token with AI Gateway Run and Workers AI Read.                                                                    |
 
 All six are Worker secrets: `cf deploy --secrets-file ../../.env` uploads them
-([Deploy](cloud/DEPLOYMENT.md#deploy)). Locally, `eyeful review` and `eval/score.py` use the account id and the token
+([Deploy](cloud/DEPLOYMENT.md#deploy)). Locally, `eyeful review` uses the account id and the token
 for [Jev](ARCHITECTURE.md#jev); without them `eyeful review` does not merge findings.
 
 ### Variables: `mise.toml` and flags {#variables}

@@ -19,7 +19,6 @@ func baselineState(r workflow.Result, finding string) string {
 	return "new"
 }
 
-// TODO(report): write fixes as SARIF artifactChanges once edits carry line regions.
 func SARIF(r workflow.Result) ([]byte, error) {
 	run := sarif.NewRunWithInformationURI("eyeful", "https://github.com/Pleasurecruise/eyeful")
 	run.WithResults([]*sarif.Result{})

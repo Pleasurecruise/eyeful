@@ -32,7 +32,6 @@ func New(log *slog.Logger, handlers ...Handler) *Server {
 	e.Use(middleware.Recover())
 	e.Use(accessLog(log))
 	e.Use(middleware.BodyLimit(5 << 20))
-	// TODO(observability): OpenTelemetry tracing, one span per request and per review stage.
 
 	g := e.Group("")
 	for _, h := range handlers {

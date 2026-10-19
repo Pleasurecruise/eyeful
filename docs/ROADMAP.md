@@ -45,17 +45,19 @@ The experiment that measures v1.0 ([Evaluation](EVALUATION.md)), run from the co
 public datasets. The desktop app gets no new features until this is done. Cloud review is under way
 in v2.0.
 
-| Part                                                                         | State         |
-| ---------------------------------------------------------------------------- | ------------- |
-| `eval/`: subject builders, runners, the isolation audit, labelling, analysis | Built         |
-| Code Review Bench and ReviewBench subjects                                   | Built         |
-| SWE-bench subjects                                                           | 1 of about 30 |
-| Running SWE-bench's own failing tests on eyeful's fix                        | To do         |
-| Three repetitions of every review, and the labelling                         | To do         |
+| Part                                                                           | State          |
+| ------------------------------------------------------------------------------ | -------------- |
+| `eval/`: subject builders, runners, the isolation audit, the scorers, analysis | Built          |
+| Code Review Bench subjects                                                     | 10 of 50       |
+| ReviewBench's language-stratified sample of 50                                 | Built          |
+| SWE-bench subjects                                                             | 20 of about 30 |
+| Pilot runs that freeze the prompts and the budget                              | To do          |
+| The main experiment and the ablations, about 860 reviews                       | To do          |
 
 Exit criteria: the main experiment has run on every dataset, in every configuration and every
-condition the dataset allows, three times each; the findings are labelled; and the results
-show what the panel adds over the single agent and what it costs.
+condition the dataset allows, three times each, scored by each benchmark's own scorer; and the
+results show what the panel adds over the single agent and what it costs. The revmux comparison is
+an extension, dropped first if the plan slips.
 
 ## v2.0: Cloud review (in progress)
 

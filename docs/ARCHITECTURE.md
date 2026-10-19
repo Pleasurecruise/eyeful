@@ -42,10 +42,9 @@ saves each stage before the next starts. It has no fx, database or server types.
 state it is given with a probability, and writes no text. eyeful gives it a judgement only when
 everything the judgement needs fits in that state.
 
-| Where                           | Jev is asked                                                  | Through                                    |
-| ------------------------------- | ------------------------------------------------------------- | ------------------------------------------ |
-| `workflow`, before verification | Whether two findings on the same lines are one problem        | `Classifier.Same`, with go-jev's types     |
-| `eval/score.py`                 | Whether a comment is about the same issue as a golden finding | AI Gateway's `workers-ai/run/typesafe/jev` |
+| Where                           | Jev is asked                                           | Through                                |
+| ------------------------------- | ------------------------------------------------------ | -------------------------------------- |
+| `workflow`, before verification | Whether two findings on the same lines are one problem | `Classifier.Same`, with go-jev's types |
 
 ## Languages
 

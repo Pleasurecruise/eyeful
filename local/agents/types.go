@@ -12,7 +12,6 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
 
-// TODO(agents): pick models for codex and pi tiers once each has a stable catalog to map to.
 type Provider struct {
 	Name  string
 	Tool  string

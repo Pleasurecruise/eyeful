@@ -39,7 +39,7 @@ eyeful 审查时依据的标准，以及它借鉴的两个项目。
 - ISO/IEC/IEEE 29119，_Software testing_。测试设计技术。
 - A. van Deursen、L. Moonen、A. van den Bergh 和 G. Kok，“Refactoring Test Code”，XP 2001。测试坏味道。
 - Y. Jia 和 M. Harman，“An Analysis and Survey of the Development of Mutation Testing”，_IEEE TSE_，2011。
-- Martian，“Code Review Bench”，2026，<https://github.com/withmartian/code-review-benchmark>。离线数据集，以及 [`match.py`](EVALUATION.md#tooling) 遵循的评分方式。
+- Martian，“Code Review Bench”，2026，<https://github.com/withmartian/code-review-benchmark>。离线数据集，以及 [`match.py`](EVALUATION.md#tooling) 运行的裁判。
 
 ## 可用性与无障碍
 

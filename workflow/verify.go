@@ -20,7 +20,6 @@ var (
 )
 
 func corroboration(f Finding, all []Finding, root map[string]string) int {
-	// TODO(workflow): weigh corroboration across model families above agreement within one.
 	experts := map[string]bool{}
 	for _, o := range all {
 		if root[o.ID] == root[f.ID] {

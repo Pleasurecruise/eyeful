@@ -1,4 +1,4 @@
-"""Reviews every subject with eyeful: each configuration finds once, and the three verification conditions share those findings."""
+"""Reviews every subject with eyeful: each configuration finds once, and the three verification conditions share those findings. A review is its comments, each one problem."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from audit import outside
 from confine import environment
-from model import MERGE, Condition, Finding, Review, Subject, append_review, load_reviews, load_subjects
+from model import Condition, Finding, Review, Subject, append_review, load_reviews, load_subjects
 
 CONFIGS: dict[str, list[str]] = {
     "panel": [],
@@ -69,16 +69,16 @@ def read(subject: Subject, config: str, rep: int, condition: Condition, run: Pat
         return Review(subject.id, "eyeful", config, rep, condition, "error", (), 0, 0, seconds)
     raw = json.loads(result.read_text())
     verdicts = {v["finding"]: v for v in raw["verifications"]}
-    blocking = [(c["path"], c["line"]) for c in raw["comments"] if "blocking" in c["decorations"]]
+    claims = {f["id"]: f for f in raw["findings"]}
     findings = tuple(
         Finding(
-            path=f["path"], line=f["line"], severity=f["severity"], title=f["subject"], body=f["discussion"],
-            source=f["expert"], evidence=f["evidence"], cwe=f.get("cwe", ""),
-            status=verdicts.get(f["id"], {}).get("status", ""), gate=stopped(verdicts.get(f["id"], {})),
-            oracle=(verdicts.get(f["id"], {}).get("repro") or {}).get("oracle", ""),
-            blocking=any(p == f["path"] and abs(n - f["line"]) <= MERGE for p, n in blocking),
+            id=c["finding"], path=c["path"], line=c["line"], severity=c["severity"], title=c["subject"], body=c["discussion"],
+            source=",".join(c["experts"]), evidence=claims[c["finding"]]["evidence"], cwe=claims[c["finding"]].get("cwe", ""),
+            status=verdicts.get(c["finding"], {}).get("status", ""), gate=stopped(verdicts.get(c["finding"], {})),
+            oracle=(verdicts.get(c["finding"], {}).get("repro") or {}).get("oracle", ""),
+            blocking="blocking" in c["decorations"], reported=c["kind"] != "open",
         )
-        for f in raw["findings"]
+        for c in raw["comments"]
     )
     tokens = sum(r["usage"]["tokens"] for r in raw["runs"])
     cost = sum(r["usage"]["micro_usd"] for r in raw["runs"])
