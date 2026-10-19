@@ -902,7 +902,7 @@ func TestRun(t *testing.T) {
 	})
 }
 
-func TestScenarioAndShort(t *testing.T) {
+func TestScenarioAndSubject(t *testing.T) {
 	task := workflow.ReviewTask{
 		Expert: workflow.Expert{Name: "correctness", Evidence: []workflow.EvidenceKind{workflow.EvidenceTest, workflow.EvidenceInspection}},
 		Group:  workflow.Group{Files: []string{"a.go"}},
@@ -927,8 +927,8 @@ func TestScenarioAndShort(t *testing.T) {
 		return answers(), nil
 	}
 	res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
-	if c := res.Comments[0]; len([]rune(c.Short)) > 60 || !strings.HasSuffix(c.Short, "…") || c.Scenario == "" {
-		t.Fatalf("short %q, scenario %q", c.Short, c.Scenario)
+	if c := res.Comments[0]; c.Subject != long || c.Scenario == "" {
+		t.Fatalf("subject %q, scenario %q", c.Subject, c.Scenario)
 	}
 }
 

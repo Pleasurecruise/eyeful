@@ -335,7 +335,6 @@ type Comment struct {
 	Finding     string     `json:"finding"`
 	Label       Label      `json:"label"`
 	Decorations []string   `json:"decorations"`
-	Short       string     `json:"short"`
 	Subject     string     `json:"subject"`
 	Discussion  string     `json:"discussion"`
 	Scenario    string     `json:"scenario,omitempty"`

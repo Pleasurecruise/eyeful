@@ -110,9 +110,8 @@
 								</Badge>
 								{#if f.category}<Badge variant="outline">{f.category}</Badge>{/if}
 							</div>
-							<span class="font-medium">{f.short_summary}</span>
+							<span class="font-medium">{f.summary}</span>
 							<span class="font-mono text-xs text-muted-foreground">{f.file}:{f.line}</span>
-							<p>{f.summary}</p>
 							{#if f.failure_scenario}
 								<p><span class="font-medium">{m.failure_scenario()}:</span> {f.failure_scenario}</p>
 							{/if}

@@ -9,7 +9,6 @@ type Finding struct {
 	Severity        workflow.Severity   `json:"severity"`
 	Kind            workflow.Kind       `json:"kind"`
 	Category        string              `json:"category"`
-	ShortSummary    string              `json:"short_summary"`
 	Summary         string              `json:"summary"`
 	FailureScenario string              `json:"failure_scenario,omitempty"`
 	Why             string              `json:"why"`

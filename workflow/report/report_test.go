@@ -25,9 +25,9 @@ func result() workflow.Result {
 			{ID: "0/skeptic/0", Expert: "skeptic", Skill: "code-review", Path: "app/session.py", Line: 40, Evidence: workflow.EvidenceAnalysis},
 		},
 		Comments: []workflow.Comment{
-			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Short: "Session valid at expires_at", Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
-			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Discussion: "`t` says nothing;\ncall it `session`.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
-			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Short: "Refresh skips the expiry check", Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
+			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
+			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Subject: "Name the token.", Discussion: "`t` says nothing;\ncall it `session`.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
+			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
 		},
 		Uncertainty: workflow.Uncertainty{Absent: []workflow.Absence{{Expert: "security", Group: 1, Reason: "timeout"}}},
 	}
@@ -41,7 +41,7 @@ func TestMarkdown(t *testing.T) {
 	for _, want := range []string{
 		"3 findings: 1 fail, 1 review, 1 open.",
 		"## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `tests/test_login.py::test_remember_me`.",
-		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
+		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
 		"<details><summary>Nitpicks (1)</summary>\n\n- `app/login.py:3` Name the token.",
 		"## 🔴 error · issue · correctness · fail",
 		"Failure scenario: is_expired(100, now=100) is False",
@@ -80,7 +80,7 @@ func TestSummary(t *testing.T) {
 		"### ⚠️ 1 issue found",
 		"Outcome `complete`, 3 findings: 1 reproduced, 1 to review, 1 disputed.",
 		"The change breaks `tests/test_login.py::test_remember_me`.",
-		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
+		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
 		"<details><summary>Not posted (2)</summary>",
 		"## 🟡 note · nitpick · security · review\n\n`app/login.py:3` Name the token.\n",
 		"`t` says nothing;\ncall it `session`.",
@@ -163,7 +163,7 @@ func TestJSON(t *testing.T) {
 			Line            int    `json:"line"`
 			Severity        string `json:"severity"`
 			Kind            string `json:"kind"`
-			ShortSummary    string `json:"short_summary"`
+			Summary         string `json:"summary"`
 			FailureScenario string `json:"failure_scenario"`
 		} `json:"findings"`
 	}
@@ -171,7 +171,7 @@ func TestJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := out.Findings[0]
-	if out.Counts.Fail != 1 || out.Counts.Review != 1 || out.Counts.Open != 1 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "error" || f.Kind != "fail" || f.ShortSummary == "" || f.FailureScenario == "" {
+	if out.Counts.Fail != 1 || out.Counts.Review != 1 || out.Counts.Open != 1 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "error" || f.Kind != "fail" || f.Summary == "" || f.FailureScenario == "" {
 		t.Fatalf("%s", data)
 	}
 }

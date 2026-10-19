@@ -97,7 +97,7 @@ func Summary(r workflow.Result) (string, error) {
 	if len(posted) > 0 {
 		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
 		for _, f := range posted {
-			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.Summary)
 		}
 	}
 	if len(rest) > 0 {
@@ -144,7 +144,7 @@ func findings(b *strings.Builder, all []Finding) {
 	if len(shown) > 0 {
 		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
 		for _, f := range shown {
-			fmt.Fprintf(b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+			fmt.Fprintf(b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.Summary)
 		}
 	}
 	for _, f := range shown {

@@ -23,8 +23,7 @@
 					? m.kind_open()
 					: m.kind_review()}
 		</Badge>
-		<span class="font-medium">{finding.short_summary}</span>
 	</div>
-	<p>{finding.summary}</p>
+	<p class="font-medium">{finding.summary}</p>
 	<p class="text-muted-foreground">{finding.verification}</p>
 </div>

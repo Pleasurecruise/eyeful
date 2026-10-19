@@ -5,14 +5,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
-	"unicode/utf8"
 )
 
-const (
-	mergeDistance = 2
-	shortLimit    = 60
-)
+const mergeDistance = 2
 
 var kindRank = map[Kind]int{KindFail: 2, KindReview: 1, KindOpen: 0}
 
@@ -125,7 +120,7 @@ func (w *Workflow) comment(m Merged, verdicts map[string]Verification) Comment {
 		label = LabelQuestion
 	}
 	c := Comment{
-		Finding: m.ID, Label: label, Decorations: []string{decoration}, Short: shorten(lead.Subject), Subject: lead.Subject, Discussion: lead.Discussion,
+		Finding: m.ID, Label: label, Decorations: []string{decoration}, Subject: lead.Subject, Discussion: lead.Discussion,
 		Path: m.Path, Line: m.Line, Experts: m.Experts, Severity: lead.Severity, Kind: m.Kind, Objection: m.Objection,
 	}
 	for _, name := range m.Experts {
@@ -181,16 +176,4 @@ func (w *Workflow) comments(merged []Merged, verdicts map[string]Verification) [
 		)
 	})
 	return out
-}
-
-func shorten(subject string) string {
-	subject = strings.TrimSuffix(strings.TrimSpace(subject), ".")
-	if utf8.RuneCountInString(subject) <= shortLimit {
-		return subject
-	}
-	runes := []rune(subject)[:shortLimit-1]
-	if i := strings.LastIndex(string(runes), " "); i > shortLimit/2 {
-		return string(runes)[:i] + "…"
-	}
-	return string(runes) + "…"
 }
