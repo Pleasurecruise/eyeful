@@ -28,10 +28,10 @@ import (
 )
 
 var replies = map[string]string{
-	"`submit_plan`":      `{"overallSummary":"Adds changed.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["changed.txt"]}]}`,
-	"`submit_report`":    `{"findings":[{"skill":"other","category":"naming","path":"changed.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
-	"`submit_judgement`": `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
-	"`submit_diagnosis`": `{"failures":[{"workflow":"ci","job":"test","step":"run","cause":"boom","fix":"fix it"}]}`,
+	`"overallSummary"`:            `{"overallSummary":"Adds changed.txt.","groups":[{"key":"app","label":"App","category":"core","filePaths":["changed.txt"]}]}`,
+	`"properties":{"findings":`:   `{"findings":[{"skill":"other","category":"naming","path":"changed.txt","line":1,"severity":"warning","subject":"Say what changed.","discussion":"d","evidence":"inspection"}]}`,
+	`"properties":{"judgements":`: `{"judgements":[{"finding":"0/correctness/0","valid":true,"reason":"r"}]}`,
+	`"properties":{"failures":`:   `{"failures":[{"workflow":"ci","job":"test","step":"run","cause":"boom","fix":"fix it"}]}`,
 }
 
 func fakeClaude() error {
@@ -46,8 +46,8 @@ func fakeClaude() error {
 	if err != nil {
 		return err
 	}
-	for submit, reply := range replies {
-		if strings.Contains(string(prompt), "call "+submit) {
+	for schema, reply := range replies {
+		if strings.Contains(string(prompt), schema) {
 			text, err := json.Marshal("```json\n" + reply + "\n```")
 			if err != nil {
 				return err
@@ -111,7 +111,7 @@ func TestExecute(t *testing.T) {
 	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 || host.reactions != 1 {
 		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
 	}
-	if !strings.Contains(host.body, "<details><summary>Not posted (1)</summary>") || !strings.Contains(host.body, "- suggestion · `changed.txt:1`") || strings.Contains(host.body, "What this change does") {
+	if !strings.Contains(host.body, "#### Not posted (1)") || !strings.Contains(host.body, "· suggestion · <code>changed.txt:1</code> Say what changed.</summary>") || strings.Contains(host.body, "What this change does") {
 		t.Fatalf("report %s", host.body)
 	}
 	again, err := runner.Execute(t.Context(), src)
@@ -214,12 +214,12 @@ func (h *fakeHost) Description(context.Context, string, review.Source) (string, 
 	return "Add changed.txt", nil
 }
 
-func (h *fakeHost) Publish(_ context.Context, _ review.Source, markdown string, notes []github.Note) error {
+func (h *fakeHost) Publish(_ context.Context, _ review.Source, _ string, blocks []string, notes []github.Note) error {
 	if h.fail != nil {
 		return h.fail
 	}
 	h.comments += 1 + len(notes)
-	h.body = markdown
+	h.body = strings.Join(blocks, "\n\n")
 	return nil
 }
 

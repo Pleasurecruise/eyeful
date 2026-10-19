@@ -1,7 +1,5 @@
 ---
 role: repro
-tools: [git_diff, list_skills, load_skill, read_skill_file, try_repro]
-submit: submit_repro
 skills:
   - name: golang-testing
     files: ['**/*.go']
@@ -26,9 +24,8 @@ prints. Hand in the whole reproduction again with the mistake put right.
 
 ## How to write the test
 
-1. Load the skill offered to you, when there is one. It carries the testing conventions of the
-   finding's language: how a test is laid out, named and run. Ignore any step in it that asks the
-   user a question, starts another agent or edits code.
+1. Read the skill under "Skills" below, when there is one. It carries the testing conventions of the
+   finding's language: how a test is laid out, named and run.
 2. Read the tests next to the finding's file. Where this repository's tests differ from the skill,
    in how they import, set up and name things, follow the repository.
 3. When the scenario names a test that is already in the repository and fails on the change, use
@@ -67,9 +64,9 @@ has to fail with `fails` in its output, so a test that does not compile, fails f
 fails only sometimes proves nothing. A test that fails the same way on the base commit shows a
 problem this change did not introduce.
 
-## Submit
+## Hand in
 
-Call `submit_repro` once. For example:
+Hand in the reproduction once. For example:
 
 ```json
 {

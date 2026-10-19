@@ -402,7 +402,6 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 		}
 		res.Findings = append(res.Findings, findings...)
 		res.Uncertainty.Absent = append(res.Uncertainty.Absent, u.Absent...)
-		res.Uncertainty.Unread = append(res.Uncertainty.Unread, u.Unread...)
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, u.Notes...)
 		if sl.exhausted && !l.exhausted {
 			short = true
@@ -416,7 +415,7 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	res := Result{
 		Diagnosis: Diagnosis{Failures: []Failure{}}, Findings: []Finding{}, Verifications: []Verification{},
 		Comments: []Comment{}, Runs: []Run{},
-		Uncertainty: Uncertainty{Absent: []Absence{}, Unread: []Unread{}, Unverified: []Unverified{}, Skipped: []string{}, Notes: []string{}},
+		Uncertainty: Uncertainty{Absent: []Absence{}, Unverified: []Unverified{}, Skipped: []string{}, Notes: []string{}},
 	}
 	if err := w.admit(ctx, s.Archive, req); err != nil {
 		return res, err

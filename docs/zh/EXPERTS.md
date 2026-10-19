@@ -28,6 +28,7 @@
 
 - skill 的文件和锁文件里的哈希对不上时，eyeful 拒绝启动。`mise run skills` 会重新安装。
 - 语言类 skill 只在专家的组里有该语言的文件时才提供。
+- 用哪些 skill 由 Go 决定，所以每个提供的 skill 的 `SKILL.md` 都直接放进提示词。它的其他文件留在磁盘上的临时目录里，skill 提到时 agent 再去读。
 - 一个 skill 只属于专家组里的一个专家。generalist 拥有全部。
 
 | Skill                         | 来源                                | 专家，以及提供给哪些文件                     |
@@ -55,24 +56,12 @@
 | `modern-javascript-patterns`  | `wshobson/agents`                   | readability，JavaScript 和 TypeScript        |
 | `git-commit`                  | `github/awesome-copilot`            | 仅 `eyeful commit`                           |
 
-**工具。** `workflow/prompts/tools.yaml` 定义云端运行时的工具：
-
-| 工具                                           | 给 agent 提供                | 角色                         |
-| ---------------------------------------------- | ---------------------------- | ---------------------------- |
-| `git_diff`                                     | 改动，单个文件或全部         | 所有角色                     |
-| `git_log`                                      | 改动之前的历史               | CI agent、规划器、专家、裁判 |
-| `git_blame`                                    | 某段代码最后由谁修改         | 专家、修复 agent、裁判       |
-| `list_skills`、`load_skill`、`read_skill_file` | 提供给它的 skill             | 专家、复现 agent             |
-| `try_repro`                                    | 在全新副本上运行一次复现测试 | 复现 agent                   |
-| `submit_plan`、`submit_report`、…              | 该角色的结果                 | 每个角色一个                 |
-
-本地审查没有工具服务器（见 [Agent](LOCAL.md#agents)）：
+**工具。** eyeful 不给 agent 任何自己的工具（见 [Agent](LOCAL.md#agents)）：
 
 - diff 和提交信息是输入的一部分。
-- skill 写到一个临时目录，输入里列出它们的路径。
-- 补丁旁边有一个文件，记录每个改动文件最近的提交、被替换的行最后由谁修改，用来代替 `git_log` 和 `git_blame`。
-- agent 以一个 JSON 块结束，代替提交工具的调用。
-- `try_repro` 没有对应物：测试由验证器运行（见[验证器](VERIFICATION.md#the-verifier)）。
+- 补丁旁边有一个文件，记录每个改动文件最近的提交、被替换的行最后由谁修改。
+- agent 在回复末尾给出一个符合该角色 schema 的 JSON 块。
+- 没有 agent 运行测试：测试由验证器运行（见[验证器](VERIFICATION.md#the-verifier)）。
 
 agent 保留自己读文件的工具。它编辑文件或运行命令的请求会被 eyeful 拒绝。下面提到的其他工具都在规划中（见[层级](LEVELS.md#planned)）。
 
@@ -89,7 +78,7 @@ agent 保留自己读文件的工具。它编辑文件或运行命令的请求�
 - 它依据的 skill，或者 `other` 加一个类别，适用时带 CWE 编号；
 - `test` 和 `analysis` 发现还要有场景：触发它的输入、实际发生什么、应该发生什么。
 
-缺少其中任何一项、位于专家的组之外的文件上、或引用了没有提供给该专家的 skill 的发现，会被 Go 拒绝。被拒绝的报告退回一次。仍然无效的发现被丢弃并列入不确定性清单，提供给专家而它没有加载的 skill 也一样。本地审查看不到哪些 skill 被读过。
+缺少其中任何一项、位于专家的组之外的文件上、或引用了没有提供给该专家的 skill 的发现，会被 Go 拒绝。被拒绝的报告退回一次。仍然无效的发现被丢弃并列入不确定性清单。
 
 超时或失败的专家会被去掉并列为缺席，审查结果为 `partial`。
 

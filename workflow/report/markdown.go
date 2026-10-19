@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"html"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,10 +55,10 @@ func Markdown(r workflow.Result) (string, error) {
 	return b.String(), nil
 }
 
-func Summary(r workflow.Result) (string, error) {
+func Summary(r workflow.Result) ([]string, error) {
 	out, err := Findings(r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var posted, rest []Finding
 	for _, f := range out.Findings {
@@ -97,17 +98,21 @@ func Summary(r workflow.Result) (string, error) {
 	if len(posted) > 0 {
 		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
 		for _, f := range posted {
-			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.Summary)
 		}
 	}
 	if len(rest) > 0 {
-		fmt.Fprintf(&b, "\n<details><summary>Not posted (%d)</summary>\n\n", len(rest))
-		for _, f := range rest {
-			fmt.Fprintf(&b, "- %s · `%s:%d` %s\n", f.Label, f.File, f.Line, f.ShortSummary)
-		}
-		b.WriteString("\n</details>\n")
+		fmt.Fprintf(&b, "\n#### Not posted (%d)\n", len(rest))
 	}
-	return b.String(), nil
+	blocks := []string{b.String()}
+	for _, f := range rest {
+		var item strings.Builder
+		fmt.Fprintf(&item, "<details><summary>%s · %s · <code>%s:%d</code> %s</summary>\n", markers[f.Severity], f.Label, html.EscapeString(f.File), f.Line, html.EscapeString(f.Summary))
+		finding(&item, f)
+		item.WriteString("\n</details>\n")
+		blocks = append(blocks, item.String())
+	}
+	return blocks, nil
 }
 
 func Posted(label workflow.Label, kind workflow.Kind) bool {
@@ -144,10 +149,11 @@ func findings(b *strings.Builder, all []Finding) {
 	if len(shown) > 0 {
 		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
 		for _, f := range shown {
-			fmt.Fprintf(b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.ShortSummary)
+			fmt.Fprintf(b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.Summary)
 		}
 	}
 	for _, f := range shown {
+		fmt.Fprintf(b, "\n## %s · %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Label, f.Category, f.Kind, f.File, f.Line, f.Summary)
 		finding(b, f)
 	}
 	if len(disputed) > 0 {
@@ -167,7 +173,6 @@ func findings(b *strings.Builder, all []Finding) {
 }
 
 func finding(b *strings.Builder, f Finding) {
-	fmt.Fprintf(b, "\n## %s · %s · %s\n\n`%s:%d` %s\n", markers[f.Severity], f.Category, f.Kind, f.File, f.Line, f.Summary)
 	if len(f.Related) > 0 {
 		places := make([]string, len(f.Related))
 		for i, r := range f.Related {
@@ -204,9 +209,6 @@ func uncertainty(b *strings.Builder, r workflow.Result) {
 	var lines []string
 	for _, a := range u.Absent {
 		lines = append(lines, fmt.Sprintf("Expert `%s` is absent: %s", a.Expert, a.Reason))
-	}
-	for _, s := range u.Unread {
-		lines = append(lines, fmt.Sprintf("Expert `%s` did not load skill `%s`", s.Expert, s.Skill))
 	}
 	for _, v := range u.Unverified {
 		lines = append(lines, fmt.Sprintf("Unverified `%s`: %s", v.Finding, v.Reason))

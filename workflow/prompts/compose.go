@@ -22,13 +22,13 @@ func (s Set) offer(dir string, names []string) (string, error) {
 		return "", nil
 	}
 	var b strings.Builder
-	b.WriteString("\n\n## Skills\n\nThe skills offered to you are files on disk; read them with your read-only tools in place of `load_skill` and `read_skill_file`.\n\n")
+	b.WriteString("\n\n## Skills\n\neyeful picked these skills for the files in front of you, and each one follows in full. Ignore any step in a skill that asks the user a question, starts another agent or edits code. A skill's other files, such as those under `references/`, are in its directory; read one with your read-only tools when the skill points to it.\n")
 	for _, name := range names {
 		k, ok := s.Skill(name)
 		if !ok {
 			return "", fmt.Errorf("%w: %s", ErrUnknownSkill, name)
 		}
-		fmt.Fprintf(&b, "- `%s`, `%s`: %s\n", name, filepath.Join(dir, name, "SKILL.md"), k.Description)
+		fmt.Fprintf(&b, "\n### Skill `%s`\n\nDirectory: `%s`\n\n%s\n", name, filepath.Join(dir, name), k.Body)
 	}
 	return b.String(), nil
 }
@@ -37,7 +37,7 @@ func past(history string) string {
 	if history == "" {
 		return ""
 	}
-	return fmt.Sprintf("\n\n## History\n\nIn place of `git_log` and `git_blame`, `%s` holds, for every changed file, the commits that last touched it before this change and who last changed the lines it replaces. Read it with your read-only tools.\n", history)
+	return fmt.Sprintf("\n\n## History\n\n`%s` holds, for every changed file, the commits that last touched it before this change and who last changed the lines it replaces. Read it with your read-only tools.\n", history)
 }
 
 func (s Set) Diagnose(t workflow.DiagnoseTask) (string, error) {

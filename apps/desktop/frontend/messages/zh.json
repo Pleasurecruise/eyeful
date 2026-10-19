@@ -61,7 +61,6 @@
 	"empty_log": "审查的输出会显示在这里。",
 	"uncertainty": "不确定项",
 	"absent": "{expert} 没有审查：{reason}",
-	"unread": "{expert} 没有加载 {skill}",
 	"unverified": "{finding} 未验证：{reason}",
 	"budget_exhausted": "token 预算已用完，只列出已验证的内容。",
 	"theme": "主题",

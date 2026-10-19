@@ -50,14 +50,11 @@ const replyNotice = `
 
 ## Reply
 
-eyeful gives you no tools of its own, so ignore the tool names in the instructions above:
-
 - The diffs you need, and the commit messages where the instructions speak of them, are in the
   input. Read any other file with your read-only tools.
-- Nothing runs a reproduction for you. eyeful's verifier runs the one you hand in.
-- Your final message is your result. Where the instructions say to call ` + "`%s`" + `, end the message with
-  one fenced ` + "```json" + ` block that holds that tool's arguments, and write nothing after it. It must
-  match this JSON Schema:
+- Nothing runs a test for you. eyeful's verifier runs the reproduction you hand in.
+- Your final message is your result. End it with one fenced ` + "```json" + ` block that holds what you
+  hand in, and write nothing after it. It must match this JSON Schema:
 
 ` + "```json" + `
 %s
@@ -110,10 +107,10 @@ func environment(p Provider, home string, drop []string) []string {
 }
 
 func ask[T reply](ctx context.Context, a *Agents, role workflow.Role, tier workflow.Tier, prompt string) (T, workflow.Usage, error) {
-	return run[T](ctx, a, string(role), a.cfg.Set.Roles[role].Submit, tier, prompt, nil)
+	return run[T](ctx, a, string(role), tier, prompt, nil)
 }
 
-func run[T reply](ctx context.Context, a *Agents, name, submit string, tier workflow.Tier, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
+func run[T reply](ctx context.Context, a *Agents, name string, tier workflow.Tier, prompt string, data json.RawMessage) (T, workflow.Usage, error) {
 	var zero T
 	if data == nil {
 		schema, err := jsonschema.For[T](nil)
@@ -125,7 +122,7 @@ func run[T reply](ctx context.Context, a *Agents, name, submit string, tier work
 		}
 	}
 	p := a.cfg.Provider
-	prompt += fmt.Sprintf(replyNotice, submit, data)
+	prompt += fmt.Sprintf(replyNotice, data)
 	env := environment(p, a.cfg.Home, a.cfg.Drop)
 	var usage workflow.Usage
 	var bad error
@@ -188,7 +185,7 @@ func (a *Agents) Plan(ctx context.Context, t workflow.PlanTask) (pulls.Analysis,
 	if err != nil {
 		return pulls.Analysis{}, workflow.Usage{}, err
 	}
-	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), a.cfg.Set.Roles[workflow.RolePlanner].Submit, "", prompt, schema)
+	return run[pulls.Analysis](ctx, a, string(workflow.RolePlanner), "", prompt, schema)
 }
 
 func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Report, workflow.Usage, error) {
@@ -196,7 +193,7 @@ func (a *Agents) Review(ctx context.Context, t workflow.ReviewTask) (workflow.Re
 	if err != nil {
 		return workflow.Report{}, workflow.Usage{}, err
 	}
-	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, a.cfg.Set.Roles[workflow.RoleExpert].Submit, t.Tier, prompt, nil)
+	return run[workflow.Report](ctx, a, "expert "+t.Expert.Name, t.Tier, prompt, nil)
 }
 
 func (a *Agents) Fix(ctx context.Context, t workflow.FixTask) ([]workflow.Edit, workflow.Usage, error) {
@@ -230,6 +227,6 @@ func (a *Agents) CommitMessage(ctx context.Context, patch string) (string, workf
 	if err != nil {
 		return "", workflow.Usage{}, err
 	}
-	r, usage, err := run[commitReply](ctx, a, commitSkill, "submit_commit", workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch, nil)
+	r, usage, err := run[commitReply](ctx, a, commitSkill, workflow.TierCheap, skill+"\n\n## Diff\n\n"+patch, nil)
 	return r.Message, usage, err
 }

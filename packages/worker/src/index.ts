@@ -80,6 +80,9 @@ export class Runs extends WorkerEntrypoint<Env, { review: string }> {
 export class Models extends WorkerEntrypoint<Env> {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
+		if (request.method !== 'POST' || url.pathname !== '/chat/completions') {
+			return new Response(null, { status: 404 });
+		}
 		const headers = new Headers(request.headers);
 		headers.delete('Authorization');
 		headers.set('cf-aig-authorization', `Bearer ${this.env.EYEFUL_AI_GATEWAY_TOKEN}`);
@@ -174,6 +177,12 @@ export class Sandbox extends DurableObject<Env> {
 		return port.fetch(request);
 	}
 
+	async keep(): Promise<void> {
+		if (this.#container.running) {
+			await this.#container.setInactivityTimeout(IDLE_MS);
+		}
+	}
+
 	async release(): Promise<void> {
 		if (this.#container.running) {
 			await this.#container.destroy();
@@ -251,6 +260,8 @@ export class Server extends DurableObject<Env> {
 			return;
 		}
 		if (container.running) {
+			await container.setInactivityTimeout(IDLE_MS);
+			await this.ctx.exports.Sandbox.getByName(`${this.ctx.id.toString()}/${kept.run}`).keep();
 			let res: Response | undefined;
 			try {
 				res = await container.getTcpPort(PORT).fetch('http://container/review', {
@@ -314,6 +325,7 @@ export class Server extends DurableObject<Env> {
 			enableInternet: true,
 			env: {
 				EYEFUL_REVIEW: JSON.stringify(kept.source),
+				EYEFUL_REVIEW_ID: review,
 				EYEFUL_RUNS_URL: `http://${RUNS_HOST}`,
 				EYEFUL_SANDBOX_URL: `http://${SANDBOX_HOST}`,
 				EYEFUL_GITHUB_APP_ID: this.env.EYEFUL_GITHUB_APP_ID,

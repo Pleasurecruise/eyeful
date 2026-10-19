@@ -70,7 +70,7 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `packages/pulls`                 | 从 `@pulls.review/core` 构建 `workflow/pulls/core.js`                               |
 | `packages/worker`                | Cloudflare Worker：webhook，每个 review 一个 Durable Object 和 Container，pi 的设置 |
 | `workflow`                       | 审查编排：分拣、计划检查、专家、验证器、汇总、预算、检查点                          |
-| `workflow/prompts`               | 专家和角色的提示词、工具定义、vendored 的 skill                                     |
+| `workflow/prompts`               | 专家和角色的提示词、vendored 的 skill                                               |
 | `workflow/pulls`                 | 打包成 `core.js` 的 `@pulls.review/core`，用 moejs 运行                             |
 | `workflow/project`               | 从清单文件找出的项目命令                                                            |
 | `workflow/report`                | 把结果渲染成 Markdown 和 SARIF 2.1.0                                                |
@@ -98,8 +98,8 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 flowchart LR
     producers["CLI, plugin,<br/>webhook, schedule"] -->|source| subject["Subject"]
     subject --> pipeline["Review pipeline"]
-    pipeline --> outbox["Outbox"]
-    outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
+    pipeline --> publish["Publish"]
+    publish -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
-webhook 接收审查，review 的 Container 发布一条 `COMMENT` review 和排序报告。outbox 还在规划中。
+webhook 接收审查，review 的 Container 发布一条 `COMMENT` review 和排序报告。每次发布都带着审查的 id，重新启动的 Container 会跳过已经发过的内容。

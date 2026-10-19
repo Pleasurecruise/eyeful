@@ -81,7 +81,7 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `packages/pulls`                 | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                      |
 | `packages/worker`                | The Cloudflare Worker: the webhook, one Durable Object and Container per review, pi's settings |
 | `workflow`                       | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints      |
-| `workflow/prompts`               | Expert and role prompts, tool definitions, vendored skills                                     |
+| `workflow/prompts`               | Expert and role prompts, vendored skills                                                       |
 | `workflow/pulls`                 | `@pulls.review/core` as `core.js`, run with moejs                                              |
 | `workflow/project`               | The project's commands, found from its manifests                                               |
 | `workflow/report`                | A result as Markdown and SARIF 2.1.0                                                           |
@@ -110,9 +110,9 @@ Producers and consumers attach at the two ends of the pipeline and do not know a
 flowchart LR
     producers["CLI, plugin,<br/>webhook, schedule"] -->|source| subject["Subject"]
     subject --> pipeline["Review pipeline"]
-    pipeline --> outbox["Outbox"]
-    outbox -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
+    pipeline --> publish["Publish"]
+    publish -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
 The webhook admits a review, and the review's Container posts a `COMMENT` review and the ranked
-report. The outbox is planned.
+report. Each post carries the review's id, so a restarted Container skips what is already there.

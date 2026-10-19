@@ -13,23 +13,23 @@ stateDiagram-v2
     done --> queued: mentioned
 ```
 
-| Mechanism | Behavior                                                                                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Once      | An opened, reopened or ready pull request is reviewed if it has never been; later ones need a mention.                                                      |
-| Mention   | A mention by an allowed user starts a review of the current head, numbered one more than the last.                                                          |
-| Busy      | While a review is queued or running, a mention gets a reply and starts nothing.                                                                             |
-| Closed    | A mention on a closed pull request is ignored.                                                                                                              |
-| Alarm     | Set at admission, then every 30 seconds while the review runs. Each run reads the stored record.                                                            |
-| Start     | When no Container runs, the alarm starts one with the pull request and counts an attempt.                                                                   |
-| Watch     | When a Container runs, the alarm reads its `GET /review`; `done` or `failed` is recorded and the Container destroyed.                                       |
-| Startup   | A Container that has not answered five minutes after it started is destroyed and counts as lost.                                                            |
-| Lost      | After three attempts the review is `done` and its Check Run fails with the reason.                                                                          |
-| Check     | Each review creates an `eyeful` Check Run on its head and completes it when the review ends.                                                                |
-| Push      | A push adds an `eyeful` Check Run on the new head: completed with the last result if the review is done, or completed with it when the running review ends. |
-| Cancel    | Closing the pull request or turning it into a draft destroys the running Container and cancels its Check Runs.                                              |
-| Idle      | The Container stops after ten minutes without a request; the alarm's polling keeps a running review alive.                                                  |
-| Capacity  | At most five Containers at once (`maxInstances`).                                                                                                           |
-| Sandbox   | Each review has its own sandbox, removed when the review ends.                                                                                              |
+| Mechanism | Behavior                                                                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Once      | An opened, reopened or ready pull request is reviewed if it has never been; later ones need a mention.                                                                                                       |
+| Mention   | A mention by an allowed user starts a review of the current head, numbered one more than the last.                                                                                                           |
+| Busy      | While a review is queued or running, a mention gets a reply and starts nothing.                                                                                                                              |
+| Closed    | A mention on a closed pull request is ignored.                                                                                                                                                               |
+| Alarm     | Set at admission, then every 30 seconds while the review runs. Each run reads the stored record.                                                                                                             |
+| Start     | When no Container runs, the alarm starts one with the pull request and counts an attempt.                                                                                                                    |
+| Watch     | When a Container runs, the alarm reads its `GET /review`; `done` or `failed` is recorded and the Container destroyed.                                                                                        |
+| Startup   | A Container that has not answered five minutes after it started is destroyed and counts as lost.                                                                                                             |
+| Lost      | After three attempts the review is `done` and its Check Run fails with the reason.                                                                                                                           |
+| Check     | Each review creates an `eyeful` Check Run on its head and completes it when the review ends.                                                                                                                 |
+| Push      | A push adds an `eyeful` Check Run on the new head: completed with the last result if the review is done, or completed with it when the running review ends.                                                  |
+| Cancel    | Closing the pull request or turning it into a draft destroys the running Container and cancels its Check Runs.                                                                                               |
+| Idle      | A Container stops ten minutes after its Durable Object was last active. Each alarm keeps the review's Container and its sandbox running and sets that timeout again, which a restarted Durable Object loses. |
+| Capacity  | At most five Containers at once (`maxInstances`).                                                                                                                                                            |
+| Sandbox   | Each review has its own sandbox, removed when the review ends.                                                                                                                                               |
 
 A rollout or any other `SIGTERM` stops the Container; the alarm counts it as lost and the next one
 resumes from the stages in R2 ([Storage](PERSISTENCE.md)).

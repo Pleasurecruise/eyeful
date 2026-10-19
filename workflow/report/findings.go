@@ -45,7 +45,7 @@ func Findings(r workflow.Result) (Output, error) {
 		f := r.Findings[i]
 		item := Finding{
 			File: c.Path, Line: c.Line, Related: c.Related, Severity: c.Severity, Kind: c.Kind,
-			Category: strings.Join(slices.DeleteFunc(slices.Clone(c.Decorations), func(d string) bool { return slices.Contains(mergeDecorations, d) }), ", "), ShortSummary: c.Short, Summary: c.Subject,
+			Category: strings.Join(slices.DeleteFunc(slices.Clone(c.Decorations), func(d string) bool { return slices.Contains(mergeDecorations, d) }), ", "), Summary: c.Subject,
 			FailureScenario: c.Scenario, Why: c.Discussion,
 			Verification: verification(c, f, baselineState(r, f.ID) == "unchanged"),
 			Label:        c.Label, Experts: c.Experts, Fix: c.Fix,

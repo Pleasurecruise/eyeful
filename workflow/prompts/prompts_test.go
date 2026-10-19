@@ -3,7 +3,6 @@ package prompts_test
 import (
 	"errors"
 	"log/slog"
-	"slices"
 	"strings"
 	"testing"
 
@@ -25,19 +24,16 @@ func TestLoad(t *testing.T) {
 			t.Errorf("%s: %+v", name, e)
 		}
 	}
-	if len(s.Roles) != 6 || len(s.Skills) != 22 || len(s.Tools) != 13 {
-		t.Fatalf("roles %d, skills %d, tools %d", len(s.Roles), len(s.Skills), len(s.Tools))
+	if len(s.Roles) != 6 || len(s.Skills) != 22 {
+		t.Fatalf("roles %d, skills %d", len(s.Roles), len(s.Skills))
 	}
 	for name, r := range s.Roles {
-		if r.Submit == "" || (r.Body == "") != (name == workflow.RolePlanner) {
+		if (r.Body == "") != (name == workflow.RolePlanner) {
 			t.Errorf("role %s: %+v", name, r)
 		}
 	}
-	if e := s.Roles[workflow.RoleExpert]; !slices.Contains(e.Tools, "load_skill") || e.Submit != "submit_report" {
-		t.Errorf("expert role %+v", e)
-	}
 	sk, ok := s.Skill("security-review")
-	if !ok || sk.Description == "" {
+	if !ok || sk.Description == "" || sk.Body == "" || strings.HasPrefix(sk.Body, "---") {
 		t.Fatalf("security-review: %+v", sk)
 	}
 }

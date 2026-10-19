@@ -25,9 +25,9 @@ func result() workflow.Result {
 			{ID: "0/skeptic/0", Expert: "skeptic", Skill: "code-review", Path: "app/session.py", Line: 40, Evidence: workflow.EvidenceAnalysis},
 		},
 		Comments: []workflow.Comment{
-			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Short: "Session valid at expires_at", Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
-			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Short: "Name the token", Subject: "Name the token.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
-			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Short: "Refresh skips the expiry check", Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
+			{Finding: "0/correctness/0", Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"}, Subject: "Valid at expires_at.", Scenario: "is_expired(100, now=100) is False", Severity: workflow.SeverityError, Kind: workflow.KindFail, Path: "app/session.py", Line: 11, Related: []workflow.Location{{Path: "app/login.py", Line: 7}}, Experts: []string{"correctness", "security"}, Repro: &workflow.Repro{Test: test, Run: "tests/test_session.py::test_boundary", Oracle: workflow.OracleSpecified, Quote: "a session expires at expires_at"}, Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}}},
+			{Finding: "0/security/0", Label: workflow.LabelNitpick, Decorations: []string{"non-blocking", "security"}, Subject: "Name the token.", Discussion: "`t` says nothing;\ncall it `session`.", Severity: workflow.SeverityNote, Kind: workflow.KindReview, Path: "app/login.py", Line: 3, Experts: []string{"security"}},
+			{Finding: "0/skeptic/0", Label: workflow.LabelQuestion, Decorations: []string{"non-blocking", "correctness"}, Subject: "Refresh skips the expiry check.", Severity: workflow.SeverityWarning, Kind: workflow.KindOpen, Path: "app/session.py", Line: 40, Experts: []string{"skeptic"}, Objection: "refresh is only reached after is_expired."},
 		},
 		Uncertainty: workflow.Uncertainty{Absent: []workflow.Absence{{Expert: "security", Group: 1, Reason: "timeout"}}},
 	}
@@ -41,9 +41,9 @@ func TestMarkdown(t *testing.T) {
 	for _, want := range []string{
 		"3 findings: 1 fail, 1 review, 1 open.",
 		"## Tests the change breaks\n\nThese pass on the base commit and fail on the change: `tests/test_login.py::test_remember_me`.",
-		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
+		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
 		"<details><summary>Nitpicks (1)</summary>\n\n- `app/login.py:3` Name the token.",
-		"## 🔴 error · correctness · fail",
+		"## 🔴 error · issue · correctness · fail",
 		"Failure scenario: is_expired(100, now=100) is False",
 		"<details><summary>Why this was flagged</summary>",
 		"failed on the change in every run, not on the base commit, and passed with the suggested fix",
@@ -63,7 +63,7 @@ func TestMarkdown(t *testing.T) {
 	if strings.Contains(md, "No blocking issues") {
 		t.Error("a review with a fail finding says it has no blocking issues")
 	}
-	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 note · security") {
+	if strings.Contains(md, "| `app/login.py:3` |") || strings.Contains(md, "## 🟡 note · nitpick") {
 		t.Error("a nitpick is listed outside the folded section")
 	}
 	if strings.Contains(md, "| `app/session.py:40` |") || strings.Contains(md, "· open") {
@@ -72,18 +72,31 @@ func TestMarkdown(t *testing.T) {
 }
 
 func TestSummary(t *testing.T) {
-	md, err := report.Summary(result())
+	r := result()
+	r.Comments[1].Subject = "Name the <T> token."
+	blocks, err := report.Summary(r)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(blocks) != 3 {
+		t.Fatalf("%d blocks, want the summary and one per comment not posted:\n%q", len(blocks), blocks)
+	}
+	for _, b := range blocks {
+		if strings.Count(b, "<details>") != strings.Count(b, "</details>") || strings.Count(b, "```")%2 != 0 {
+			t.Errorf("a block does not stand alone:\n%s", b)
+		}
+	}
+	md := strings.Join(blocks, "\n\n")
 	for _, want := range []string{
 		"### ⚠️ 1 issue found",
 		"Outcome `complete`, 3 findings: 1 reproduced, 1 to review, 1 disputed.",
 		"The change breaks `tests/test_login.py::test_remember_me`.",
-		"| 🔴 error | `app/session.py:11` | Session valid at expires_at |",
-		"<details><summary>Not posted (2)</summary>",
-		"- nitpick · `app/login.py:3` Name the token",
-		"- question · `app/session.py:40` Refresh skips the expiry check",
+		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
+		"#### Not posted (2)",
+		"<details><summary>🟡 note · nitpick · <code>app/login.py:3</code> Name the &lt;T&gt; token.</summary>\n",
+		"`t` says nothing;\ncall it `session`.",
+		"<details><summary>🟠 warning · question · <code>app/session.py:40</code> Refresh skips the expiry check.</summary>\n",
+		"A judge agent read the code and disputes this finding: refresh is only reached after is_expired.",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("missing %q in\n%s", want, md)
@@ -98,10 +111,11 @@ func TestSummary(t *testing.T) {
 	clean := result()
 	clean.Comments = clean.Comments[1:]
 	clean.Regression = &workflow.TestRun{}
-	md, err = report.Summary(clean)
+	blocks, err = report.Summary(clean)
 	if err != nil {
 		t.Fatal(err)
 	}
+	md = strings.Join(blocks, "\n\n")
 	for _, want := range []string{"### ✅ No issues found", "None was reproduced by running a test.", "The project's tests pass on the base commit and fail on the change."} {
 		if !strings.Contains(md, want) {
 			t.Errorf("missing %q in\n%s", want, md)
@@ -161,7 +175,7 @@ func TestJSON(t *testing.T) {
 			Line            int    `json:"line"`
 			Severity        string `json:"severity"`
 			Kind            string `json:"kind"`
-			ShortSummary    string `json:"short_summary"`
+			Summary         string `json:"summary"`
 			FailureScenario string `json:"failure_scenario"`
 		} `json:"findings"`
 	}
@@ -169,7 +183,7 @@ func TestJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := out.Findings[0]
-	if out.Counts.Fail != 1 || out.Counts.Review != 1 || out.Counts.Open != 1 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "error" || f.Kind != "fail" || f.ShortSummary == "" || f.FailureScenario == "" {
+	if out.Counts.Fail != 1 || out.Counts.Review != 1 || out.Counts.Open != 1 || f.File != "app/session.py" || f.Line != 11 || f.Severity != "error" || f.Kind != "fail" || f.Summary == "" || f.FailureScenario == "" {
 		t.Fatalf("%s", data)
 	}
 }

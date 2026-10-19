@@ -74,7 +74,7 @@ The workflow on pull requests through a self-hosted GitHub App
 | A `COMMENT` review for line comments, and the ranked report as one comment | Built |
 | The sandbox, so the project's commands run only there                      | Built |
 | The sandbox reaching only package registries                               | To do |
-| The outbox, so a comment GitHub has accepted is posted once                | To do |
+| Posting once, so a restarted Container skips what GitHub already has       | Built |
 | The `eyeful` Check Run, required before merging                            | Built |
 | Waiting for CI in the Durable Object instead of the Container              | To do |
 | An end-to-end run on a real pull request                                   | To do |

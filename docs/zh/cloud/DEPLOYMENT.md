@@ -13,7 +13,7 @@
 | `eyeful`          | `mise run install`，或 `v*` tag（GoReleaser）      | 用户的机器                      |
 | 文档站            | `mise run build:docs`（VitePress）                 | `DOCS_URL` 上的 GitHub Pages    |
 
-镜像里有 `eyeful-server`、git、pi `1.3.0`，以及 `packages/worker/pi/` 下 pi 的设置。`Dockerfile.sandbox` 构建沙箱。
+镜像里有 `eyeful-server`、git、装在 `/opt/pi` 下的 pi `1.3.0`、带着 `packages/worker/pi/` 下 pi 设置的用户 `agent`，以及以 `agent` 身份运行 pi 的 `/usr/local/bin/pi`。`Dockerfile.sandbox` 构建沙箱。
 
 ## 云端
 

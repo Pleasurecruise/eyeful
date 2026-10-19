@@ -12,11 +12,11 @@
 2. Worker 校验 webhook 签名，把 pull request 交给它的 Durable Object，由后者启动运行 `eyeful-server serve` 的 Container。
 3. 服务端克隆仓库，等 head 提交的 GitHub Actions 跑完，然后回一个 👀。有失败时审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
 4. 服务端打开沙箱，用执行验证调用 `local/app.Review`，每个阶段都存进 R2（见[存储](PERSISTENCE.md)）。
-5. App 把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)），然后在 R2 里记下 `published`。两者之间崩溃可能会发布两次；outbox 还在规划中。
+5. App 把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)），然后在 R2 里记下 `published`。两者都在隐藏标记里带着这次审查的 id（`EYEFUL_REVIEW_ID`），服务端发布前先列出 pull request 上已有的内容，所以崩溃后重新启动的 Container 不会把任何一条发两次。
 
 ## agent 与模型 {#agents-and-models}
 
-每个专家是 Container 里的一个 pi 进程，对检出的代码只有只读工具：
+每个专家是 Container 里的一个 pi 进程，以非特权用户 `agent` 运行，对检出的代码只有只读工具：
 
 ```sh
 pi --mode json --no-session \
@@ -24,7 +24,7 @@ pi --mode json --no-session \
   --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve
 ```
 
-镜像里带着 `packages/worker/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是账号 `default` AI Gateway 上 `volcengine` 自定义 provider 的 DeepSeek V4.1 Flash。pi 请求 `http://models.eyeful`，Durable Object 把它路由到 Worker 的 `Models` 入口，由它带上 `cf-aig-authorization` 转发到 AI Gateway。Container 里没有模型密钥，也没有 gateway token。
+镜像里带着 `packages/worker/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是账号 `default` AI Gateway 上 `volcengine` 自定义 provider 的 DeepSeek V4.1 Flash。pi 请求 `http://models.eyeful`，Durable Object 把它路由到 Worker 的 `Models` 入口，由它带上 `cf-aig-authorization` 把 `POST /chat/completions` 转发到 AI Gateway，其他请求一律不转发。Container 里没有模型密钥，也没有 gateway token。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。
 
 [Jev](../ARCHITECTURE.md#jev) 以 Workers AI 上的 `typesafe/jev` 运行。服务端的分类器请求 `http://jev.eyeful`，Worker 的 `Jev` 入口通过 AI binding 经同一个 gateway 作答。
 
@@ -48,5 +48,4 @@ pi --mode json --no-session \
 | Provider 密钥             | AI Gateway，存在账号的 Secrets Store 里 | 调用上游模型                      |
 | R2 和 Workers AI          | Worker 的 binding                       | 阶段存档、Jev                     |
 
-服务端读完配置后会把自己环境里所有 `EYEFUL_` 变量删掉，git 和 pi 不会继承 App 私钥。但 Container 的启动环境里仍有它，agent 的 `read` 工具可能读到 `/proc/1/environ`。
-TODO(security)：改为把 App 私钥取进内存，而不是放在启动环境里传入。
+服务端读完配置后会把自己环境里所有 `EYEFUL_` 变量删掉，git 和 pi 不会继承 App 私钥。但 Container 的启动环境（`/proc/1/environ` 里能看到）仍有它，所以 pi 通过 `setpriv` 以用户 `agent` 运行。内核只允许服务端自己的用户读这个文件和服务端的内存；`agent` 保留 `dac_override` 能力，仍然能读检出的代码和 eyeful 为它写的文件。

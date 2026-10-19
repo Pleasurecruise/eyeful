@@ -1,4 +1,8 @@
 {
 	"defaultProvider": "volcengine",
-	"defaultModel": "deepseek-v4.1-flash"
+	"defaultModel": "deepseek-v4.1-flash",
+	"retry": {
+		"maxRetries": 8,
+		"baseDelayMs": 5000
+	}
 }

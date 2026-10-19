@@ -83,16 +83,17 @@ for [Jev](ARCHITECTURE.md#jev); without them `eyeful review` does not merge find
 Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mise.toml`; on a
 server the rest come from the platform's environment.
 
-| Variable                | Purpose                                                                                       |
-| ----------------------- | --------------------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`           | Listen address. Default `:8080`.                                                              |
-| `EYEFUL_LOG_LEVEL`      | `debug`, `info`, `warn` or `error`. Default `info`.                                           |
-| `DOCS_URL`              | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`. |
-| `EYEFUL_GITHUB_API_URL` | GitHub API root. Default `https://api.github.com`.                                            |
-| `EYEFUL_AGENT`          | Agent CLI the cloud review connects: `pi`, `claude` or `codex`. Default `pi`.                 |
-| `EYEFUL_REVIEW`         | The pull request a cloud review runs, as JSON. The Durable Object sets it.                    |
-| `EYEFUL_RUNS_URL`       | Where a cloud review keeps its stages. The Durable Object sets it to `http://runs.eyeful`.    |
-| `EYEFUL_SANDBOX_URL`    | The review's sandbox. The Durable Object sets it to `http://sandbox.eyeful`.                  |
+| Variable                | Purpose                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `EYEFUL_ADDR`           | Listen address. Default `:8080`.                                                                         |
+| `EYEFUL_LOG_LEVEL`      | `debug`, `info`, `warn` or `error`. Default `info`.                                                      |
+| `DOCS_URL`              | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.            |
+| `EYEFUL_GITHUB_API_URL` | GitHub API root. Default `https://api.github.com`.                                                       |
+| `EYEFUL_AGENT`          | Agent CLI the cloud review connects: `pi`, `claude` or `codex`. Default `pi`.                            |
+| `EYEFUL_REVIEW`         | The pull request a cloud review runs, as JSON. The Durable Object sets it.                               |
+| `EYEFUL_REVIEW_ID`      | The review's id, marking what it posted so a restart does not post it again. The Durable Object sets it. |
+| `EYEFUL_RUNS_URL`       | Where a cloud review keeps its stages. The Durable Object sets it to `http://runs.eyeful`.               |
+| `EYEFUL_SANDBOX_URL`    | The review's sandbox. The Durable Object sets it to `http://sandbox.eyeful`.                             |
 
 `--shutdown-timeout` (`30s`) is a flag only. The model a cloud review uses is set in pi's own
 settings in `packages/worker/pi/`, not by a variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).

@@ -3,7 +3,6 @@
 The first stage checks that the change is ready to review, sets aside files that need no review,
 and decides which experts review the rest. In the cloud, eyeful reads GitHub Actions for the head
 commit and waits while a run is in progress. The planner is the same agent call as a local review.
-The cloud's `submit_plan` tool is not built.
 
 ```mermaid
 flowchart LR

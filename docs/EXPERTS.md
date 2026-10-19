@@ -38,6 +38,8 @@ planner, the fix agent, the reproduction agent, the judge and the CI agent have 
 - eyeful refuses to start when a skill's files do not match the hash in the lock file.
   `mise run skills` reinstalls them.
 - A language skill is offered only when the expert's group holds a file of that language.
+- Go decides which skills apply, so each offered skill's `SKILL.md` is part of the prompt. Its other
+  files stay on disk, in a temporary directory, for the agent to read when the skill points to one.
 - A skill belongs to one expert of the panel. The generalist has all of them.
 
 | Skill                         | From                                | Expert, and the files it is offered for                     |
@@ -65,26 +67,13 @@ planner, the fix agent, the reproduction agent, the judge and the CI agent have 
 | `modern-javascript-patterns`  | `wshobson/agents`                   | readability, JavaScript and TypeScript                      |
 | `git-commit`                  | `github/awesome-copilot`            | `eyeful commit` only                                        |
 
-**Tools.** `workflow/prompts/tools.yaml` defines the tools of the cloud runtime:
-
-| Tool                                           | Gives the agent                                | Roles                            |
-| ---------------------------------------------- | ---------------------------------------------- | -------------------------------- |
-| `git_diff`                                     | The change, for one file or all                | every role                       |
-| `git_log`                                      | The history before the change                  | CI agent, planner, expert, judge |
-| `git_blame`                                    | Who last changed a range of lines              | expert, fix agent, judge         |
-| `list_skills`, `load_skill`, `read_skill_file` | The skills offered to it                       | expert, reproduction agent       |
-| `try_repro`                                    | One run of a reproduction test on a fresh copy | reproduction agent               |
-| `submit_plan`, `submit_report`, …              | The role's result                              | one per role                     |
-
-A local review has no tool server ([Agents](LOCAL.md#agents)):
+**Tools.** eyeful gives an agent no tools of its own ([Agents](LOCAL.md#agents)):
 
 - The diffs and the commit messages are part of the input.
-- The skills are written to a temporary directory, and the input lists their paths.
 - One file beside the patch holds the commits that last touched each changed file and who last
-  changed the replaced lines, in place of `git_log` and `git_blame`.
-- The agent ends with a JSON block in place of a submit call.
-- `try_repro` has no counterpart: the verifier runs the test
-  ([the verifier](VERIFICATION.md#the-verifier)).
+  changed the replaced lines.
+- The agent ends its reply with a JSON block that matches the role's schema.
+- No agent runs a test: the verifier runs it ([the verifier](VERIFICATION.md#the-verifier)).
 
 The agent keeps its own tools for reading files. eyeful denies its requests to edit files or run
 commands. Every other tool named below is planned ([Levels](LEVELS.md#planned)).
@@ -109,8 +98,7 @@ finding has:
 
 Go rejects a finding that lacks any of these, is on a file outside the expert's groups, or cites a
 skill the expert was not offered. A rejected report goes back once. Findings still invalid are
-dropped and listed in the uncertainty checklist, and so is a skill an expert was offered and did
-not load. A local review cannot see which skills were read.
+dropped and listed in the uncertainty checklist.
 
 An expert that times out or fails is dropped and listed as absent, and the review's result is
 `partial`.
