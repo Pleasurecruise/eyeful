@@ -35,14 +35,13 @@ pi --mode json --no-session \
 ```
 
 The image carries pi's `settings.json` and `models.json` from `cmd/eyeful-action/pi/`: the model is
-DeepSeek V4.1 Flash, served by the provider at `EYEFUL_MODEL_URL`. pi calls
+DeepSeek V4.1 Flash on Volcengine Ark. pi calls
 `http://127.0.0.1:8081`, where `eyeful-action` forwards `POST /chat/completions`, and nothing else,
 to that provider with the key `EYEFUL_MODEL_KEY`. pi holds no key. When the
 provider answers 429 or a server error, pi waits and resumes the same turn, up to eight times, 5 s
 doubling to at most 60 s each; eyeful reads only pi's last answer, so a run that recovered counts.
 
-[Jev](../ARCHITECTURE.md#jev) is called on TypeSafe's API with `EYEFUL_TYPESAFE_API_KEY`; without it
-findings on the same lines are not merged.
+[Jev](../ARCHITECTURE.md#jev) is called on TypeSafe's API with `EYEFUL_TYPESAFE_API_KEY`.
 
 ## The sandbox {#the-sandbox}
 

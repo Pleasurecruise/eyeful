@@ -19,7 +19,7 @@
 
 ```mermaid
 flowchart TB
-    gh["Pull request<br/>opened, or mentioned"] --> job["Actions job<br/>eyeful.yml"]
+    gh["Pull request<br/>opened, or mentioned"] --> job["Actions job<br/>review.yml"]
     job --> action["Review container<br/>eyeful-action"]
     action -->|"127.0.0.1:8081"| proxy["models proxy"] --> provider["Model provider"]
     action -->|Jev| typesafe["TypeSafe API"]
@@ -32,9 +32,31 @@ flowchart TB
 
 ### 开启审查 {#turn-on-reviews}
 
-1. 添加仓库变量 `EYEFUL_MODEL_URL`，即提供 `cmd/eyeful-action/pi/models.json` 中模型的 provider 的 OpenAI 兼容地址；再添加仓库 secrets `EYEFUL_MODEL_KEY`（这个 provider 的密钥）和 `EYEFUL_TYPESAFE_API_KEY`（Jev 需要）。
-2. 添加一个和 `.github/workflows/eyeful.yml` 类似的 workflow。在其他仓库里，把检出和 `uses: ./` 换成 `uses: Pleasurecruise/eyeful@main`。保留 job 的 `if`（只放行所有者、成员和协作者）和它的权限：Contents（读）、Pull requests（写）、Issues（写）、Actions（读）。
-3. 不要在这个 workflow 里检出 pull request 的 head；`eyeful-action` 会自己克隆，并且只在沙箱里运行它的代码。
+1. 在仓库的 Settings → Secrets and variables → Actions 里添加两个 secret：`EYEFUL_MODEL_KEY`（在[火山方舟控制台](https://console.volcengine.com/ark)开通 Coding Plan 后获取的 API key）和 `EYEFUL_TYPESAFE_API_KEY`（在 [TypeSafe](https://docs.typesafe.ai) 获取的 API key）。
+2. 添加 `.github/workflows/eyeful.yml`：
+
+```yaml
+name: eyeful
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  review:
+    uses: Pleasurecruise/eyeful/.github/workflows/review.yml@main
+    secrets: inherit
+```
+
+其余都在可复用 workflow `.github/workflows/review.yml` 里：谁能发起审查、同一 pull request 同时只跑一次审查、action 的输入。它从不检出 pull request；`eyeful-action` 自己克隆，并且只在沙箱里运行它的代码。
 
 ## 本地
 
@@ -46,6 +68,6 @@ flowchart LR
     client --> worktree["A disposable checkout of the snapshot<br/>confirmed commands only"]
 ```
 
-本地模式只安装应用本身。它不需要服务器、数据库、eyeful 账号或模型密钥，因为 agent 就是用户已经登录的编码工具。
+本地模式只安装应用本身。它不需要服务器、数据库、eyeful 账号或模型密钥，因为 agent 就是用户已经登录的编码工具；只有 Jev 需要一个 TypeSafe API key。
 
 `eyeful review` 用 `eyeful connect` 选定的 agent 运行审查；桌面应用在窗口里做同样的事（见[桌面应用](../LOCAL.md#desktop)）。本地审查可以运行什么、怎样隔离，见[本地运行](../LOCAL.md)。

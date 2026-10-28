@@ -3,9 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 
 	"github.com/Pleasurecruise/eyeful/local/agents"
+	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/git"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 )
@@ -45,6 +47,34 @@ func Connect(ctx context.Context, name string) (agents.Agent, error) {
 	}
 	s.Agent = name
 	return a, settings.Save(path, s)
+}
+
+func SetJev(key string) error {
+	if key == "" {
+		return classify.ErrNoKey
+	}
+	path, err := settings.Path()
+	if err != nil {
+		return err
+	}
+	s, err := settings.Load(path)
+	if err != nil {
+		return err
+	}
+	s.TypeSafeKey = key
+	return settings.Save(path, s)
+}
+
+func Jev(log *slog.Logger) (*classify.Jev, error) {
+	s, err := Current()
+	if err != nil {
+		return nil, err
+	}
+	j, err := classify.New(log, s.TypeSafeKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: run `eyeful jev` or set it in the desktop app", err)
+	}
+	return j, nil
 }
 
 func Remember(dir string) error {

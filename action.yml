@@ -11,15 +11,12 @@ inputs:
   github-token:
     description: Token that clones, reads Actions and posts the review.
     default: ${{ github.token }}
-  model-url:
-    description: OpenAI-compatible base URL of the provider serving the model in pi's models.json.
-    required: true
   model-key:
-    description: API key for that provider.
+    description: Volcengine Ark API key for the model in pi's models.json.
     required: true
   typesafe-api-key:
-    description: TypeSafe API key for Jev, which merges findings that report one problem. Without it they are not merged.
-    default: ''
+    description: TypeSafe API key for Jev, which merges findings that report one problem.
+    required: true
 
 runs:
   using: composite
@@ -43,14 +40,13 @@ runs:
       env:
         EYEFUL_PULL: ${{ inputs.pull }}
         EYEFUL_GITHUB_TOKEN: ${{ inputs.github-token }}
-        EYEFUL_MODEL_URL: ${{ inputs.model-url }}
         EYEFUL_MODEL_KEY: ${{ inputs.model-key }}
         EYEFUL_TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
       run: |
         docker run --rm --network eyeful --volume "$RUNNER_TEMP/eyeful:/work" \
           --env GITHUB_REPOSITORY --env GITHUB_RUN_ID --env GITHUB_API_URL \
           --env EYEFUL_PULL --env EYEFUL_GITHUB_TOKEN \
-          --env EYEFUL_MODEL_URL --env EYEFUL_MODEL_KEY --env EYEFUL_TYPESAFE_API_KEY \
+          --env EYEFUL_MODEL_KEY --env EYEFUL_TYPESAFE_API_KEY \
           eyeful-action
 
     - name: remove the sandbox

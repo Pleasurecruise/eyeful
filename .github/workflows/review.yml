@@ -1,0 +1,37 @@
+name: eyeful review
+
+on:
+  workflow_call:
+    secrets:
+      EYEFUL_MODEL_KEY:
+        required: true
+      EYEFUL_TYPESAFE_API_KEY:
+        required: true
+
+jobs:
+  review:
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+       !github.event.pull_request.draft &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '@eyeful-review') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+    concurrency:
+      group: eyeful-${{ github.repository }}-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+    steps:
+      - name: review the pull request
+        uses: Pleasurecruise/eyeful@main
+        with:
+          pull: ${{ github.event.pull_request.number || github.event.issue.number }}
+          model-key: ${{ secrets.EYEFUL_MODEL_KEY }}
+          typesafe-api-key: ${{ secrets.EYEFUL_TYPESAFE_API_KEY }}

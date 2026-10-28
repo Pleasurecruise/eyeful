@@ -12,18 +12,15 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow"
 )
 
-func New(log *slog.Logger, key string, opts ...jev.ClientOption) *Jev {
-	j := &Jev{log: log.With(slog.String("component", "classify"))}
-	if key != "" {
-		j.client = jev.NewClient(append([]jev.ClientOption{jev.WithAPIKey(key), jev.WithTimeout(5 * time.Minute)}, opts...)...)
+func New(log *slog.Logger, key string, opts ...jev.ClientOption) (*Jev, error) {
+	if key == "" {
+		return nil, ErrNoKey
 	}
-	return j
+	client := jev.NewClient(append([]jev.ClientOption{jev.WithAPIKey(key), jev.WithTimeout(5 * time.Minute)}, opts...)...)
+	return &Jev{log: log.With(slog.String("component", "classify")), client: client}, nil
 }
 
 func (j *Jev) Same(ctx context.Context, pairs [][2]workflow.Finding) ([]float64, workflow.Usage, error) {
-	if j.client == nil {
-		return nil, workflow.Usage{}, ErrNotConfigured
-	}
 	shown, keys, questions := map[string]finding{}, map[string]string{}, map[string]jev.Question{}
 	for i, p := range pairs {
 		for _, f := range p {

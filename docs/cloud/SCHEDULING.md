@@ -1,6 +1,6 @@
 # Review lifecycle
 
-The workflow `.github/workflows/eyeful.yml` decides when a review runs. Each review is one job; at
+The reusable workflow `.github/workflows/review.yml`, which each repository calls from its own `eyeful.yml`, decides when a review runs. Each review is one job; at
 most one runs per pull request at a time.
 
 | Mechanism | Behavior                                                                                                                  |

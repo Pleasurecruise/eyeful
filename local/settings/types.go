@@ -5,8 +5,9 @@ import (
 )
 
 type Settings struct {
-	Agent      string `json:"agent,omitempty"`
-	Repository string `json:"repository,omitempty"`
+	Agent       string `json:"agent,omitempty"`
+	Repository  string `json:"repository,omitempty"`
+	TypeSafeKey string `json:"typesafe_api_key,omitempty"`
 }
 
 var (

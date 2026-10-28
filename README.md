@@ -52,6 +52,7 @@ git clone https://github.com/Pleasurecruise/eyeful && cd eyeful
 mise trust && mise install && mise run setup
 mise run install          # puts eyeful in ~/.local/bin; add it to PATH
 eyeful connect claude     # or codex, pi
+eyeful jev                # paste a TypeSafe API key; Jev merges duplicate findings
 
 cd ~/your-project
 eyeful review             # review your uncommitted changes
@@ -60,6 +61,12 @@ eyeful review             # review your uncommitted changes
 `eyeful review --head HEAD --base main` reviews a branch instead. Each run is saved under
 `.eyeful/runs/` as Markdown, findings JSON and SARIF. `mise run dev:desktop` opens the same review in
 a window, with the findings beside the diff.
+
+### On pull requests
+
+Add two repository secrets, `EYEFUL_MODEL_KEY` (Volcengine Ark) and `EYEFUL_TYPESAFE_API_KEY`, and
+copy one short workflow file ([Turn on reviews](docs/cloud/DEPLOYMENT.md#turn-on-reviews)). Pull
+requests are then reviewed when opened, and again on an `@eyeful-review` comment.
 
 ### Reproductions
 

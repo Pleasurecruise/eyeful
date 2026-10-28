@@ -18,6 +18,8 @@ type Changes struct {
 
 type Agents struct{}
 
+type Jev struct{}
+
 type Commit struct {
 	tree *Worktree
 }

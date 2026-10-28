@@ -127,7 +127,7 @@ func setup(t *testing.T, connect bool) (string, string, app.Options) {
 		Confirm: func(context.Context, string, []project.Command) (bool, error) {
 			return false, errors.New("no terminal")
 		},
-		Classifier: classify.New(slog.New(slog.DiscardHandler), ""),
+		Classifier: unmerged{},
 		Out:        &strings.Builder{}, Err: &strings.Builder{}, Log: slog.New(slog.DiscardHandler),
 	}
 }
@@ -572,4 +572,30 @@ func TestRepository(t *testing.T) {
 	if err != nil || s.Agent != "claude" || s.Repository != root {
 		t.Fatalf("connect kept %+v, %v", s, err)
 	}
+}
+
+func TestJev(t *testing.T) {
+	setup(t, true)
+	if _, err := app.Jev(slog.New(slog.DiscardHandler)); !errors.Is(err, classify.ErrNoKey) {
+		t.Fatalf("a review started without a TypeSafe key: %v", err)
+	}
+	if err := app.SetJev(""); !errors.Is(err, classify.ErrNoKey) {
+		t.Fatalf("an empty key was saved: %v", err)
+	}
+	if err := app.SetJev("ts_key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Jev(slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatal(err)
+	}
+	s, err := app.Current()
+	if err != nil || s.Agent != "claude" || s.TypeSafeKey != "ts_key" {
+		t.Fatalf("saving the key lost a setting: %+v, %v", s, err)
+	}
+}
+
+type unmerged struct{}
+
+func (unmerged) Same(context.Context, [][2]workflow.Finding) ([]float64, workflow.Usage, error) {
+	return nil, workflow.Usage{}, errors.New("no classifier in this test")
 }

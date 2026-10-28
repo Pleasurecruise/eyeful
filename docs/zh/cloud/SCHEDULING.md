@@ -1,6 +1,6 @@
 # 审查生命周期
 
-workflow `.github/workflows/eyeful.yml` 决定何时审查。每次审查是一个 job；同一个 pull request 同时最多跑一个。
+可复用 workflow `.github/workflows/review.yml` 决定何时审查，每个仓库从自己的 `eyeful.yml` 调用它。每次审查是一个 job；同一个 pull request 同时最多跑一个。
 
 | 机制     | 行为                                                                                               |
 | -------- | -------------------------------------------------------------------------------------------------- |

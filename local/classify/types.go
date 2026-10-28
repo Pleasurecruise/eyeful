@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	ErrNotConfigured = errors.New("Jev is not configured: set EYEFUL_TYPESAFE_API_KEY")
-	ErrRejected      = errors.New("jev rejected the request")
-	ErrUnanswered    = errors.New("jev left a question unanswered")
+	ErrNoKey      = errors.New("Jev needs a TypeSafe API key")
+	ErrRejected   = errors.New("jev rejected the request")
+	ErrUnanswered = errors.New("jev left a question unanswered")
 )

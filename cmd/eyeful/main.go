@@ -12,6 +12,7 @@ type cli struct {
 	Review   reviewCmd   `cmd:"" help:"Review local changes with your own coding agent."`
 	Provider providerCmd `cmd:"" help:"List the coding agents eyeful can use."`
 	Connect  connectCmd  `cmd:"" help:"Choose the coding agent CLI reviews run with."`
+	Jev      jevCmd      `cmd:"" help:"Save the TypeSafe API key Jev uses to merge findings, read from stdin."`
 	Commit   commitCmd   `cmd:"" help:"Commit every local change, with a message the connected agent writes."`
 }
 

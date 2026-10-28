@@ -19,18 +19,19 @@ flowchart TB
 
 ## Layout {#layout}
 
-| Path                 | Owns                                                           |
-| -------------------- | -------------------------------------------------------------- |
-| `action.yml`         | The composite action: build the images, start the sandbox, run |
-| `cmd/eyeful-action`  | The binary (kong) and pi's settings in `pi/`                   |
-| `cmd/eyeful-sandbox` | The sandbox's HTTP server                                      |
-| `internal/config`    | The `Config` struct, filled by kong                            |
-| `internal/review`    | `Source`, the pull request under review                        |
-| `internal/github`    | The pull request, Actions, the description, publishing         |
-| `internal/models`    | The proxy that adds the provider key to pi's model calls       |
-| `internal/checkout`  | The clone of the pull request                                  |
-| `internal/harness`   | One review: checkout, `local/app.Review`, publish              |
-| `internal/sandbox`   | The sandbox server and its client                              |
+| Path                           | Owns                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `.github/workflows/review.yml` | The reusable workflow other repositories call: triggers, who may start a review, one at a time |
+| `action.yml`                   | The composite action: build the images, start the sandbox, run                                 |
+| `cmd/eyeful-action`            | The binary (kong) and pi's settings in `pi/`                                                   |
+| `cmd/eyeful-sandbox`           | The sandbox's HTTP server                                                                      |
+| `internal/config`              | The `Config` struct, filled by kong                                                            |
+| `internal/review`              | `Source`, the pull request under review                                                        |
+| `internal/github`              | The pull request, Actions, the description, publishing                                         |
+| `internal/models`              | The proxy that adds the provider key to pi's model calls                                       |
+| `internal/checkout`            | The clone of the pull request                                                                  |
+| `internal/harness`             | One review: checkout, `local/app.Review`, publish                                              |
+| `internal/sandbox`             | The sandbox server and its client                                                              |
 
 ## Dependency direction {#dependency-direction}
 

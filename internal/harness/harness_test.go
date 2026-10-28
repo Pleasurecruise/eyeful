@@ -21,7 +21,6 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/internal/sandbox"
-	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/workflow"
 )
@@ -97,7 +96,7 @@ func TestExecute(t *testing.T) {
 	src := sample(t)
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), ""), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: unmerged{}, Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), src)
@@ -116,7 +115,7 @@ func TestExecuteCIFailed(t *testing.T) {
 	connect(t)
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), ""), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: unmerged{}, Sandbox: sandboxFor(t), Dir: t.TempDir(),
 		Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), sample(t))
@@ -155,6 +154,12 @@ func TestNotes(t *testing.T) {
 	if len(notes) != 1 || notes[0].Path != "app/session.py" || notes[0].Line != 11 || !strings.Contains(notes[0].Body, "issue (blocking, correctness):") || !strings.Contains(notes[0].Body, "```suggestion\nnow >= t\n```") {
 		t.Fatalf("%+v", notes)
 	}
+}
+
+type unmerged struct{}
+
+func (unmerged) Same(context.Context, [][2]workflow.Finding) ([]float64, workflow.Usage, error) {
+	return nil, workflow.Usage{}, errors.New("no classifier in this test")
 }
 
 type fakeHost struct {

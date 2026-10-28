@@ -62,6 +62,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(tree),
 			application.NewService(&Agents{}),
+			application.NewService(&Jev{}),
 			application.NewService(&Commit{tree: tree}),
 			application.NewService(&Review{tree: tree, answers: make(chan bool)}),
 		},

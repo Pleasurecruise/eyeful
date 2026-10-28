@@ -13,8 +13,7 @@ type Config struct {
 	SandboxURL string     `default:"http://eyeful-sandbox:8080" env:"EYEFUL_SANDBOX_URL" help:"Where the review's sandbox runs the project's commands."`
 	Token      string     `required:"" env:"EYEFUL_GITHUB_TOKEN" help:"Token that clones, reads Actions and posts the review: the job's GITHUB_TOKEN."`
 	GitHubAPI  string     `default:"https://api.github.com" env:"GITHUB_API_URL" help:"GitHub API root; Actions sets it."`
-	ModelURL   string     `required:"" env:"EYEFUL_MODEL_URL" help:"OpenAI-compatible base URL of the provider serving the model pi's models.json names; /chat/completions is appended."`
 	ModelKey   string     `required:"" env:"EYEFUL_MODEL_KEY" help:"API key for that provider."`
-	Jev        string     `env:"EYEFUL_TYPESAFE_API_KEY" help:"TypeSafe API key for Jev, which says which findings on the same lines are one problem. Without it they are not merged."`
+	Jev        string     `required:"" env:"EYEFUL_TYPESAFE_API_KEY" help:"TypeSafe API key for Jev, which says which findings on the same lines are one problem."`
 	Agent      string     `default:"pi" env:"EYEFUL_AGENT" help:"Agent CLI the review runs: pi, claude or codex."`
 }

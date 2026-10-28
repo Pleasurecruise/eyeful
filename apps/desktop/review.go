@@ -8,7 +8,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/Pleasurecruise/eyeful/local/app"
-	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
 	"github.com/Pleasurecruise/eyeful/workflow/project"
@@ -38,9 +37,13 @@ func (r *Review) Start(ctx context.Context, base, head string, experts []string,
 		r.mu.Unlock()
 	}()
 	log := emitter(EventLog)
+	jev, err := app.Jev(slog.New(slog.NewTextHandler(log, nil)))
+	if err != nil {
+		return report.Output{}, err
+	}
 	res, err := app.Review(ctx, app.Options{
 		Dir: r.tree.root(), Range: subject.Range{Base: base, Head: head}, Experts: experts, Verification: verification, Detect: true,
-		Classifier: classify.New(slog.New(slog.NewTextHandler(log, nil)), ""),
+		Classifier: jev,
 		Confirm:    r.confirm, Out: io.Discard, Err: log, Log: slog.New(slog.NewTextHandler(log, nil)),
 	})
 	if err != nil {

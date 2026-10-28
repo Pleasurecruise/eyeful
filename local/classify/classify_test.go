@@ -36,7 +36,11 @@ func TestSame(t *testing.T) {
 			}
 		}))
 		t.Cleanup(srv.Close)
-		return classify.New(slog.New(slog.DiscardHandler), "token", jev.WithURL(srv.URL), jev.WithMaxRetries(0))
+		j, err := classify.New(slog.New(slog.DiscardHandler), "token", jev.WithURL(srv.URL), jev.WithMaxRetries(0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return j
 	}
 
 	t.Run("each pair gets its probability", func(t *testing.T) {
@@ -58,8 +62,8 @@ func TestSame(t *testing.T) {
 		}
 	})
 
-	t.Run("without a key nothing is asked", func(t *testing.T) {
-		if _, _, err := classify.New(slog.New(slog.DiscardHandler), "").Same(t.Context(), pairs); !errors.Is(err, classify.ErrNotConfigured) {
+	t.Run("a key is required", func(t *testing.T) {
+		if _, err := classify.New(slog.New(slog.DiscardHandler), ""); !errors.Is(err, classify.ErrNoKey) {
 			t.Fatalf("error %v", err)
 		}
 	})

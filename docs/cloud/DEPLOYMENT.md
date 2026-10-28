@@ -28,7 +28,7 @@ sandbox image holds `eyeful-sandbox` and the Go, Node and Python toolchains.
 
 ```mermaid
 flowchart TB
-    gh["Pull request<br/>opened, or mentioned"] --> job["Actions job<br/>eyeful.yml"]
+    gh["Pull request<br/>opened, or mentioned"] --> job["Actions job<br/>review.yml"]
     job --> action["Review container<br/>eyeful-action"]
     action -->|"127.0.0.1:8081"| proxy["models proxy"] --> provider["Model provider"]
     action -->|Jev| typesafe["TypeSafe API"]
@@ -42,15 +42,35 @@ Both containers share a Docker network `eyeful` and the directory `$RUNNER_TEMP/
 
 ### Turn on reviews {#turn-on-reviews}
 
-1. Add the repository variable `EYEFUL_MODEL_URL`, the OpenAI-compatible base URL of a provider
-   serving the model in `cmd/eyeful-action/pi/models.json`, and the repository secrets
-   `EYEFUL_MODEL_KEY`, that provider's key, and `EYEFUL_TYPESAFE_API_KEY`, which Jev needs.
-2. Add a workflow like `.github/workflows/eyeful.yml`. In another repository, replace the checkout
-   and `uses: ./` with `uses: Pleasurecruise/eyeful@main`. Keep the job's `if`, which admits only
-   owners, members and collaborators, and its permissions: Contents (read), Pull requests (write),
-   Issues (write) and Actions (read).
-3. Never check out the pull request's head in that workflow; `eyeful-action` clones it itself and
-   runs its code only in the sandbox.
+1. In the repository's Settings → Secrets and variables → Actions, add two secrets:
+   `EYEFUL_MODEL_KEY`, an API key from the [Volcengine Ark console](https://console.volcengine.com/ark)
+   with the Coding Plan, and `EYEFUL_TYPESAFE_API_KEY`, a key from [TypeSafe](https://docs.typesafe.ai).
+2. Add `.github/workflows/eyeful.yml`:
+
+```yaml
+name: eyeful
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  review:
+    uses: Pleasurecruise/eyeful/.github/workflows/review.yml@main
+    secrets: inherit
+```
+
+The reusable workflow `.github/workflows/review.yml` holds the rest: who may start a review, one
+review per pull request at a time, and the action's inputs. It never checks out the pull request;
+`eyeful-action` clones it and runs its code only in the sandbox.
 
 ## Local
 
@@ -63,7 +83,8 @@ flowchart LR
 ```
 
 Local mode installs only the app itself. It needs no server, database, eyeful account or model key,
-because the agents are the coding tools the user is already signed in to.
+because the agents are the coding tools the user is already signed in to; only Jev needs a TypeSafe
+API key.
 
 `eyeful review` runs a review with the agent chosen by `eyeful connect`; the desktop app does the
 same from a window ([The desktop app](../LOCAL.md#desktop)). What

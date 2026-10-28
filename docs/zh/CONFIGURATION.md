@@ -30,16 +30,17 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 
 ## 本地设置 {#local}
 
-`eyeful connect` 会写入用户配置目录下的 `eyeful/settings.json`（macOS 上是 `~/Library/Application Support`，Linux 上是 `$XDG_CONFIG_HOME` 或 `~/.config`）：
+`eyeful connect` 和 `eyeful jev` 会写入用户配置目录下、只有用户本人可读的 `eyeful/settings.json`（macOS 上是 `~/Library/Application Support`，Linux 上是 `$XDG_CONFIG_HOME` 或 `~/.config`）：
 
 ```json
 {
 	"agent": "claude",
-	"repository": "/Users/me/src/app"
+	"repository": "/Users/me/src/app",
+	"typesafe_api_key": "…"
 }
 ```
 
-没有连接 agent 时 `eyeful review` 会报错。`repository` 是桌面端上一次显示的仓库，桌面端不在仓库里启动时会打开它。设置文件旁边的 `eyeful/confirmed` 为每次确认保存一个哈希，由仓库路径和在那里确认过的命令算出，所以仓库没法自带一份确认记录。每个项目在 `.eyeful/runs/` 下保存历次审查的运行记录。这个目录里有一个内容为 `*` 的 `.gitignore`，所以 git 看不到它，它也不会被纳入审查。
+没有连接 agent、或没有用 `eyeful jev` 或桌面端的 key 按钮保存 TypeSafe API key 时，`eyeful review` 和桌面端会报错；[Jev](ARCHITECTURE.md#jev) 用这个 key 合并发现。`repository` 是桌面端上一次显示的仓库，桌面端不在仓库里启动时会打开它。设置文件旁边的 `eyeful/confirmed` 为每次确认保存一个哈希，由仓库路径和在那里确认过的命令算出，所以仓库没法自带一份确认记录。每个项目在 `.eyeful/runs/` 下保存历次审查的运行记录。这个目录里有一个内容为 `*` 的 `.gitignore`，所以 git 看不到它，它也不会被纳入审查。
 
 ## Action 配置 {#action}
 
@@ -49,11 +50,11 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 
 | 密钥                      | 用途                                                       |
 | ------------------------- | ---------------------------------------------------------- |
-| `EYEFUL_MODEL_KEY`        | `EYEFUL_MODEL_URL` 上 provider 的 API key。                |
-| `EYEFUL_TYPESAFE_API_KEY` | Jev 用的 TypeSafe API key。可选；没有时不合并发现。        |
+| `EYEFUL_MODEL_KEY`        | pi `models.json` 中模型所用的火山方舟 API key。            |
+| `EYEFUL_TYPESAFE_API_KEY` | Jev 用的 TypeSafe API key。                                |
 | `EYEFUL_GITHUB_TOKEN`     | job 的 `GITHUB_TOKEN`，用来克隆、读取 Actions 和发布审查。 |
 
-在 GitHub 上，前两个是传给 action 输入的仓库 secrets（见[部署](cloud/DEPLOYMENT.md#turn-on-reviews)）。在本地它们放在根目录的 `.env` 里，git 忽略它，mise 以 `redact` 方式加载；`.env.example` 列出了它们。`eyeful review` 用 `EYEFUL_TYPESAFE_API_KEY` 调用 [Jev](ARCHITECTURE.md#jev)；没有它时不合并发现。
+在 GitHub 上，前两个是传给 action 输入的仓库 secrets（见[部署](cloud/DEPLOYMENT.md#turn-on-reviews)）。手动运行 `eyeful-action` 时，它们放在根目录的 `.env` 里，git 忽略它，mise 以 `redact` 方式加载；`.env.example` 列出了它们。本地审查则从[本地设置](#local)里读取 key。
 
 ### 变量 {#variables}
 
@@ -67,9 +68,8 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 | `GITHUB_API_URL`     | GitHub API 根地址。默认 `https://api.github.com`。                          |
 | `EYEFUL_DIR`         | 检出和审查文件所在目录，以只读方式共享给沙箱。默认 `/work`。                |
 | `EYEFUL_SANDBOX_URL` | 这次审查的沙箱。默认 `http://eyeful-sandbox:8080`。                         |
-| `EYEFUL_MODEL_URL`   | 提供 pi 所用模型的 provider 的 OpenAI 兼容地址；是仓库变量。                |
 | `EYEFUL_AGENT`       | 审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
 | `EYEFUL_LOG_LEVEL`   | `debug`、`info`、`warn` 或 `error`。默认 `info`。                           |
 | `DOCS_URL`           | 文档站的公开地址，用于 sitemap、robots 和 `llms.txt`。写在 `mise.toml` 里。 |
 
-云端审查用的模型写在 `cmd/eyeful-action/pi/` 里 pi 自己的设置中，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。
+云端审查用的模型和它的 provider 地址都固定在 `cmd/eyeful-action` 里：pi 的设置在 `pi/` 下，地址就在旁边，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。

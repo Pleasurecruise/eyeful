@@ -1,6 +1,6 @@
 # 本地运行
 
-本地审查在用户的机器上运行，通过 `eyeful review` 或[桌面应用](#desktop)。它不需要 eyeful 账号、服务器或模型密钥：agent 就是用户已经登录的编码工具。
+本地审查在用户的机器上运行，通过 `eyeful review` 或[桌面应用](#desktop)。它不需要 eyeful 账号、服务器或模型密钥：agent 就是用户已经登录的编码工具。它只需要一个 key：[Jev](#classifier) 用的 TypeSafe API key。
 
 ## 命令
 
@@ -9,6 +9,7 @@
 ```sh
 eyeful provider                             # 各个 agent：是否已连接、是否已安装
 eyeful connect claude                       # 或 codex、pi
+eyeful jev < key.txt                        # TypeSafe API key；也可以在提示时粘贴
 eyeful review                               # 未提交的改动；由规划器挑选专家
 eyeful review security                      # 一个专家审查所有改动的文件
 eyeful review --head HEAD --base main --verification execution
@@ -102,7 +103,7 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 
 ## 分类器 {#classifier}
 
-`local/classify` 通过 TypeSafe 的 API 向 [Jev](ARCHITECTURE.md#jev) 提问，key 取自 [`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets)。没有它时不合并发现。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
+`local/classify` 通过 TypeSafe 的 API 向 [Jev](ARCHITECTURE.md#jev) 提问，key 取自 `eyeful jev` 保存的[本地设置](CONFIGURATION.md#local)。没有它审查不会开始。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
 
 ## 本地风险 {#local-risks}
 

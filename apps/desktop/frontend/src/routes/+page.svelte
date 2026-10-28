@@ -52,6 +52,7 @@
 	import type { Finding, Output } from '#bindings/workflow/report';
 	import { m } from '#i18n';
 	import AgentMenu from '#lib/agent-menu.svelte';
+	import JevKey from '#lib/jev-key.svelte';
 	import FindingNote from '#lib/finding-note.svelte';
 	import Findings from '#lib/findings.svelte';
 	import { switchLocale } from '#lib/locale.svelte.ts';
@@ -99,6 +100,7 @@
 	let experts = $state<string[]>([]);
 	let mode = $state(modes[0]);
 	let agent = $state<string>();
+	let jev = $state(false);
 
 	let pending = $state.raw<CancellablePromise<Output> | null>(null);
 	let output = $state.raw<Output | null>(null);
@@ -297,6 +299,7 @@
 				</Button>
 			{/if}
 			<AgentMenu bind:connected={agent} />
+			<JevKey bind:ready={jev} />
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
@@ -595,11 +598,11 @@
 	<Button
 		size="sm"
 		class={className}
-		disabled={!agent || !changes?.files.length || pending !== null}
+		disabled={!agent || !jev || !changes?.files.length || pending !== null}
 		onclick={start}
 	>
 		{#if pending}<Spinner />{m.reviewing()}{:else}<Play
-			/>{#if agent}{m.start_review()}{:else}{m.connect_first()}{/if}{/if}
+			/>{#if !agent}{m.connect_first()}{:else if !jev}{m.jev_first()}{:else}{m.start_review()}{/if}{/if}
 	</Button>
 {/snippet}
 

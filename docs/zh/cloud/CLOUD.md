@@ -24,9 +24,9 @@ pi --mode json --no-session \
   --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve
 ```
 
-镜像里带着 `cmd/eyeful-action/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是 `EYEFUL_MODEL_URL` 上的 provider 提供的 DeepSeek V4.1 Flash。pi 请求 `http://127.0.0.1:8081`，`eyeful-action` 在那里带上 `EYEFUL_MODEL_KEY` 把 `POST /chat/completions` 转发给这个 provider，其他请求一律不转发。pi 拿不到任何密钥。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。
+镜像里带着 `cmd/eyeful-action/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是火山方舟上的 DeepSeek V4.1 Flash。pi 请求 `http://127.0.0.1:8081`，`eyeful-action` 在那里带上 `EYEFUL_MODEL_KEY` 把 `POST /chat/completions` 转发给这个 provider，其他请求一律不转发。pi 拿不到任何密钥。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。
 
-[Jev](../ARCHITECTURE.md#jev) 用 `EYEFUL_TYPESAFE_API_KEY` 调用 TypeSafe 的 API；没有它时同一行附近的发现不合并。
+[Jev](../ARCHITECTURE.md#jev) 用 `EYEFUL_TYPESAFE_API_KEY` 调用 TypeSafe 的 API。
 
 ## 沙箱 {#the-sandbox}
 

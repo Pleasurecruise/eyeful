@@ -2,7 +2,7 @@
 
 A local review runs on the user's machine, from `eyeful review` or the [desktop app](#desktop). It
 needs no eyeful account, server or model key: the agents are the coding tools the user is already
-signed in to.
+signed in to. It needs one key, a TypeSafe API key for [Jev](#classifier).
 
 ## Commands
 
@@ -11,6 +11,7 @@ signed in to.
 ```sh
 eyeful provider                             # the agents: connected, installed
 eyeful connect claude                       # or codex, pi
+eyeful jev < key.txt                        # the TypeSafe API key; or paste it when asked
 eyeful review                               # uncommitted changes; the planner picks the experts
 eyeful review security                      # one expert reviews every changed file
 eyeful review --head HEAD --base main --verification execution
@@ -132,8 +133,8 @@ No MCP server is configured for the agent.
 
 ## The classifier {#classifier}
 
-`local/classify` asks [Jev](ARCHITECTURE.md#jev) on TypeSafe's API, with the key in
-[`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets). Without it findings are not merged. A request carries each finding's file, line, subject and discussion, and no code.
+`local/classify` asks [Jev](ARCHITECTURE.md#jev) on TypeSafe's API, with the key in the
+[local settings](CONFIGURATION.md#local), saved by `eyeful jev`. A review does not start without it. A request carries each finding's file, line, subject and discussion, and no code.
 
 ## Local risks {#local-risks}
 

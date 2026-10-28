@@ -29,7 +29,10 @@ import (
 
 var version = "dev"
 
-const modelsAddr = "127.0.0.1:8081"
+const (
+	modelsAddr = "127.0.0.1:8081"
+	modelsURL  = "https://ark.cn-beijing.volces.com/api/coding/v3"
+)
 
 type cli struct {
 	Version kong.VersionFlag `short:"v" help:"Print the version and exit."`
@@ -66,7 +69,7 @@ func (c *cli) run() error {
 	if _, err := local.Connect(ctx, cfg.Agent); err != nil {
 		return fmt.Errorf("agent: %w", err)
 	}
-	upstream, err := url.Parse(cfg.ModelURL)
+	upstream, err := url.Parse(modelsURL)
 	if err != nil {
 		return fmt.Errorf("model provider: %w", err)
 	}
@@ -91,9 +94,13 @@ func (c *cli) run() error {
 		log.Info("skipped", slog.String("repo", src.Repo), slog.Int64("pull", src.Number), slog.String("reason", "the pull request is closed"))
 		return nil
 	}
+	jev, err := classify.New(log, cfg.Jev)
+	if err != nil {
+		return err
+	}
 	runner := harness.Runner{
 		ID: strconv.FormatInt(cfg.RunID, 10), Log: log, Clone: checkout.Clone, Dir: cfg.Dir, Token: cfg.Token,
-		Classifier: classify.New(log, cfg.Jev), Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
+		Classifier: jev, Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
 	}
 	status, err := runner.Execute(ctx, src)
 	if err != nil {

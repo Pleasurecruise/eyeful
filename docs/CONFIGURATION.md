@@ -38,17 +38,19 @@ no expert ([Triage](PLANNER.md#triage)).
 
 ## Local settings {#local}
 
-`eyeful connect` writes `eyeful/settings.json` in the user's configuration
+`eyeful connect` and `eyeful jev` write `eyeful/settings.json`, readable only by the user, in the user's configuration
 directory (`~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` or `~/.config` on Linux):
 
 ```json
 {
 	"agent": "claude",
-	"repository": "/Users/me/src/app"
+	"repository": "/Users/me/src/app",
+	"typesafe_api_key": "…"
 }
 ```
 
-`eyeful review` fails until an agent is connected. `repository` is the last repository the desktop
+`eyeful review` and the desktop app fail until an agent is connected and a TypeSafe API key is saved,
+with `eyeful jev` or the desktop's key button; [Jev](ARCHITECTURE.md#jev) uses it to merge findings. `repository` is the last repository the desktop
 app showed, which it opens when started outside one. Beside the settings, `eyeful/confirmed` holds one
 hash per confirmation, of the repository's path and the commands confirmed there, so a repository
 cannot ship a confirmation of its own. Each project keeps its review runs under `.eyeful/runs/`.
@@ -64,14 +66,14 @@ missing, the program fails instead of guessing.
 
 | Secret                    | Purpose                                                                     |
 | ------------------------- | --------------------------------------------------------------------------- |
-| `EYEFUL_MODEL_KEY`        | API key for the provider at `EYEFUL_MODEL_URL`.                             |
-| `EYEFUL_TYPESAFE_API_KEY` | TypeSafe API key for Jev. Optional; without it findings are not merged.     |
+| `EYEFUL_MODEL_KEY`        | Volcengine Ark API key for the model in pi's `models.json`.                 |
+| `EYEFUL_TYPESAFE_API_KEY` | TypeSafe API key for Jev.                                                   |
 | `EYEFUL_GITHUB_TOKEN`     | The job's `GITHUB_TOKEN`, which clones, reads Actions and posts the review. |
 
 In GitHub the first two are repository secrets passed to the action's inputs
-([Deployment](cloud/DEPLOYMENT.md#turn-on-reviews)). Locally they live in the root `.env`, which git
-ignores and mise loads with `redact`; `.env.example` lists them. `eyeful review` uses
-`EYEFUL_TYPESAFE_API_KEY` for [Jev](ARCHITECTURE.md#jev); without it it does not merge findings.
+([Deployment](cloud/DEPLOYMENT.md#turn-on-reviews)). To run `eyeful-action` by hand they live in the root
+`.env`, which git ignores and mise loads with `redact`; `.env.example` lists them. Local reviews read
+the key from the [local settings](#local) instead.
 
 ### Variables {#variables}
 
@@ -85,10 +87,10 @@ Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mi
 | `GITHUB_API_URL`     | GitHub API root. Default `https://api.github.com`.                                            |
 | `EYEFUL_DIR`         | The checkout and the review's files, shared read-only with the sandbox. Default `/work`.      |
 | `EYEFUL_SANDBOX_URL` | The review's sandbox. Default `http://eyeful-sandbox:8080`.                                   |
-| `EYEFUL_MODEL_URL`   | OpenAI-compatible base URL of the provider serving pi's model; a repository variable.         |
 | `EYEFUL_AGENT`       | Agent CLI the review connects: `pi`, `claude` or `codex`. Default `pi`.                       |
 | `EYEFUL_LOG_LEVEL`   | `debug`, `info`, `warn` or `error`. Default `info`.                                           |
 | `DOCS_URL`           | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`. |
 
-The model a cloud review uses is set in pi's own settings in `cmd/eyeful-action/pi/`, not by a
-variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).
+The model a cloud review uses and its provider's address are fixed in `cmd/eyeful-action`: pi's
+settings in `pi/` and the address beside them, not variables
+([Agents and models](cloud/CLOUD.md#agents-and-models)).
