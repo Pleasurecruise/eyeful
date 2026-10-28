@@ -1,6 +1,6 @@
 # References
 
-The standards eyeful reviews against, and the two projects it builds on.
+The standards eyeful reviews against, and the three projects it builds on.
 
 ## Software quality
 
@@ -111,15 +111,23 @@ From [umputun/revmux](https://github.com/umputun/revmux):
 | Carry on with less when a step fails                    | [Stages](REVIEW.md#stages)                   |
 | Pass the previous round's findings to the next          | [Rounds](REPORT.md#rounds)                   |
 | Keep a round's input beside its output                  | `snapshot.json` and `change.diff`            |
-| One process per reviewer                                | Each [expert](EXPERTS.md) runs once          |
+| One process per reviewer                                | Each [expert](EXPERTS.md) runs on its own    |
 | A cap on concurrent reviewers and time limits per call  | [Agents](LOCAL.md#agents)                    |
+
+From [alibaba/open-code-review](https://github.com/alibaba/open-code-review) (Apache-2.0),
+compared on 2026-10-28 after a 58-minute cloud review:
+
+| Idea                                                              | Where                                                 |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| Eight experts or judges at once, and a 15-minute cap on each call | [Agents](LOCAL.md#agents)                             |
+| A time limit on each model request                                | [Agents and models](cloud/CLOUD.md#agents-and-models) |
 
 ## Compared with similar tools {#compared}
 
-|                           | Claude Code ultrareview       | revmux                             | eyeful                                                         |
-| ------------------------- | ----------------------------- | ---------------------------------- | -------------------------------------------------------------- |
-| Who picks reviewers       | Not published                 | The caller picks a profile         | A planner groups the change; Go picks by rule                  |
-| What is reviewed          | Bugs                          | What the profile's lenses cover    | Design, functionality, security, tests, usability, readability |
-| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code       | The verifier runs a test; the rest is marked `review`          |
-| Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text | Conventional Comments in a ranked report                       |
-| Where it runs             | Anthropic's cloud             | Inside the reviewed repository     | The user's machine, or a sandbox per pull request              |
+|                           | Claude Code ultrareview       | revmux                             | Open Code Review                                      | eyeful                                                         |
+| ------------------------- | ----------------------------- | ---------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Who picks reviewers       | Not published                 | The caller picks a profile         | Rules match files; one agent per file bundle          | A planner groups the change; Go picks by rule                  |
+| What is reviewed          | Bugs                          | What the profile's lenses cover    | Defects, guided by review rules per file              | Design, functionality, security, tests, usability, readability |
+| How findings are verified | Reproduced in a cloud sandbox | Another agent reads the code       | A reflection pass re-reads each comment; nothing runs | The verifier runs a test; the rest is marked `review`          |
+| Feedback                  | Findings, without fixes       | JSON or Markdown with a `fix` text | Line comments and a summary                           | Conventional Comments in a ranked report                       |
+| Where it runs             | Anthropic's cloud             | Inside the reviewed repository     | The user's machine, CI jobs and IDE plugins           | The user's machine, or a sandbox per pull request              |

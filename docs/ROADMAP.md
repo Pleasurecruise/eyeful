@@ -70,7 +70,7 @@ The workflow on pull requests through a GitHub Action
 | Checkout of the pull request, with commands taken from the base commit          | Built |
 | The CI check against GitHub Actions                                             | Built |
 | A review container running the local workflow                                   | Built |
-| Models from any OpenAI-compatible provider, with no key in pi's reach           | Built |
+| Models through Volcengine Ark, with no key in pi's reach                        | Built |
 | A `COMMENT` review for line comments, and the ranked report as one comment      | Built |
 | The sandbox container, so the project's commands run only there                 | Built |
 | The sandbox reaching only package registries                                    | To do |

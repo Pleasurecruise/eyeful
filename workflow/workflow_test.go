@@ -1143,11 +1143,15 @@ func TestReproductionCommand(t *testing.T) {
 func TestParallel(t *testing.T) {
 	files := make([]workflow.File, 6)
 	groups := make([]pulls.DiffGroup, 6)
-	panel := make([]workflow.Expert, 6)
+	panel := make([]workflow.Expert, 10)
+	names := make([]string, len(panel))
 	for i := range files {
 		files[i] = workflow.File{Path: fmt.Sprintf("app/m%d.py", i), Added: 1, Diff: gitDiff(fmt.Sprintf("app/m%d.py", i), "x")}
 		groups[i] = group(fmt.Sprintf("m%d", i), "security", false, files[i].Path)
-		panel[i] = workflow.Expert{Name: fmt.Sprintf("e%d", i), Tier: workflow.TierMid, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}}
+	}
+	for i := range panel {
+		names[i] = fmt.Sprintf("e%d", i)
+		panel[i] = workflow.Expert{Name: names[i], Tier: workflow.TierMid, Evidence: []workflow.EvidenceKind{workflow.EvidenceInspection}}
 	}
 	setup := func(experts []string, budget int64) (*agents, *atomic.Int32, *workflow.Workflow, workflow.Request) {
 		a := base()
@@ -1196,10 +1200,10 @@ func TestParallel(t *testing.T) {
 		}
 	})
 
-	t.Run("at most four experts run at once", func(t *testing.T) {
-		a, peak, w, req := setup([]string{"e0", "e1", "e2", "e3", "e4", "e5"}, 1_000_000)
+	t.Run("at most eight experts run at once", func(t *testing.T) {
+		a, peak, w, req := setup(names, 1_000_000)
 		review(w, a, req)
-		if a.n(workflow.RoleExpert) != 6 || peak.Load() != 4 {
+		if a.n(workflow.RoleExpert) != 10 || peak.Load() != 8 {
 			t.Fatalf("experts %d, peak %d", a.n(workflow.RoleExpert), peak.Load())
 		}
 	})
@@ -1211,7 +1215,7 @@ func TestParallel(t *testing.T) {
 			judges, peak  int32
 			verifications int
 		}{
-			"a judge for each group":           {nil, 1, 6, 4, 6},
+			"a judge for each group":           {nil, 1, 6, 6, 6},
 			"a large group is read in batches": {[]string{"correctness"}, 3, 3, 3, 18},
 		} {
 			a, _, w, req := setup(tc.experts, 1_000_000)
@@ -1257,9 +1261,9 @@ func TestParallel(t *testing.T) {
 	})
 
 	t.Run("a spent budget stops the experts still waiting", func(t *testing.T) {
-		a, _, w, req := setup([]string{"e0", "e1", "e2", "e3", "e4", "e5"}, 100)
+		a, _, w, req := setup(names, 100)
 		res := review(w, a, req)
-		if res.Outcome != workflow.OutcomePartial || a.n(workflow.RoleExpert) != 4 {
+		if res.Outcome != workflow.OutcomePartial || a.n(workflow.RoleExpert) != 8 {
 			t.Fatalf("outcome %s, experts %d", res.Outcome, a.n(workflow.RoleExpert))
 		}
 	})

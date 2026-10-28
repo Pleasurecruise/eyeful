@@ -125,7 +125,7 @@ def test_expired_at_exact_boundary():
 2. 是这次改动引入或暴露的；
 3. 它改变了可观察的行为，或违反了明文约定。
 
-一个裁判一起阅读计划里同一个分组的发现，一次最多八条，最多四个裁判同时运行。被否定的发现不会被删除：它以 `open` 留在反馈里，折叠在 “Disputed” 下，旁边是裁判的理由。执行检验的是同一个判断，所以[评估](EVALUATION.md#configurations-and-conditions)里各条件的差别在于证据，而不在于什么算缺陷。
+一个裁判一起阅读计划里同一个分组的发现，一次最多八条，最多八个裁判同时运行。被否定的发现不会被删除：它以 `open` 留在反馈里，折叠在 “Disputed” 下，旁边是裁判的理由。执行检验的是同一个判断，所以[评估](EVALUATION.md#configurations-and-conditions)里各条件的差别在于证据，而不在于什么算缺陷。
 
 ## 用 SARIF 保存发现 {#sarif}
 

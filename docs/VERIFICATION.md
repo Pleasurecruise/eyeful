@@ -175,7 +175,7 @@ findings no test showed. It calls a finding valid when all three hold:
 2. the change introduces or exposes it;
 3. it changes observable behaviour or breaks a stated contract.
 
-One judge reads the findings of one plan group together, at most eight at a time, and up to four
+One judge reads the findings of one plan group together, at most eight at a time, and up to eight
 judges run at once. A rejected finding is not removed: it stays in the feedback as `open`, folded
 under "Disputed" with the judge's reason. Execution tests the same claim, so the
 [evaluation](EVALUATION.md#configurations-and-conditions)'s conditions differ in evidence, not in what

@@ -1,6 +1,6 @@
 # 一次审查的全过程
 
-一次审查经过四个阶段，都在 `workflow` 模块里实现（见[架构](ARCHITECTURE.md#workflow)）。本地审查会运行全部阶段（见[本地运行](LOCAL.md)）。云端审查在已入队的 pull request 上运行同样的阶段。在沙箱实现之前，`setup` 和项目命令不运行，发现保持未验证（见[云端运行](cloud/CLOUD.md)）。
+一次审查经过四个阶段，都在 `workflow` 模块里实现（见[架构](ARCHITECTURE.md#workflow)）。本地审查会运行全部阶段（见[本地运行](LOCAL.md)）。云端审查在 GitHub Actions 的 job 里对 pull request 运行同样的阶段，项目命令在沙箱里运行（见[云端运行](cloud/CLOUD.md)）。
 
 ```mermaid
 flowchart TB

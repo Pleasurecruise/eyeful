@@ -2,7 +2,7 @@
 
 Experts are the agents that review. Each covers part of the ISO/IEC 25010 quality model and has its
 own skills. Go picks the experts each group of the plan needs ([The plan](PLANNER.md#the-plan)) and
-runs each once over all of its groups, up to four at a time. The standards named here are listed in
+runs each once over all of its groups, up to eight at a time. The standards named here are listed in
 [References](REFERENCES.md).
 
 ## The roster {#the-roster}

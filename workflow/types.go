@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	maxParallel   = 4
+	maxParallel   = 8
 	reproRuns     = 5
 	fallbackPanel = 4
 	expertPercent = 75

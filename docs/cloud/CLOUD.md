@@ -44,6 +44,8 @@ DeepSeek V4.1 Flash on Volcengine Ark. pi calls
 to that provider with the key `EYEFUL_MODEL_KEY`. pi holds no key. When the
 provider answers 429 or a server error, pi waits and resumes the same turn, up to eight times, 5 s
 doubling to at most 60 s each; eyeful reads only pi's last answer, so a run that recovered counts.
+`eyeful-action` cancels a model request after 5 minutes, which pi then retries. Every request the provider refuses is logged with
+its status.
 
 [Jev](../ARCHITECTURE.md#jev) is called on TypeSafe's API with `EYEFUL_TYPESAFE_API_KEY`.
 

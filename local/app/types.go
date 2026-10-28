@@ -42,7 +42,7 @@ const (
 	historyFile    = "history.md"
 	commandTimeout = 10 * time.Minute
 	idleTimeout    = 2 * time.Minute
-	hardTimeout    = 20 * time.Minute
+	hardTimeout    = 15 * time.Minute
 )
 
 var (

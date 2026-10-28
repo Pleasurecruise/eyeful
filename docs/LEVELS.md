@@ -22,7 +22,7 @@ every turn an agent takes, so a review's bill is higher than its token count.
 
 - Go checks the budget before starting each agent, so running agents still finish.
 - The planner and the experts may spend three quarters; the rest is kept for verification.
-- At most four experts run at once ([Running locally](LOCAL.md#agents)).
+- At most eight experts run at once ([Running locally](LOCAL.md#agents)).
 - When the budget runs out the review starts no more agents and returns what it verified, with
   result `partial`.
 

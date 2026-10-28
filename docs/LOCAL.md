@@ -125,9 +125,9 @@ block matching the role's schema; a missing or invalid block is retried once.
   on the `PATH`.
 - **Tokens.** eyeful counts what a call processes for the first time: input, output and cache
   writes. Cache reads are left out. Usage is billed to the user's own subscription.
-- **Time.** A call that writes nothing for 2 minutes, or runs for 20, is stopped. A call stopped for
+- **Time.** A call that writes nothing for 2 minutes, or runs for 15, is stopped. A call stopped for
   silence or a tool error runs once more.
-- **Concurrency.** At most four experts run at once.
+- **Concurrency.** At most eight experts run at once.
 
 No MCP server is configured for the agent.
 

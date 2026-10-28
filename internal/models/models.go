@@ -1,13 +1,15 @@
 package models
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 )
 
-func Proxy(log *slog.Logger, upstream *url.URL, token string) http.Handler {
+func Proxy(log *slog.Logger, upstream *url.URL, token string, timeout time.Duration) http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(upstream)
@@ -25,6 +27,8 @@ func Proxy(log *slog.Logger, upstream *url.URL, token string) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		proxy.ServeHTTP(w, r)
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
+		defer cancel()
+		proxy.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

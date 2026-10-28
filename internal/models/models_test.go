@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProxy(t *testing.T) {
@@ -20,7 +21,7 @@ func TestProxy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proxy := httptest.NewServer(Proxy(slog.New(slog.DiscardHandler), base, "provider-key"))
+	proxy := httptest.NewServer(Proxy(slog.New(slog.DiscardHandler), base, "provider-key", time.Minute))
 	defer proxy.Close()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL+"/chat/completions", strings.NewReader(`{}`))
 	if err != nil {
@@ -63,7 +64,7 @@ func TestProxyLogsFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	var logs strings.Builder
-	proxy := httptest.NewServer(Proxy(slog.New(slog.NewTextHandler(&logs, nil)), base, "provider-key"))
+	proxy := httptest.NewServer(Proxy(slog.New(slog.NewTextHandler(&logs, nil)), base, "provider-key", time.Minute))
 	defer proxy.Close()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL+"/chat/completions", strings.NewReader(`{}`))
 	if err != nil {
@@ -76,5 +77,34 @@ func TestProxyLogsFailures(t *testing.T) {
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusTooManyRequests || !strings.Contains(logs.String(), "status=429") || !strings.Contains(logs.String(), "retry_after=30") || strings.Contains(logs.String(), "provider-key") {
 		t.Fatalf("status %d, logs %q", res.StatusCode, logs.String())
+	}
+}
+
+func TestProxyTimesOut(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
+	}))
+	defer upstream.Close()
+	base, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewServer(Proxy(slog.New(slog.DiscardHandler), base, "provider-key", 50*time.Millisecond))
+	defer proxy.Close()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL+"/chat/completions", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	res, err := proxy.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusBadGateway || time.Since(start) > 500*time.Millisecond {
+		t.Fatalf("a stuck request held for %s and answered %d", time.Since(start), res.StatusCode)
 	}
 }

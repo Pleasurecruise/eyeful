@@ -30,8 +30,9 @@ import (
 var version = "dev"
 
 const (
-	modelsAddr = "127.0.0.1:8081"
-	modelsURL  = "https://ark.cn-beijing.volces.com/api/coding/v3"
+	modelsAddr    = "127.0.0.1:8081"
+	modelsURL     = "https://ark.cn-beijing.volces.com/api/coding/v3"
+	modelsTimeout = 5 * time.Minute
 )
 
 type cli struct {
@@ -78,7 +79,7 @@ func (c *cli) run() error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", modelsAddr, err)
 	}
-	srv := &http.Server{Handler: models.Proxy(log, upstream, cfg.ModelKey), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: models.Proxy(log, upstream, cfg.ModelKey, modelsTimeout), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			log.Error("models proxy", slog.Any("error", err))
