@@ -42,35 +42,23 @@ Both containers share a Docker network `eyeful` and the directory `$RUNNER_TEMP/
 
 ### Turn on reviews {#turn-on-reviews}
 
-1. In the repository's Settings → Secrets and variables → Actions, add two secrets:
-   `EYEFUL_MODEL_KEY`, an API key from the [Volcengine Ark console](https://console.volcengine.com/ark)
-   with the Coding Plan, and `EYEFUL_TYPESAFE_API_KEY`, a key from [TypeSafe](https://docs.typesafe.ai).
-2. Add `.github/workflows/eyeful.yml`:
+You need a Volcengine Ark API key with the Coding Plan ([console](https://console.volcengine.com/ark)),
+a [TypeSafe](https://docs.typesafe.ai) API key, and the [GitHub CLI](https://cli.github.com) signed
+in. In the repository, on its default branch, run:
 
-```yaml
-name: eyeful
-
-on:
-  pull_request_target:
-    types: [opened, ready_for_review]
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
-
-jobs:
-  review:
-    uses: Pleasurecruise/eyeful/.github/workflows/review.yml@main
-    secrets: inherit
+```sh
+gh secret set EYEFUL_MODEL_KEY          # paste the Volcengine Ark key
+gh secret set EYEFUL_TYPESAFE_API_KEY   # paste the TypeSafe key
+curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
+  --create-dirs -o .github/workflows/eyeful.yml
+git add .github && git commit -m "ci: review pull requests with eyeful" && git push
 ```
 
-The reusable workflow `.github/workflows/review.yml` holds the rest: who may start a review, one
-review per pull request at a time, and the action's inputs. It never checks out the pull request;
-`eyeful-action` clones it and runs its code only in the sandbox.
+The first two commands store the keys as repository secrets. The third copies eyeful's own
+`.github/workflows/eyeful.yml`, which calls the reusable workflow `.github/workflows/review.yml`.
+That workflow holds the rest: who may start a review, one review per pull request at a time, and the
+action's inputs. It never checks out the pull request; `eyeful-action` clones it and runs its code
+only in the sandbox.
 
 ## Local
 

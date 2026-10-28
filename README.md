@@ -64,9 +64,19 @@ a window, with the findings beside the diff.
 
 ### On pull requests
 
-Add two repository secrets, `EYEFUL_MODEL_KEY` (Volcengine Ark) and `EYEFUL_TYPESAFE_API_KEY`, and
-copy one short workflow file ([Turn on reviews](docs/cloud/DEPLOYMENT.md#turn-on-reviews)). Pull
-requests are then reviewed when opened, and again on an `@eyeful-review` comment.
+With a Volcengine Ark key, a TypeSafe key and the [GitHub CLI](https://cli.github.com) signed in, run
+this in your repository on its default branch:
+
+```sh
+gh secret set EYEFUL_MODEL_KEY          # paste the Volcengine Ark key
+gh secret set EYEFUL_TYPESAFE_API_KEY   # paste the TypeSafe key
+curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
+  --create-dirs -o .github/workflows/eyeful.yml
+git add .github && git commit -m "ci: review pull requests with eyeful" && git push
+```
+
+Pull requests are then reviewed when opened, and again on an `@eyeful-review` comment
+([Turn on reviews](docs/cloud/DEPLOYMENT.md#turn-on-reviews)).
 
 ### Reproductions
 

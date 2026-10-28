@@ -32,31 +32,17 @@ flowchart TB
 
 ### 开启审查 {#turn-on-reviews}
 
-1. 在仓库的 Settings → Secrets and variables → Actions 里添加两个 secret：`EYEFUL_MODEL_KEY`（在[火山方舟控制台](https://console.volcengine.com/ark)开通 Coding Plan 后获取的 API key）和 `EYEFUL_TYPESAFE_API_KEY`（在 [TypeSafe](https://docs.typesafe.ai) 获取的 API key）。
-2. 添加 `.github/workflows/eyeful.yml`：
+需要一个开通了 Coding Plan 的火山方舟 API key（[控制台](https://console.volcengine.com/ark)）、一个 [TypeSafe](https://docs.typesafe.ai) API key，以及已登录的 [GitHub CLI](https://cli.github.com)。在仓库的默认分支上运行：
 
-```yaml
-name: eyeful
-
-on:
-  pull_request_target:
-    types: [opened, ready_for_review]
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
-
-jobs:
-  review:
-    uses: Pleasurecruise/eyeful/.github/workflows/review.yml@main
-    secrets: inherit
+```sh
+gh secret set EYEFUL_MODEL_KEY          # 粘贴火山方舟 key
+gh secret set EYEFUL_TYPESAFE_API_KEY   # 粘贴 TypeSafe key
+curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
+  --create-dirs -o .github/workflows/eyeful.yml
+git add .github && git commit -m "ci: review pull requests with eyeful" && git push
 ```
 
-其余都在可复用 workflow `.github/workflows/review.yml` 里：谁能发起审查、同一 pull request 同时只跑一次审查、action 的输入。它从不检出 pull request；`eyeful-action` 自己克隆，并且只在沙箱里运行它的代码。
+前两条命令把 key 存成仓库 secrets。第三条复制 eyeful 自己的 `.github/workflows/eyeful.yml`，它调用可复用 workflow `.github/workflows/review.yml`。其余都在那里：谁能发起审查、同一 pull request 同时只跑一次审查、action 的输入。它从不检出 pull request；`eyeful-action` 自己克隆，并且只在沙箱里运行它的代码。
 
 ## 本地
 
