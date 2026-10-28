@@ -3,7 +3,7 @@ package pulls
 import (
 	"errors"
 
-	"github.com/Calcium-Ion/moejs"
+	"github.com/MoeForge/moejs"
 )
 
 type Core struct {

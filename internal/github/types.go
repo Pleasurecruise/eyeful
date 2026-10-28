@@ -20,7 +20,4 @@ const (
 	markerRoom   = 256
 )
 
-var (
-	ErrNoKey   = errors.New("GitHub App private key is not configured")
-	ErrTooLong = errors.New("longer than a GitHub comment can be")
-)
+var ErrTooLong = errors.New("longer than a GitHub comment can be")

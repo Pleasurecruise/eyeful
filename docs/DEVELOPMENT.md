@@ -8,9 +8,8 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run dev:cloud` runs the cloud locally; it needs Docker, keeps the Durable Objects and R2 in a
-local store, and links `packages/worker/.env` to the root `.env` for the secrets. The CLI, the
-desktop app and the evaluation keep everything in files.
+`mise run build:action` builds the cloud's two images; it needs Docker. The CLI, the desktop app and
+the evaluation keep everything in files.
 
 The desktop app needs the platform's webview: it is built into
 macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-4-dev` and `libwebkitgtk-6.0-dev` on Ubuntu 24.04).
@@ -19,7 +18,7 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 
 | Command                                    | Does                                                                                          |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `mise run dev:cloud`                       | `cf dev`: the Worker on `:5173` (Vite) and the server in a local Container                    |
+| `mise run build:action`                    | The review and sandbox images that `action.yml` runs                                          |
 | `mise run install`                         | The local CLI `eyeful` into `~/.local/bin`, which must be on `PATH`; rerun after a Go upgrade |
 | `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`              |
 | `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                    |
@@ -27,15 +26,15 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 | `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests                                        |
 | `mise run format`                          | gofmt and `vp fmt`                                                                            |
 | `mise run lint`                            | gofmt check, golangci-lint, `vp check`, `typecheck` in every package                          |
-| `mise run generate`                        | The pulls.review core bundle, the desktop bindings and the Worker types                       |
+| `mise run generate`                        | The pulls.review core bundle and the desktop bindings                                         |
 | `mise run check`                           | lint + test + generate, failing if generated files drift                                      |
 
-The GitHub App's permissions and events are in [Deploy](cloud/DEPLOYMENT.md#deploy).
+The workflow's triggers and permissions are in [Deployment](cloud/DEPLOYMENT.md#turn-on-reviews).
 
 ## Configuration
 
 Values live only at the repository root: credentials in `.env`, shared local settings in
-`mise.toml`. Every variable and flag is listed in [Configuration](CONFIGURATION.md#server).
+`mise.toml`. Every variable and flag is listed in [Configuration](CONFIGURATION.md#action).
 
 ## Code generation
 
@@ -43,9 +42,7 @@ Values live only at the repository root: credentials in `.env`, shared local set
 `wails3 generate bindings` (`generate:bindings`) writes the desktop's services into
 `apps/desktop/frontend/bindings`, the Wails default, as classes, so a Go `nil` slice arrives as
 `[]`; git ignores that directory, and `lint`,
-`wails3 build` and `wails3 dev` regenerate it. `cf workers types` (`generate:worker`) writes the
-Worker's `Env` and runtime types into `packages/worker/.cloudflare/types`, also ignored by git. None
-of these outputs is edited by hand.
+`wails3 build` and `wails3 dev` regenerate it. None of these outputs is edited by hand.
 The desktop icon source is `apps/desktop/build/appicon.png`; `generate:icons` regenerates the macOS
 `icons.icns` and `Assets.car` plus the Windows `icon.ico` used by dev and packaged builds.
 

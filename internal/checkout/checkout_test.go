@@ -183,7 +183,7 @@ func repo(t *testing.T) (review.Source, string) {
 	run("update-ref", "refs/pull/7/head", head)
 	return review.Source{
 		Repo: "acme/eyeful", Base: "main", Head: "feature", Number: 7,
-		BaseSHA: base, HeadSHA: head, CloneURL: "file://" + dir, InstallationID: 9,
+		BaseSHA: base, HeadSHA: head, CloneURL: "file://" + dir,
 	}, dir
 }
 

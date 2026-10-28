@@ -61,7 +61,7 @@ token 预算（3,000,000）和每条项目命令的时限（10 分钟）是固�
 | 一个分支及其未提交的工作 | `--base main`          | `main` 和 `HEAD` 的 merge base | 已暂存、未暂存和未跟踪的文件 |
 | 一个提交或分支           | `--head X`、`--base Y` | `Y` 和 `X` 的 merge base       | `X`                          |
 
-使用 `--head` 时 head 必须已检出且工作区干净，因为 agent 读的是仓库里的代码。本地模式从不审查 pull request，也从不调用 eyeful 服务器（见[云端运行](cloud/CLOUD.md)）。
+使用 `--head` 时 head 必须已检出且工作区干净，因为 agent 读的是仓库里的代码。本地模式从不审查 pull request，也从不运行 eyeful action（见[云端运行](cloud/CLOUD.md)）。
 
 ## 快照 {#snapshot}
 
@@ -102,7 +102,7 @@ eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用
 
 ## 分类器 {#classifier}
 
-`local/classify` 通过 AI Gateway 向 Workers AI 上的 [Jev](ARCHITECTURE.md#jev) 提问，账号和 token 取自 [`EYEFUL_CLOUDFLARE_ACCOUNT_ID` 和 `EYEFUL_AI_GATEWAY_TOKEN`](CONFIGURATION.md#secrets)。没有它们时不合并发现。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
+`local/classify` 通过 TypeSafe 的 API 向 [Jev](ARCHITECTURE.md#jev) 提问，key 取自 [`EYEFUL_TYPESAFE_API_KEY`](CONFIGURATION.md#secrets)。没有它时不合并发现。请求里只有每条发现的文件、行号、标题和讨论，没有代码。
 
 ## 本地风险 {#local-risks}
 

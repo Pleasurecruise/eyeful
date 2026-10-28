@@ -6,28 +6,27 @@
 
 - 包以它负责的能力命名；不要 `utils`、`helpers`、`common`、`manager`、`service`。依赖方向见[整体架构](cloud/SERVER.md#dependency-direction)。
 - 每个包把自己的类型、枚举、sentinel error 和消费方接口放在 `types.go`。
-- 构造函数是参数带类型的普通函数；只有组合根（`internal/app`、`local/app`）引入 fx。没有包级状态。
+- 构造函数是参数带类型的普通函数；不使用依赖注入容器，也没有包级状态。
 - 接口属于它的消费方，只列出消费方会调用的方法。
 - HTTP handler 按 CRUD 组织，每个资源一个文件，顺序为 create、list、get、update、delete。
 
 ## 命名约定
 
-| 对象                          | 规则                                  | 示例                            |
-| ----------------------------- | ------------------------------------- | ------------------------------- |
-| Go 包、目录                   | 小写、单个单词                        | `review`、`apperror`            |
-| Go 文件                       | 小写，必要时才用 `snake_case`         | `memory_test.go`                |
-| Go 导出 / 未导出标识符        | `PascalCase` / `camelCase`            | `NewWorkerPool`、`errorHandler` |
-| Go 缩写词                     | 保持同一大小写                        | `ID`、`URL`、`reviewID`         |
-| Go 接收者                     | 一到两个字母，同一类型保持一致        | `s *MemoryStore`                |
-| Go 测试                       | `TestXxx`，一到三个词；场景放进子测试 | `TestExecuteResumes`            |
-| JSON 字段、查询参数           | `snake_case`                          | `created_at`                    |
-| URL 路径                      | 小写名词，`kebab-case`                | `/webhook`                      |
-| Schema、TS 类型、组件         | `PascalCase`                          | `Review`、`ReviewTable.svelte`  |
-| TS 变量、函数                 | `camelCase`                           | `tokenKey`                      |
-| 错误码、SQL                   | `snake_case`                          | `method_not_allowed`            |
-| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_WEBHOOK_SECRET`         |
-| CLI 参数、mise 任务、npm 包名 | `kebab-case`（任务变体用 `:`）        | `--shutdown-timeout`            |
-| 文档                          | `UPPERCASE.md`                        | `SCHEDULING.md`                 |
+| 对象                          | 规则                                  | 示例                           |
+| ----------------------------- | ------------------------------------- | ------------------------------ |
+| Go 包、目录                   | 小写、单个单词                        | `review`、`harness`            |
+| Go 文件                       | 小写，必要时才用 `snake_case`         | `memory_test.go`               |
+| Go 导出 / 未导出标识符        | `PascalCase` / `camelCase`            | `NewClient`、`notesFrom`       |
+| Go 缩写词                     | 保持同一大小写                        | `ID`、`URL`、`reviewID`        |
+| Go 接收者                     | 一到两个字母，同一类型保持一致        | `s *MemoryStore`               |
+| Go 测试                       | `TestXxx`，一到三个词；场景放进子测试 | `TestExecuteCIFailed`          |
+| JSON 字段、查询参数           | `snake_case`                          | `created_at`                   |
+| URL 路径                      | 小写名词，`kebab-case`                | `/chat/completions`            |
+| Schema、TS 类型、组件         | `PascalCase`                          | `Review`、`ReviewTable.svelte` |
+| TS 变量、函数                 | `camelCase`                           | `tokenKey`                     |
+| 环境变量                      | `UPPER_SNAKE_CASE`，前缀 `EYEFUL_`    | `EYEFUL_MODEL_KEY`             |
+| CLI 参数、mise 任务、npm 包名 | `kebab-case`（任务变体用 `:`）        | `--sandbox-url`                |
+| 文档                          | `UPPERCASE.md`                        | `SCHEDULING.md`                |
 
 名字要短且没有歧义，让包名承担上下文（`review.Store`，而不是 `review.ReviewStore`）。
 
@@ -43,7 +42,7 @@
 
 - gofmt、goimports、golangci-lint 全部干净；例外写在 `.golangci.yml`，不使用 `//nolint`。
 - 除了 `TODO(area): what`（一行，完成时删除）和 `//go:` 指令之外不写注释。`grep -rn "TODO(" cmd internal workflow local apps` 就是待办清单。
-- 错误用 `%w` 包装，用 `errors.Is`/`As` 判断；不要转成一个看似合理的默认值。返回给客户端的错误是 `apperror` 错误码；其余一律记录日志并返回 500。
+- 错误用 `%w` 包装，用 `errors.Is`/`As` 判断；不要转成一个看似合理的默认值。
 - 涉及 I/O 的函数第一个参数是 `context.Context`，不存进结构体，并约束每一次外部调用。不在持有锁时做 I/O。用 `slog` 记录日志，不记录密钥。
 - CLI 命令是带 `help`、`default`、`env` 标签和 `Run() error` 方法的 kong 结构体。
 
@@ -66,7 +65,7 @@
 
 ## 安全要求
 
-凭据遵循当前的 OWASP ASVS。比较密钥（例如 webhook 签名）时使用常量时间比较。密钥不进入沙箱、日志、错误响应或桌面端的构建产物。配置和密钥只放在仓库根目录：密钥在 `.env`，共享设置在 `mise.toml`；各个 app 和 package 都不单独放 env 文件，代码也不兜底一个内置值。
+凭据遵循当前的 OWASP ASVS。比较密钥时使用常量时间比较。密钥不进入沙箱、日志、错误响应或桌面端的构建产物。配置和密钥只放在仓库根目录：密钥在 `.env`，共享设置在 `mise.toml`；各个 app 和 package 都不单独放 env 文件，代码也不兜底一个内置值。
 
 ## 测试要求
 

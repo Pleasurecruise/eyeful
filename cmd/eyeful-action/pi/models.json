@@ -2,7 +2,7 @@
 	"$schema": "https://pi.dev/schemas/models.schema.json",
 	"providers": {
 		"volcengine": {
-			"baseUrl": "http://models.eyeful",
+			"baseUrl": "http://127.0.0.1:8081",
 			"api": "openai-completions",
 			"apiKey": "eyeful",
 			"models": [

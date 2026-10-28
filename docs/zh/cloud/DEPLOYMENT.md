@@ -1,51 +1,40 @@
 # 部署上线
 
-这一页说明 eyeful 发布了什么、各部分运行在哪里，以及生产部署需要什么。从源码运行 eyeful 见[开发](../DEVELOPMENT.md)，所有变量见[配置](../CONFIGURATION.md#server)，发布时间见[路线图](../ROADMAP.md)。
+这一页说明 eyeful 发布了什么、各部分运行在哪里，以及怎样开启云端审查。从源码运行 eyeful 见[开发](../DEVELOPMENT.md)，所有变量见[配置](../CONFIGURATION.md#action)，发布时间见[路线图](../ROADMAP.md)。
 
-云端运行在 Cloudflare 上：一个 Worker（`packages/worker`），每次审查一个 Durable Object 和一个 Container，阶段存档用 R2，模型和 Jev 走 AI Gateway。GitHub App 把 webhook 发给 Worker。本地部分是桌面应用和 `eyeful` 命令，不需要服务器。所有东西都要在 CI 通过后才发布：文档站在 `main` 上每次 CI 通过后发布到 GitHub Pages（`docs.yml`）；`v*` tag 先跑 CI 再跑 GoReleaser（`release.yml`、`.goreleaser.yml`），把 Linux 和 macOS 的 `eyeful` CLI 以压缩包、`.deb` 和 `.rpm` 形式附到 GitHub release 上。目前还没有打过任何版本。CI（`.github/workflows/ci.yml`）只运行 `mise run check`。
+云端审查通过仓库根目录的 composite action `action.yml` 在 GitHub Actions 里运行。本地部分是桌面应用和 `eyeful` 命令，不需要服务器。所有东西都要在 CI 通过后才发布：文档站在 `main` 上每次 CI 通过后发布到 GitHub Pages（`docs.yml`）；`v*` tag 先跑 CI 再跑 GoReleaser（`release.yml`、`.goreleaser.yml`），把 Linux 和 macOS 的 `eyeful` CLI 以压缩包、`.deb` 和 `.rpm` 形式附到 GitHub release 上。目前还没有打过任何版本。CI（`.github/workflows/ci.yml`）运行 `mise run check`。
 
 ## 产物
 
-| 产物              | 构建方式                                           | 运行在                          |
-| ----------------- | -------------------------------------------------- | ------------------------------- |
-| Worker 和服务镜像 | `packages/worker` 里的 `cf deploy`（`Dockerfile`） | Cloudflare Workers + Containers |
-| 桌面应用          | `mise run package:desktop`（Wails）                | macOS、Windows、Linux           |
-| `eyeful`          | `mise run install`，或 `v*` tag（GoReleaser）      | 用户的机器                      |
-| 文档站            | `mise run build:docs`（VitePress）                 | `DOCS_URL` 上的 GitHub Pages    |
+| 产物               | 构建方式                                                              | 运行在                       |
+| ------------------ | --------------------------------------------------------------------- | ---------------------------- |
+| 审查镜像和沙箱镜像 | 每个 job 里由 `action.yml` 构建（`Dockerfile`、`Dockerfile.sandbox`） | GitHub Actions runner        |
+| 桌面应用           | `mise run package:desktop`（Wails）                                   | macOS、Windows、Linux        |
+| `eyeful`           | `mise run install`，或 `v*` tag（GoReleaser）                         | 用户的机器                   |
+| 文档站             | `mise run build:docs`（VitePress）                                    | `DOCS_URL` 上的 GitHub Pages |
 
-镜像里有 `eyeful-server`、git、装在 `/opt/pi` 下的 pi `1.3.0`、带着 `packages/worker/pi/` 下 pi 设置的用户 `agent`，以及以 `agent` 身份运行 pi 的 `/usr/local/bin/pi`。`Dockerfile.sandbox` 构建沙箱。
+审查镜像里有 `eyeful-action`、git、`/opt/pi` 下的 pi `1.4.0`、带有 `cmd/eyeful-action/pi/` 中 pi 设置的用户 `agent`，以及以 `agent` 身份运行 pi 的 `/usr/local/bin/pi`。沙箱镜像里有 `eyeful-sandbox` 和 Go、Node、Python 工具链。
 
 ## 云端
 
 ```mermaid
 flowchart TB
-    gh["GitHub App<br/>webhook"] -->|HTTPS| worker["Worker<br/>eyeful.you-find.me"]
-    worker --> do["Durable Object<br/>one per review"]
-    do --> server["Container<br/>eyeful-server serve"]
-    server -->|"runs.eyeful"| runs["Runs entrypoint"] --> r2[("R2<br/>eyeful-runs")]
-    server -->|"models.eyeful"| models["Models entrypoint"] --> gateway["AI Gateway<br/>default"]
-    server -->|"jev.eyeful"| jev["Jev entrypoint"] --> gateway
-    server -->|clone, publish| github["GitHub"]
-    server -->|"sandbox.eyeful"| workspace["Workspace entrypoint"] --> sandbox["Sandbox Container<br/>one per review"]
-    sandbox -->|"github.com"| git["Git entrypoint<br/>read-only token"] --> github
+    gh["Pull request<br/>opened, or mentioned"] --> job["Actions job<br/>eyeful.yml"]
+    job --> action["Review container<br/>eyeful-action"]
+    action -->|"127.0.0.1:8081"| proxy["models proxy"] --> provider["Model provider"]
+    action -->|Jev| typesafe["TypeSafe API"]
+    action -->|clone, publish| github["GitHub"]
+    action -->|"eyeful-sandbox:8080"| sandbox["Sandbox container<br/>no credentials"]
+    sandbox -->|"reads /work, read-only"| action
 ```
 
-`packages/worker/cloudflare.config.ts` 声明了全部内容：Worker `eyeful` 挂在自定义域名 `eyeful.you-find.me` 上，`workers.dev` 和 Preview URL 都关闭；Container `eyeful-server` 和 `eyeful-sandbox`（`standard-1`，各最多五个）；R2 bucket `eyeful-runs`；Workers AI binding；gateway id（`default`）；以及六个必填 secret。Durable Object 在启动 Container 之前把三个内部地址路由到 Worker 的各个入口，所以 Container 里没有 gateway token、R2 凭据或 webhook secret（见[云端运行](CLOUD.md#credentials)）。
+两个容器共用 Docker 网络 `eyeful` 和目录 `$RUNNER_TEMP/eyeful`，挂载在 `/work`：审查容器可读写，沙箱只读。
 
-### AI Gateway
+### 开启审查 {#turn-on-reviews}
 
-账号的 `default` gateway 开启了认证，provider 密钥存在它的 Secrets Store 里。模型使用 `volcengine` 自定义 provider，它的密钥是 secret `default_volcengine_default`。Jev 使用 Workers AI，不需要 provider 密钥。
-
-### 部署 {#deploy}
-
-账号需要 Workers Paid 计划，因为 Containers 需要它。Docker 必须在运行，因为 `cf deploy` 会构建镜像。
-
-1. 按 `.env.example` 填好根目录的 `.env`。`EYEFUL_AI_GATEWAY_TOKEN` 是对该账号有 AI Gateway Run 和 Workers AI Read 权限的 Cloudflare API token；`EYEFUL_GITHUB_APP_PRIVATE_KEY` 是 App 的 PEM，写成一行、每个换行写成 `\n`，用双引号包起来。
-2. 在 `packages/worker` 下，`pnpm exec cf deploy --secrets-file ../../.env` 会构建镜像，首次部署时创建 R2 bucket，并上传 Worker、Container 和 secret。
-3. 在 GitHub App 里启用 webhook，URL 设为 `https://eyeful.you-find.me/webhook`，secret 设为 `EYEFUL_WEBHOOK_SECRET`，订阅 Pull request 和 Issue comment 事件，并授予 Contents（只读）、Pull requests（读写）、Issues（读写）、Checks（读写）、Actions（只读）和 Metadata（只读）。把 App 安装到要审查的仓库上。
-4. 在每个仓库 `main` 的规则里，把 `eyeful` 设为必需的状态检查。
-
-之后用 `pnpm exec cf workers secrets update` 修改单个 secret；运行中的 Container 在下一个启动时才看到新值。
+1. 添加仓库变量 `EYEFUL_MODEL_URL`，即提供 `cmd/eyeful-action/pi/models.json` 中模型的 provider 的 OpenAI 兼容地址；再添加仓库 secrets `EYEFUL_MODEL_KEY`（这个 provider 的密钥）和 `EYEFUL_TYPESAFE_API_KEY`（Jev 需要）。
+2. 添加一个和 `.github/workflows/eyeful.yml` 类似的 workflow。在其他仓库里，把检出和 `uses: ./` 换成 `uses: Pleasurecruise/eyeful@main`。保留 job 的 `if`（只放行所有者、成员和协作者）和它的权限：Contents（读）、Pull requests（写）、Issues（写）、Actions（读）。
+3. 不要在这个 workflow 里检出 pull request 的 head；`eyeful-action` 会自己克隆，并且只在沙箱里运行它的代码。
 
 ## 本地
 

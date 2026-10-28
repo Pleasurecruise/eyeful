@@ -1,0 +1,44 @@
+name: eyeful
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+concurrency:
+  group: eyeful-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+       !github.event.pull_request.draft &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '@eyeful-review') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+    steps:
+      - name: checkout eyeful
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: review the pull request
+        uses: ./
+        with:
+          pull: ${{ github.event.pull_request.number || github.event.issue.number }}
+          model-url: ${{ vars.EYEFUL_MODEL_URL }}
+          model-key: ${{ secrets.EYEFUL_MODEL_KEY }}
+          typesafe-api-key: ${{ secrets.EYEFUL_TYPESAFE_API_KEY }}

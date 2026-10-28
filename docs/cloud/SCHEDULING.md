@@ -1,42 +1,24 @@
 # Review lifecycle
 
-Each pull request has one Durable Object, `Server` in `packages/worker`, named by the repository and
-the pull request number. It keeps the current review in its own SQLite storage and drives that
-review's Container from an alarm. At most one review of a pull request runs at a time.
+The workflow `.github/workflows/eyeful.yml` decides when a review runs. Each review is one job; at
+most one runs per pull request at a time.
 
-```mermaid
-stateDiagram-v2
-    [*] --> queued: opened, or mentioned
-    queued --> running: Container started
-    running --> running: Container lost, started again
-    running --> done: finished, failed, lost three times, or cancelled
-    done --> queued: mentioned
-```
-
-| Mechanism | Behavior                                                                                                                                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Once      | An opened, reopened or ready pull request is reviewed if it has never been; later ones need a mention.                                                                                                       |
-| Mention   | A mention by an allowed user starts a review of the current head, numbered one more than the last.                                                                                                           |
-| Busy      | While a review is queued or running, a mention gets a reply and starts nothing.                                                                                                                              |
-| Closed    | A mention on a closed pull request is ignored.                                                                                                                                                               |
-| Alarm     | Set at admission, then every 30 seconds while the review runs. Each run reads the stored record.                                                                                                             |
-| Start     | When no Container runs, the alarm starts one with the pull request and counts an attempt.                                                                                                                    |
-| Watch     | When a Container runs, the alarm reads its `GET /review`; `done` or `failed` is recorded and the Container destroyed.                                                                                        |
-| Startup   | A Container that has not answered five minutes after it started is destroyed and counts as lost.                                                                                                             |
-| Lost      | After three attempts the review is `done` and its Check Run fails with the reason.                                                                                                                           |
-| Check     | Each review creates an `eyeful` Check Run on its head and completes it when the review ends.                                                                                                                 |
-| Push      | A push adds an `eyeful` Check Run on the new head: completed with the last result if the review is done, or completed with it when the running review ends.                                                  |
-| Cancel    | Closing the pull request or turning it into a draft destroys the running Container and cancels its Check Runs.                                                                                               |
-| Idle      | A Container stops ten minutes after its Durable Object was last active. Each alarm keeps the review's Container and its sandbox running and sets that timeout again, which a restarted Durable Object loses. |
-| Capacity  | At most five Containers at once (`maxInstances`).                                                                                                                                                            |
-| Sandbox   | Each review has its own sandbox, removed when the review ends.                                                                                                                                               |
-
-A rollout or any other `SIGTERM` stops the Container; the alarm counts it as lost and the next one
-resumes from the stages in R2 ([Storage](PERSISTENCE.md)).
+| Mechanism | Behavior                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Once      | A pull request opened, or marked ready for review, is reviewed. Drafts are not.                                           |
+| Mention   | A comment starting with `@eyeful-review` on an open pull request starts a review of its current head.                     |
+| Who       | Only the pull request's or the comment's author with the association `OWNER`, `MEMBER` or `COLLABORATOR` starts a review. |
+| Queue     | The `concurrency` group per pull request queues a review behind a running one; a newer mention replaces one still queued. |
+| Closed    | A mention on a closed pull request ends the job without a review.                                                         |
+| CI        | The review waits for every other workflow run on the head commit, and leaves out its own.                                 |
+| Check     | The job is the check: it fails when the review fails. A run from a mention is not attached to the head commit.            |
+| Re-run    | Re-running the job starts the review again and posts only what is missing.                                                |
+| Timeout   | The job stops after 120 minutes.                                                                                          |
+| Sandbox   | Each review has its own sandbox container, removed when the job ends.                                                     |
 
 ## Not done yet
 
-- Waiting for CI happens inside the Container, which stays up while the pull request's checks run.
-  Planned: the alarm waits for them and starts the Container afterwards.
+- The review waits for CI inside the job, which keeps a runner busy while the pull request's checks
+  run.
 - A review triggered by a mention does not yet reuse the last review's findings.
-- There is no list of reviews across Durable Objects, and no daily or monthly quota.
+- The images are built in every job instead of pulled from a registry.

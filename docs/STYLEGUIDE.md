@@ -8,29 +8,28 @@ section, and the review steps at the end are how a change is checked before it i
 - Packages are named after the capability they own; no `utils`, `helpers`, `common`, `manager`,
   `service`. Dependency direction is in [Architecture](cloud/SERVER.md#dependency-direction).
 - Each package keeps its types, enums, sentinel errors and consumer interfaces in `types.go`.
-- Constructors are plain functions with typed parameters. Only a composition root (`internal/app`,
-  `local/app`) imports fx. There is no package-level state.
+- Constructors are plain functions with typed parameters. There is no dependency injection
+  container and no package-level state.
 - Interfaces belong to their consumer and list only what it calls.
 - HTTP handlers are CRUD, one file per resource, in the order create, list, get, update, delete.
 
 ## Naming
 
-| What                             | Case                                                 | Example                         |
-| -------------------------------- | ---------------------------------------------------- | ------------------------------- |
-| Go packages, directories         | lowercase, one word                                  | `review`, `apperror`            |
-| Go files                         | lowercase, `snake_case` only when needed             | `memory_test.go`                |
-| Go exported / unexported         | `PascalCase` / `camelCase`                           | `NewWorkerPool`, `errorHandler` |
-| Go initialisms                   | one case                                             | `ID`, `URL`, `reviewID`         |
-| Go receivers                     | one or two letters, consistent per type              | `s *MemoryStore`                |
-| Go tests                         | `TestXxx`, one to three words; scenarios in subtests | `TestExecuteResumes`            |
-| JSON fields, query parameters    | `snake_case`                                         | `created_at`                    |
-| URL paths                        | lowercase nouns, `kebab-case`                        | `/webhook`                      |
-| Schemas, TS types, components    | `PascalCase`                                         | `Review`, `ReviewTable.svelte`  |
-| TS variables, functions          | `camelCase`                                          | `tokenKey`                      |
-| Error codes, SQL                 | `snake_case`                                         | `method_not_allowed`            |
-| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_WEBHOOK_SECRET`         |
-| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--shutdown-timeout`            |
-| Docs                             | `UPPERCASE.md`                                       | `SCHEDULING.md`                 |
+| What                             | Case                                                 | Example                        |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------ |
+| Go packages, directories         | lowercase, one word                                  | `review`, `harness`            |
+| Go files                         | lowercase, `snake_case` only when needed             | `memory_test.go`               |
+| Go exported / unexported         | `PascalCase` / `camelCase`                           | `NewClient`, `notesFrom`       |
+| Go initialisms                   | one case                                             | `ID`, `URL`, `reviewID`        |
+| Go receivers                     | one or two letters, consistent per type              | `s *MemoryStore`               |
+| Go tests                         | `TestXxx`, one to three words; scenarios in subtests | `TestExecuteCIFailed`          |
+| JSON fields, query parameters    | `snake_case`                                         | `created_at`                   |
+| URL paths                        | lowercase nouns, `kebab-case`                        | `/chat/completions`            |
+| Schemas, TS types, components    | `PascalCase`                                         | `Review`, `ReviewTable.svelte` |
+| TS variables, functions          | `camelCase`                                          | `tokenKey`                     |
+| Environment variables            | `UPPER_SNAKE_CASE`, `EYEFUL_` prefix                 | `EYEFUL_MODEL_KEY`             |
+| CLI flags, mise tasks, npm names | `kebab-case` (`:` for task variants)                 | `--sandbox-url`                |
+| Docs                             | `UPPERCASE.md`                                       | `SCHEDULING.md`                |
 
 Names are short and unambiguous, and let the package carry context (`review.Store`, not
 `review.ReviewStore`).
@@ -54,7 +53,7 @@ recorded in [Development](DEVELOPMENT.md#toolchain-notes). Upgrades are their ow
 - gofmt, goimports and golangci-lint clean; exceptions go in `.golangci.yml`, never `//nolint`.
 - No comments except `TODO(area): what` (one line, removed with the work) and `//go:` directives. `grep -rn "TODO(" cmd internal workflow local apps` is the backlog.
 - Errors wrap with `%w` and are checked with `errors.Is`/`As`; never turned into a plausible
-  default. Client-facing errors are `apperror` codes; anything else is a logged 500.
+  default.
 - `context.Context` comes first on anything doing I/O, is never stored, and bounds every external
   call. No mutex across I/O. Log with `slog`, never secrets.
 - CLI commands are kong structs with `help`, `default` and `env` tags and a `Run() error` method.
@@ -82,8 +81,7 @@ Unsafe patterns, from [Effective Go](https://go.dev/doc/effective_go),
 
 ## Security
 
-Credentials follow current OWASP ASVS. Compare secrets, such as a webhook signature, in constant
-time. Secrets do not enter sandboxes, logs, error responses or the desktop bundle. Configuration and secrets live only at the repository root: secrets in `.env`, shared settings in
+Credentials follow current OWASP ASVS. Compare secrets in constant time. Secrets do not enter sandboxes, logs, error responses or the desktop bundle. Configuration and secrets live only at the repository root: secrets in `.env`, shared settings in
 `mise.toml`; no app or package keeps its own env file, and code never falls back to a built-in value.
 
 ## Tests

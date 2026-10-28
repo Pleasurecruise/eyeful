@@ -40,7 +40,7 @@ func (r *Review) Start(ctx context.Context, base, head string, experts []string,
 	log := emitter(EventLog)
 	res, err := app.Review(ctx, app.Options{
 		Dir: r.tree.root(), Range: subject.Range{Base: base, Head: head}, Experts: experts, Verification: verification, Detect: true,
-		Classifier: classify.New(slog.New(slog.NewTextHandler(log, nil)), "", nil),
+		Classifier: classify.New(slog.New(slog.NewTextHandler(log, nil)), ""),
 		Confirm:    r.confirm, Out: io.Discard, Err: log, Log: slog.New(slog.NewTextHandler(log, nil)),
 	})
 	if err != nil {

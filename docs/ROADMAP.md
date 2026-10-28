@@ -61,26 +61,25 @@ an extension, dropped first if the plan slips.
 
 ## v2.0: Cloud review (in progress)
 
-The workflow on pull requests through a self-hosted GitHub App
+The workflow on pull requests through a GitHub Action
 ([Running in the cloud](cloud/CLOUD.md)).
 
-| Part                                                                       | State |
-| -------------------------------------------------------------------------- | ----- |
-| The webhook, one review per head commit                                    | Built |
-| Checkout of the pull request, with commands taken from the base commit     | Built |
-| The CI check against GitHub Actions                                        | Built |
-| One Durable Object and Container per review, running the local workflow    | Built |
-| Models and Jev through AI Gateway; stages in R2, so a review resumes       | Built |
-| A `COMMENT` review for line comments, and the ranked report as one comment | Built |
-| The sandbox, so the project's commands run only there                      | Built |
-| The sandbox reaching only package registries                               | To do |
-| Posting once, so a restarted Container skips what GitHub already has       | Built |
-| The `eyeful` Check Run, required before merging                            | Built |
-| Waiting for CI in the Durable Object instead of the Container              | To do |
-| An end-to-end run on a real pull request                                   | To do |
+| Part                                                                          | State |
+| ----------------------------------------------------------------------------- | ----- |
+| A job per opened pull request and per mention, one at a time per pull request | Built |
+| Checkout of the pull request, with commands taken from the base commit        | Built |
+| The CI check against GitHub Actions                                           | Built |
+| A review container running the local workflow                                 | Built |
+| Models from any OpenAI-compatible provider, with no key in pi's reach         | Built |
+| A `COMMENT` review for line comments, and the ranked report as one comment    | Built |
+| The sandbox container, so the project's commands run only there               | Built |
+| The sandbox reaching only package registries                                  | To do |
+| Posting once, so a re-run skips what GitHub already has                       | Built |
+| Images pulled from a registry instead of built in every job                   | To do |
+| An end-to-end run on a real pull request                                      | To do |
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
-its sandbox, and a Container stopped mid-review loses nothing and posts nothing twice.
+its sandbox, and a re-run of its job posts nothing twice.
 
 ## Later
 

@@ -26,16 +26,18 @@ review, because each one comes with evidence that runs.
   the cloud.
 - A review that runs out of budget still returns what it verified, marked partial.
 
-## The cloud server
+## The cloud action
 
-The server, `cmd/eyeful-server`, is a separate program with one more outcome and its own hard measures.
+The action, `cmd/eyeful-action` run by `action.yml`, is a separate program with one more outcome and
+its own hard measures.
 
 - Safety: reviewing an untrusted pull request is as safe as not reviewing it.
 - No credential enters a sandbox.
 - Code under review runs only inside its review's sandbox, which reaches only package registries;
   agents read the code with read-only tools outside it.
-- A result from a replaced Container is never written; a review is never lost or run twice to
-  completion because its Container stopped.
+- A pull request's own code never changes which action runs: the workflow checks out only the base
+  branch's eyeful.
+- A re-run of a review's job never posts what the review already posted.
 
 A change may improve one outcome without a numeric before/after result. Hard measures are release
 gates and may never regress. Outcomes are measured as [Evaluation](../docs/EVALUATION.md) describes;

@@ -28,7 +28,7 @@ const groups = [
 		'REFERENCES'
 	],
 	['ARCHITECTURE', 'DEVELOPMENT', 'STYLEGUIDE', 'CONFIGURATION'],
-	['cloud/CLOUD', 'cloud/SERVER', 'cloud/SCHEDULING', 'cloud/PERSISTENCE', 'cloud/DEPLOYMENT'],
+	['cloud/CLOUD', 'cloud/SERVER', 'cloud/SCHEDULING', 'cloud/DEPLOYMENT'],
 	['ROADMAP'],
 	['EVALUATION']
 ];
@@ -81,7 +81,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'',
-					['How eyeful reviews', 'How the code is built', 'The cloud server', 'Plan', 'Evaluation'],
+					['How eyeful reviews', 'How the code is built', 'The cloud', 'Plan', 'Evaluation'],
 					[
 						[
 							'Overview',
@@ -102,7 +102,7 @@ export default defineConfig({
 							'Code style and review',
 							'Configuration reference'
 						],
-						['Running in the cloud', 'The server', 'Review lifecycle', 'Storage', 'Deployment'],
+						['Running in the cloud', 'The action', 'Review lifecycle', 'Deployment'],
 						['Roadmap'],
 						['Evaluation']
 					]
@@ -117,7 +117,7 @@ export default defineConfig({
 			themeConfig: {
 				sidebar: sidebar(
 					'/zh',
-					['项目思路', '项目框架', '云端服务器', '计划', '评估'],
+					['项目思路', '项目框架', '云端', '计划', '评估'],
 					[
 						[
 							'eyeful 是什么',
@@ -133,7 +133,7 @@ export default defineConfig({
 							'参考文献'
 						],
 						['整体架构', '本地开发', '代码规范与评审', '配置项参考'],
-						['云端运行', '服务器', '审查生命周期', '存储', '部署上线'],
+						['云端运行', 'Action 程序', '审查生命周期', '部署上线'],
 						['版本路线图'],
 						['效果评测']
 					]

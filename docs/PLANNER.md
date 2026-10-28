@@ -58,7 +58,7 @@ the scopes in order ([The ranked report](REPORT.md#ranked-report)).
 
 The planner is one call to the connected agent, driven by
 [`@pulls.review/core`](https://github.com/antfu/pulls.review). `packages/pulls` bundles it into
-`workflow/pulls/core.js`, which Go runs with [moejs](https://github.com/Calcium-Ion/moejs), so the
+`workflow/pulls/core.js`, which Go runs with [moejs](https://github.com/MoeForge/moejs), so the
 binaries need neither Node nor cgo.
 
 1. core parses the diff and builds the prompt: the manifest, the hunk headers, and the diffs where

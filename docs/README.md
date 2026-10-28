@@ -17,8 +17,8 @@ flowchart LR
 - **Works:** local reviews. `eyeful review`, `provider`, `connect`, `commit` and the desktop app run
   the whole workflow with your own coding agent ([Running locally](LOCAL.md)).
 - **In progress:** the evaluation, whose tooling is built and whose experiment has not run
-  ([Evaluation](EVALUATION.md)). Cloud reviews run each pull request on Cloudflare and verify in a
-  sandbox per review ([Running in the cloud](cloud/CLOUD.md)).
+  ([Evaluation](EVALUATION.md)). Cloud reviews run each pull request in a GitHub Actions job and verify
+  in a sandbox container per review ([Running in the cloud](cloud/CLOUD.md)).
 - **Planned:** the L1 tools and the experts' own tools ([Roadmap](ROADMAP.md)).
 
 ## Limits {#limits}
@@ -63,15 +63,15 @@ How the code is built:
 | [Local development](DEVELOPMENT.md)    | Setup, commands, code generation          |
 | [Code style and review](STYLEGUIDE.md) | Coding rules and how changes are reviewed |
 
-The cloud, which is separate. A pull request is reviewed and verified in its own sandbox:
+The cloud, which is separate. A pull request is reviewed in a GitHub Actions job and verified in its
+own sandbox:
 
 | Document                                | Covers                                        |
 | --------------------------------------- | --------------------------------------------- |
 | [Running in the cloud](cloud/CLOUD.md)  | Pull requests, agents and models, the sandbox |
-| [The server](cloud/SERVER.md)           | Components, layout, lifecycle                 |
-| [Review lifecycle](cloud/SCHEDULING.md) | The Durable Object, its alarm, retries        |
-| [Storage](cloud/PERSISTENCE.md)         | Durable Object storage and R2                 |
-| [Deployment](cloud/DEPLOYMENT.md)       | Cloudflare, AI Gateway, the GitHub App        |
+| [The action](cloud/SERVER.md)           | Components, layout, lifecycle                 |
+| [Review lifecycle](cloud/SCHEDULING.md) | Triggers, who may start a review, re-runs     |
+| [Deployment](cloud/DEPLOYMENT.md)       | The workflow, secrets, the model provider     |
 
 Every setting is in [Configuration](CONFIGURATION.md). What comes next: the [Roadmap](ROADMAP.md).
 

@@ -43,7 +43,7 @@ commits: "fix session expiry at the boundary"
 
 ### 给改动分组
 
-规划是对已连接 agent 的一次调用，由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 驱动。`packages/pulls` 把它打包成 `workflow/pulls/core.js`，Go 用 [moejs](https://github.com/Calcium-Ion/moejs) 运行它，所以二进制既不需要 Node 也不需要 cgo。
+规划是对已连接 agent 的一次调用，由 [`@pulls.review/core`](https://github.com/antfu/pulls.review) 驱动。`packages/pulls` 把它打包成 `workflow/pulls/core.js`，Go 用 [moejs](https://github.com/MoeForge/moejs) 运行它，所以二进制既不需要 Node 也不需要 cgo。
 
 1. core 解析 diff 并构建提示词：清单、hunk 头，以及放得下的 diff。
 2. agent 给出改动的摘要和分组。每个组有 `category`、标签、文件，需要格外小心的标 `critical`。

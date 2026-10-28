@@ -1,11 +1,11 @@
-//#region \0rolldown/runtime.js
+// \0rolldown/runtime.js
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
+var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod, mod.exports), cb = null), mod.exports);
 var __copyProps = (to, from, except, desc) => {
 	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
 		key = keys[i];
@@ -435,8 +435,7 @@ function summarize(issues) {
 	}
 	return summary;
 }
-//#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
 /**
 * Review-comment threads and review summaries for a GitHub PR, in the same
 * valibot-schema-first style as `diff.ts`. Sides use pierre's vocabulary
@@ -544,8 +543,7 @@ var DiffGroupSchema = withChildren(DiffGroupLeafSchema);
 	groups: /* @__PURE__ */ array(DiffGroupSchema),
 	schemaVersion: /* @__PURE__ */ number()
 })).entries });
-//#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
 /**
 * Generated/lockfile-style output - shared with `noisy-files.ts`, which collapses
 * these by default in the diff view, so the two "this file is noise" notions
@@ -562,8 +560,7 @@ var GENERATED_PATTERNS = [
 	"**/*.lock",
 	"**/drizzle/meta/**"
 ];
-//#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/locales.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/locales.js
 /**
 * The languages the UI and the LLM's summaries can be in. `name` is the English name
 * the analysis prompt uses (the prompt itself stays English), `native` is what the
@@ -636,8 +633,7 @@ function promptLanguageName(code) {
 	const locale = LOCALES.find((entry) => entry.code === code);
 	return locale.name === locale.native ? locale.name : `${locale.name} (${locale.native})`;
 }
-//#endregion
-//#region ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/constants.js
+// ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/constants.js
 var require_constants = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var WIN_SLASH = "\\\\/";
 	var WIN_NO_SLASH = `[^${WIN_SLASH}]`;
@@ -805,8 +801,7 @@ var require_constants = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		}
 	};
 }));
-//#endregion
-//#region ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/utils.js
+// ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/utils.js
 var require_utils = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var { REGEX_BACKSLASH, REGEX_REMOVE_BACKSLASH, REGEX_SPECIAL_CHARS, REGEX_SPECIAL_CHARS_GLOBAL } = require_constants();
 	exports.isObject = (val) => val !== null && typeof val === "object" && !Array.isArray(val);
@@ -853,8 +848,7 @@ var require_utils = /* @__PURE__ */ __commonJSMin(((exports) => {
 		return last;
 	};
 }));
-//#endregion
-//#region ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/scan.js
+// ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/scan.js
 var require_scan = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var utils = require_utils();
 	var { CHAR_ASTERISK, CHAR_AT, CHAR_BACKWARD_SLASH, CHAR_COMMA, CHAR_DOT, CHAR_EXCLAMATION_MARK, CHAR_FORWARD_SLASH, CHAR_LEFT_CURLY_BRACE, CHAR_LEFT_PARENTHESES, CHAR_LEFT_SQUARE_BRACKET, CHAR_PLUS, CHAR_QUESTION_MARK, CHAR_RIGHT_CURLY_BRACE, CHAR_RIGHT_PARENTHESES, CHAR_RIGHT_SQUARE_BRACKET } = require_constants();
@@ -1150,8 +1144,7 @@ var require_scan = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 	module.exports = scan;
 }));
-//#endregion
-//#region ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/parse.js
+// ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/parse.js
 var require_parse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var constants = require_constants();
 	var utils = require_utils();
@@ -2225,8 +2218,7 @@ var require_parse = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 	module.exports = parse;
 }));
-//#endregion
-//#region ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/picomatch.js
+// ../../node_modules/.pnpm/picomatch@4.0.7/node_modules/picomatch/lib/picomatch.js
 var require_picomatch$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var scan = require_scan();
 	var parse = require_parse();
@@ -2539,8 +2531,7 @@ var require_picomatch$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	*/
 	module.exports = picomatch;
 }));
-//#endregion
-//#region ../../node_modules/.pnpm/@valibot+to-json-schema@1.8.0_valibot@1.5.0_typescript@7.0.2_/node_modules/@valibot/to-json-schema/dist/index.mjs
+// ../../node_modules/.pnpm/@valibot+to-json-schema@1.8.0_valibot@1.5.0_typescript@7.0.2_/node_modules/@valibot/to-json-schema/dist/index.mjs
 var import_picomatch = /* @__PURE__ */ __toESM((/* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var pico = require_picomatch$1();
 	var utils = require_utils();
@@ -3235,8 +3226,7 @@ function toJsonSchema(schema, config) {
 	if (context.referenceMap.size) jsonSchema.$defs = context.definitions;
 	return jsonSchema;
 }
-//#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/llm.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/llm.js
 var isGeneratedPath = (0, import_picomatch.default)(GENERATED_PATTERNS);
 /** Renders a set of files as compact diff text for a prompt - the model-facing view of a patch. */
 function renderFilesAsText(files) {
@@ -3268,7 +3258,6 @@ var OUTPUT_SECTION = `<output>
 - "fileNotes", "lineNotes" and "critical" are optional and sparing. Add a note only where it saves the reviewer time - non-obvious logic, a subtle behavior change, a risk - never to explain the obvious. Mark "critical" only what deserves extra care; most groups and files are not critical.
 - Write "label", "summary", "overallSummary" and note "text" in the language named at the end of the user message. Keep code, paths and identifiers as they are.
 </output>`;
-`${ROLE_SECTION}${OUTPUT_SECTION}`;
 /**
 * The system prompt for a local agent CLI (`plans/11-local-agents.md`), which has its own
 * file tools instead of `read_diffs` and answers with JSON instead of calling `submit_grouping`.
@@ -3388,8 +3377,7 @@ function describeCoverageIssues(issues, fix) {
 	return lines.join("\n");
 }
 toJsonSchema(AnalysisSchema);
-//#endregion
-//#region ../../node_modules/.pnpm/@pulls.review+core@0.3.3_supports-color@10.2.2_typescript@7.0.2_ws@8.22.0_zod@4.6.5/node_modules/@pulls.review/core/dist/patch-parser.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/patch-parser.js
 var GIT_DIFF_HEADER_RE = /^diff --git a\/.* b\/(.*)$/;
 /** Git quotes a path holding a tab, newline, `"` or `\` (and, without `core.quotePath=false`, any non-ASCII byte). */
 var QUOTED_GIT_DIFF_HEADER_RE = /^diff --git "a\/(?:[^"\\]|\\.)*" "b\/((?:[^"\\]|\\.)*)"$/;
@@ -3619,8 +3607,7 @@ async function parsePatch(text) {
 		};
 	}));
 }
-//#endregion
-//#region src/index.ts
+// src/index.ts
 function prompt(diff, patchPath) {
 	return `${buildCliAgentSystemPrompt({
 		patchPath,
@@ -3633,5 +3620,4 @@ function check(diff, answer) {
 	const problem = describeCoverageIssues(findCoverageIssues(diff, parsed.output), "Answer again with the whole grouping, every path in exactly one group.");
 	return problem ? { problem } : { analysis: parsed.output };
 }
-//#endregion
 export { analysisJsonSchema, check, parsePatch, prompt };

@@ -1,8 +1,8 @@
 # Architecture
 
 eyeful is a review workflow and the two programs that run it on a user's machine: the `eyeful`
-command and the desktop app. Neither needs a server. The [cloud server](cloud/SERVER.md) is another
-program, `cmd/eyeful-server` with its packages in `internal/`. It shares the `workflow` module and
+command and the desktop app. Neither needs a server. The [cloud action](cloud/SERVER.md) is another
+program, `cmd/eyeful-action` with its packages in `internal/`, run in a GitHub Actions job. It shares the `workflow` module and
 `local`, and exchanges no data with the local side. `local/app` stays with the CLI and the desktop.
 
 ## Components
@@ -26,19 +26,19 @@ checks out the snapshot with `local/worktree` and runs `workflow` through `local
 `workflow` runs one review through the [stages](REVIEW.md#stages). It runs no agent, command or
 storage itself: the caller passes four interfaces in a `Session`.
 
-| Interface    | Provides                                                                | Cloud                                                                 | Local                                |
-| ------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ |
-| `Agents`     | One call per role, returning a typed result and the tokens spent        | `local/agents`: pi in the review's Container, named by `EYEFUL_AGENT` | `local/agents`                       |
-| `Classifier` | The probability that two findings are one problem, and the tokens spent | `local/classify`, through the Worker's Workers AI binding             | `local/classify`, through AI Gateway |
-| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | GitHub Actions for the CI check; `internal/sandbox` for the rest      | `local/worktree`                     |
-| `Archive`    | Loading and saving each stage's output                                  | `internal/runs`: R2, through the Worker                               | `local/archive`                      |
+| Interface    | Provides                                                                | Cloud                                                               | Local                               |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------- |
+| `Agents`     | One call per role, returning a typed result and the tokens spent        | `local/agents`: pi in the review container, named by `EYEFUL_AGENT` | `local/agents`                      |
+| `Classifier` | The probability that two findings are one problem, and the tokens spent | `local/classify`, on TypeSafe's API                                 | `local/classify`, on TypeSafe's API |
+| `Workspace`  | The CI check, `setup`, reading a file, test runs on a fresh copy        | GitHub Actions for the CI check; `internal/sandbox` for the rest    | `local/worktree`                    |
+| `Archive`    | Loading and saving each stage's output                                  | `local/archive`, for the length of the job                          | `local/archive`                     |
 
 Go owns every loop: `workflow` checks each plan and report, keeps the budget, decides retries, and
 saves each stage before the next starts. It has no fx, database or server types.
 
 ### Jev {#jev}
 
-[Jev](https://docs.typesafe.ai) is TypeSafe's classifier, run here as `typesafe/jev` on Workers AI: it answers a typed question about the
+[Jev](https://docs.typesafe.ai) is TypeSafe's classifier, called on TypeSafe's API through go-jev: it answers a typed question about the
 state it is given with a probability, and writes no text. eyeful gives it a judgement only when
 everything the judgement needs fits in that state.
 
@@ -48,8 +48,8 @@ everything the judgement needs fits in that state.
 
 ## Languages
 
-- Go: the server, the CLI and the workflow.
-- TypeScript: the desktop frontend and the Cloudflare Worker.
+- Go: the action, the CLI and the workflow.
+- TypeScript: the desktop frontend.
 - Python: the evaluation only.
 
 eyeful has no agent loop of its own. Agents run in pi in the cloud and in the user's coding agent
@@ -67,35 +67,34 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `workflow`     | Orchestration and its interfaces         | nothing here        |
 | `local`        | What the CLI and the desktop share       | `workflow`          |
 | root           | `cmd/eyeful`, the local CLI              | `workflow`, `local` |
-|                | `cmd/eyeful-server`, `internal/`         | `workflow`, `local` |
+|                | `cmd/eyeful-action`, `internal/`         | `workflow`, `local` |
 | `apps/desktop` | The desktop app; Wails and cgo stay here | `workflow`, `local` |
 
 ### Directories
 
-| Path                             | Owns                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `cmd/eyeful`                     | The local CLI (kong): `review`, `provider`, `connect`, `commit`                                |
-| `apps/desktop`                   | The local GUI: Wails v3, its own Go module                                                     |
-| `apps/desktop/frontend`          | The desktop's SvelteKit frontend and its Wails bindings                                        |
-| `packages/ui`                    | The desktop's components: diff view, file tree, theme                                          |
-| `packages/pulls`                 | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                      |
-| `packages/worker`                | The Cloudflare Worker: the webhook, one Durable Object and Container per review, pi's settings |
-| `workflow`                       | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints      |
-| `workflow/prompts`               | Expert and role prompts, vendored skills                                                       |
-| `workflow/pulls`                 | `@pulls.review/core` as `core.js`, run with moejs                                              |
-| `workflow/project`               | The project's commands, found from its manifests                                               |
-| `workflow/report`                | A result as Markdown and SARIF 2.1.0                                                           |
-| `local/subject`                  | The snapshot of a local branch, commit or uncommitted changes                                  |
-| `local/app`                      | The local composition root; the only package the CLI and desktop call                          |
-| `local/agents`                   | `workflow.Agents` over the claude, codex and pi CLIs                                           |
-| `local/worktree`                 | The snapshot's disposable checkout; `workflow.Workspace`                                       |
-| `local/store`                    | `.eyeful/runs/` and the confirmed commands                                                     |
-| `local/settings`                 | The connected agent and the desktop's last repository                                          |
-| `local/classify`                 | `workflow.Classifier` over Jev on Workers AI                                                   |
-| `local/archive`                  | Stage checkpoints as files                                                                     |
-| `local/git`, `local/tail`        | Running git with a fixed environment; keeping the end of an output                             |
-| `eval/`                          | The [evaluation](EVALUATION.md#tooling) scripts, in Python                                     |
-| `cmd/eyeful-server`, `internal/` | The [cloud server](cloud/SERVER.md#layout)                                                     |
+| Path                                                                 | Owns                                                                                      |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `cmd/eyeful`                                                         | The local CLI (kong): `review`, `provider`, `connect`, `commit`                           |
+| `apps/desktop`                                                       | The local GUI: Wails v3, its own Go module                                                |
+| `apps/desktop/frontend`                                              | The desktop's SvelteKit frontend and its Wails bindings                                   |
+| `packages/ui`                                                        | The desktop's components: diff view, file tree, theme                                     |
+| `packages/pulls`                                                     | Builds `workflow/pulls/core.js` from `@pulls.review/core`                                 |
+| `workflow`                                                           | Review orchestration: triage, plan check, experts, verifier, summary, budget, checkpoints |
+| `workflow/prompts`                                                   | Expert and role prompts, vendored skills                                                  |
+| `workflow/pulls`                                                     | `@pulls.review/core` as `core.js`, run with moejs                                         |
+| `workflow/project`                                                   | The project's commands, found from its manifests                                          |
+| `workflow/report`                                                    | A result as Markdown and SARIF 2.1.0                                                      |
+| `local/subject`                                                      | The snapshot of a local branch, commit or uncommitted changes                             |
+| `local/app`                                                          | The local composition root; the only package the CLI and desktop call                     |
+| `local/agents`                                                       | `workflow.Agents` over the claude, codex and pi CLIs                                      |
+| `local/worktree`                                                     | The snapshot's disposable checkout; `workflow.Workspace`                                  |
+| `local/store`                                                        | `.eyeful/runs/` and the confirmed commands                                                |
+| `local/settings`                                                     | The connected agent and the desktop's last repository                                     |
+| `local/classify`                                                     | `workflow.Classifier` over Jev on TypeSafe's API                                          |
+| `local/archive`                                                      | Stage checkpoints as files                                                                |
+| `local/git`, `local/tail`                                            | Running git with a fixed environment; keeping the end of an output                        |
+| `eval/`                                                              | The [evaluation](EVALUATION.md#tooling) scripts, in Python                                |
+| `action.yml`, `cmd/eyeful-action`, `cmd/eyeful-sandbox`, `internal/` | The [cloud action](cloud/SERVER.md#layout)                                                |
 
 ### Frontends
 
@@ -108,11 +107,11 @@ Producers and consumers attach at the two ends of the pipeline and do not know a
 
 ```mermaid
 flowchart LR
-    producers["CLI, plugin,<br/>webhook, schedule"] -->|source| subject["Subject"]
+    producers["CLI, plugin,<br/>Actions, schedule"] -->|source| subject["Subject"]
     subject --> pipeline["Review pipeline"]
     pipeline --> publish["Publish"]
     publish -->|sink| consumers["Markdown, JSON,<br/>GitHub"]
 ```
 
-The webhook admits a review, and the review's Container posts a `COMMENT` review and the ranked
-report. Each post carries the review's id, so a restarted Container skips what is already there.
+A workflow starts a review, and its job posts a `COMMENT` review and the ranked report. Each post
+carries the workflow run's id, so a re-run skips what is already there.

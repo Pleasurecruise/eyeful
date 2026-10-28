@@ -50,24 +50,23 @@ flowchart LR
 
 ## v2.0：云端审查（进行中）
 
-通过自行部署的 GitHub App 在 pull request 上运行工作流（见[云端运行](cloud/CLOUD.md)）。
+通过 GitHub Action 在 pull request 上运行工作流（见[云端运行](cloud/CLOUD.md)）。
 
-| 部分                                                           | 状态   |
-| -------------------------------------------------------------- | ------ |
-| webhook，每个 head 提交一次审查                                | 已完成 |
-| 检出 pull request，命令取自 base 提交                          | 已完成 |
-| 针对 GitHub Actions 的 CI 检查                                 | 已完成 |
-| 每个 review 一个 Durable Object 和 Container，运行本地的工作流 | 已完成 |
-| 模型和 Jev 经 AI Gateway；阶段存进 R2，审查可以续跑            | 已完成 |
-| 行内评论作为一条 `COMMENT` review，排序报告作为一条评论        | 已完成 |
-| 沙箱，让项目命令只在里面运行                                   | 已完成 |
-| 沙箱只能访问包仓库                                             | 待做   |
-| 只发布一次，重新启动的 Container 跳过 GitHub 上已有的内容      | 已完成 |
-| `eyeful` Check Run，合并前必需                                 | 已完成 |
-| 在 Durable Object 而不是 Container 里等待 CI                   | 待做   |
-| 在真实 pull request 上端到端运行一次                           | 待做   |
+| 部分                                                                      | 状态   |
+| ------------------------------------------------------------------------- | ------ |
+| 每个打开的 pull request 和每次 @ 一个 job，同一 pull request 同时只跑一个 | 已完成 |
+| 检出 pull request，命令取自 base 提交                                     | 已完成 |
+| 针对 GitHub Actions 的 CI 检查                                            | 已完成 |
+| 运行本地工作流的审查容器                                                  | 已完成 |
+| 模型可来自任何 OpenAI 兼容的 provider，pi 拿不到任何密钥                  | 已完成 |
+| 行内评论作为一条 `COMMENT` review，排序报告作为一条评论                   | 已完成 |
+| 沙箱容器，让项目命令只在里面运行                                          | 已完成 |
+| 沙箱只能访问包仓库                                                        | 待做   |
+| 只发布一次，重新运行跳过 GitHub 上已有的内容                              | 已完成 |
+| 从镜像仓库拉取镜像，而不是每个 job 都构建                                 | 待做   |
+| 在真实 pull request 上端到端运行一次                                      | 待做   |
 
-退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；审查中途停掉的 Container 不丢任何东西，也不重复发布任何东西。
+退出标准：对不可信 pull request 的云端审查完成时，代码只在它的沙箱里运行过；重新运行它的 job 不会重复发布任何东西。
 
 ## 之后
 

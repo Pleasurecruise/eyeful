@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	jev "github.com/mattn/go-jev"
+
 	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/workflow"
 )
@@ -23,8 +25,8 @@ func TestSame(t *testing.T) {
 	serve := func(body string) *classify.Jev {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sent, err := io.ReadAll(r.Body)
-			if err != nil || r.Header.Get("Cf-Aig-Authorization") != "Bearer token" || !strings.HasPrefix(string(sent), `{"state":{"findings":`) || !strings.Contains(string(sent), "`findings.f0` and `findings.f2`") {
-				t.Errorf("request %s with %q: %v", sent, r.Header.Get("Cf-Aig-Authorization"), err)
+			if err != nil || r.Header.Get("Authorization") != "Bearer token" || !strings.HasPrefix(string(sent), `{"state":{"findings":`) || !strings.Contains(string(sent), "`findings.f0` and `findings.f2`") {
+				t.Errorf("request %s with %q: %v", sent, r.Header.Get("Authorization"), err)
 			}
 			if strings.Contains(body, `"errors"`) {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -34,30 +36,30 @@ func TestSame(t *testing.T) {
 			}
 		}))
 		t.Cleanup(srv.Close)
-		return classify.New(slog.New(slog.DiscardHandler), srv.URL, http.Header{"Cf-Aig-Authorization": {"Bearer token"}})
+		return classify.New(slog.New(slog.DiscardHandler), "token", jev.WithURL(srv.URL), jev.WithMaxRetries(0))
 	}
 
 	t.Run("each pair gets its probability", func(t *testing.T) {
-		same, usage, err := serve(`{"state":"Completed","result":{"model":"jev-1.13.0","answers":{"q0":{"type":"noul","noul":0.97},"q1":{"type":"noul","noul":0.04}},"usage":{"input_tokens":120,"output_tokens":8}}}`).Same(t.Context(), pairs)
+		same, usage, err := serve(`{"model":"jev-1.13.0","answers":{"q0":{"type":"noul","noul":0.97},"q1":{"type":"noul","noul":0.04}},"usage":{"input_tokens":120,"output_tokens":8}}`).Same(t.Context(), pairs)
 		if err != nil || !slices.Equal(same, []float64{0.97, 0.04}) || usage.Model != "jev-1.13.0" || usage.Tokens != 128 {
 			t.Fatalf("same %v, usage %+v: %v", same, usage, err)
 		}
 	})
 
 	t.Run("a pair left unanswered is an error", func(t *testing.T) {
-		if _, _, err := serve(`{"state":"Completed","result":{"model":"jev-1.13.0","answers":{"q0":{"type":"noul","noul":0.97}},"usage":{}}}`).Same(t.Context(), pairs); !errors.Is(err, classify.ErrUnanswered) {
+		if _, _, err := serve(`{"model":"jev-1.13.0","answers":{"q0":{"type":"noul","noul":0.97}},"usage":{}}`).Same(t.Context(), pairs); !errors.Is(err, classify.ErrUnanswered) {
 			t.Fatalf("error %v", err)
 		}
 	})
 
 	t.Run("a rejected request is an error", func(t *testing.T) {
-		if _, _, err := serve(`{"result":null,"success":false,"errors":[{"code":10000,"message":"Authentication error"}]}`).Same(t.Context(), pairs); !errors.Is(err, classify.ErrRejected) || !strings.Contains(err.Error(), "Authentication error") {
+		if _, _, err := serve(`{"errors":[{"message":"Authentication error"}]}`).Same(t.Context(), pairs); !errors.Is(err, classify.ErrRejected) || !strings.Contains(err.Error(), "Authentication error") {
 			t.Fatalf("error %v", err)
 		}
 	})
 
-	t.Run("without an endpoint nothing is asked", func(t *testing.T) {
-		if _, _, err := classify.New(slog.New(slog.DiscardHandler), "", nil).Same(t.Context(), pairs); !errors.Is(err, classify.ErrNotConfigured) {
+	t.Run("without a key nothing is asked", func(t *testing.T) {
+		if _, _, err := classify.New(slog.New(slog.DiscardHandler), "").Same(t.Context(), pairs); !errors.Is(err, classify.ErrNotConfigured) {
 			t.Fatalf("error %v", err)
 		}
 	})

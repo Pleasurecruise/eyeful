@@ -1,6 +1,6 @@
 # 配置项参考
 
-eyeful 自己找出被审查项目的构建和测试方法。本地设置文件保存用户为 `eyeful review` 做的选择；服务端则通过环境变量和命令行参数配置。
+eyeful 自己找出被审查项目的构建和测试方法。本地设置文件保存用户为 `eyeful review` 做的选择；云端 action 通过环境变量和命令行参数配置。
 
 ## 项目命令 {#project}
 
@@ -41,39 +41,35 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 
 没有连接 agent 时 `eyeful review` 会报错。`repository` 是桌面端上一次显示的仓库，桌面端不在仓库里启动时会打开它。设置文件旁边的 `eyeful/confirmed` 为每次确认保存一个哈希，由仓库路径和在那里确认过的命令算出，所以仓库没法自带一份确认记录。每个项目在 `.eyeful/runs/` 下保存历次审查的运行记录。这个目录里有一个内容为 `*` 的 `.gitignore`，所以 git 看不到它，它也不会被纳入审查。
 
-## 服务端配置 {#server}
+## Action 配置 {#action}
 
-每个命令行参数都有对应的环境变量，`eyeful-server serve --help` 会同时列出两者。密钥和其他变量分开存放，都放在仓库根目录，任何应用或包都没有自己的配置文件。缺少必需的值时直接报错，不会猜一个默认值。
+`eyeful-action` 的每个命令行参数都有对应的环境变量，`eyeful-action --help` 会同时列出两者。`action.yml` 从它的输入和 job 环境里设置它们。缺少必需的值时直接报错，不会猜一个默认值。
 
-### 密钥：`.env` {#secrets}
+### 密钥 {#secrets}
 
-`.env` 不进 git。mise 加载它时使用 `redact`，所以值不会出现在任务输出里。`.env.example` 列出的正好是这些项。
+| 密钥                      | 用途                                                       |
+| ------------------------- | ---------------------------------------------------------- |
+| `EYEFUL_MODEL_KEY`        | `EYEFUL_MODEL_URL` 上 provider 的 API key。                |
+| `EYEFUL_TYPESAFE_API_KEY` | Jev 用的 TypeSafe API key。可选；没有时不合并发现。        |
+| `EYEFUL_GITHUB_TOKEN`     | job 的 `GITHUB_TOKEN`，用来克隆、读取 Actions 和发布审查。 |
 
-| 密钥                            | 用途                                                                                                |
-| ------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `EYEFUL_WEBHOOK_SECRET`         | GitHub webhook secret，由 Worker 用来校验 `X-Hub-Signature-256`。                                   |
-| `EYEFUL_GITHUB_APP_ID`          | GitHub App id，用来为每次审查签发 installation token。                                              |
-| `EYEFUL_GITHUB_APP_PRIVATE_KEY` | GitHub App 私钥：写成一行、换行用 `\n` 的 PEM，或 PEM 文件的路径。不是 PEM 的值会让服务端无法启动。 |
-| `EYEFUL_ALLOWED_USERS`          | GitHub 用户名，用逗号分隔；云端只审查这些人的 pull request 和 @。其他人一律忽略。                   |
-| `EYEFUL_CLOUDFLARE_ACCOUNT_ID`  | 用其 AI Gateway 运行模型和 Jev 的 Cloudflare 账号。                                                 |
-| `EYEFUL_AI_GATEWAY_TOKEN`       | 带 AI Gateway Run 和 Workers AI Read 权限的 Cloudflare API token。                                  |
+在 GitHub 上，前两个是传给 action 输入的仓库 secrets（见[部署](cloud/DEPLOYMENT.md#turn-on-reviews)）。在本地它们放在根目录的 `.env` 里，git 忽略它，mise 以 `redact` 方式加载；`.env.example` 列出了它们。`eyeful review` 用 `EYEFUL_TYPESAFE_API_KEY` 调用 [Jev](ARCHITECTURE.md#jev)；没有它时不合并发现。
 
-这六个都是 Worker 的 secret：`cf deploy --secrets-file ../../.env` 会上传它们（见[部署](cloud/DEPLOYMENT.md#deploy)）。在本地，`eyeful review` 用账号 id 和 token 调用 [Jev](ARCHITECTURE.md#jev)；没有它们时 `eyeful review` 不合并发现。
+### 变量 {#variables}
 
-### 变量：`mise.toml` 和命令行参数 {#variables}
+不是密钥的配置都在这里。`DOCS_URL` 写在 `mise.toml` 的 `[env]` 中。
 
-不是密钥的配置都在这里。`DOCS_URL` 写在 `mise.toml` 的 `[env]` 中；在服务器上，其余的值来自部署平台的环境变量。
+| 变量                 | 用途                                                                        |
+| -------------------- | --------------------------------------------------------------------------- |
+| `EYEFUL_PULL`        | 要审查的 pull request。                                                     |
+| `GITHUB_REPOSITORY`  | 仓库，格式 `owner/name`。由 Actions 设置。                                  |
+| `GITHUB_RUN_ID`      | workflow 运行；它标记审查发布的内容，审查也不会等它自己。                   |
+| `GITHUB_API_URL`     | GitHub API 根地址。默认 `https://api.github.com`。                          |
+| `EYEFUL_DIR`         | 检出和审查文件所在目录，以只读方式共享给沙箱。默认 `/work`。                |
+| `EYEFUL_SANDBOX_URL` | 这次审查的沙箱。默认 `http://eyeful-sandbox:8080`。                         |
+| `EYEFUL_MODEL_URL`   | 提供 pi 所用模型的 provider 的 OpenAI 兼容地址；是仓库变量。                |
+| `EYEFUL_AGENT`       | 审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
+| `EYEFUL_LOG_LEVEL`   | `debug`、`info`、`warn` 或 `error`。默认 `info`。                           |
+| `DOCS_URL`           | 文档站的公开地址，用于 sitemap、robots 和 `llms.txt`。写在 `mise.toml` 里。 |
 
-| 变量                    | 用途                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`           | 监听地址。默认 `:8080`。                                                        |
-| `EYEFUL_LOG_LEVEL`      | `debug`、`info`、`warn` 或 `error`。默认 `info`。                               |
-| `DOCS_URL`              | 文档站点的公开地址，用于 sitemap、robots 和 `llms.txt`。在 `mise.toml` 中设置。 |
-| `EYEFUL_GITHUB_API_URL` | GitHub API 根地址。默认 `https://api.github.com`。                              |
-| `EYEFUL_AGENT`          | 云端审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
-| `EYEFUL_REVIEW`         | 云端审查要处理的 pull request，JSON 格式，由 Durable Object 设置。              |
-| `EYEFUL_REVIEW_ID`      | 这次审查的 id，标记它发布过的内容，重启后不会再发一次。由 Durable Object 设置。 |
-| `EYEFUL_RUNS_URL`       | 云端审查存放阶段存档的地址，由 Durable Object 设为 `http://runs.eyeful`。       |
-| `EYEFUL_SANDBOX_URL`    | 这次审查的沙箱，由 Durable Object 设为 `http://sandbox.eyeful`。                |
-
-`--shutdown-timeout`（`30s`）只有命令行参数。云端审查用的模型写在 `packages/worker/pi/` 里 pi 自己的设置中，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。
+云端审查用的模型写在 `cmd/eyeful-action/pi/` 里 pi 自己的设置中，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。

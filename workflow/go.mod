@@ -3,9 +3,9 @@ module github.com/Pleasurecruise/eyeful/workflow
 go 1.27.1
 
 require (
-	github.com/Calcium-Ion/moejs v0.1.0-alpha.7
-	github.com/bmatcuk/doublestar/v4 v4.10.3
-	github.com/owenrumney/go-sarif/v3 v3.3.1
+	github.com/MoeForge/moejs v0.1.0-alpha.11
+	github.com/bmatcuk/doublestar/v4 v4.10.4
+	github.com/owenrumney/go-sarif/v3 v3.3.2
 	github.com/sourcegraph/go-diff v0.9.0
 	go.yaml.in/yaml/v3 v3.0.5
 )

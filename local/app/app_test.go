@@ -127,7 +127,7 @@ func setup(t *testing.T, connect bool) (string, string, app.Options) {
 		Confirm: func(context.Context, string, []project.Command) (bool, error) {
 			return false, errors.New("no terminal")
 		},
-		Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil),
+		Classifier: classify.New(slog.New(slog.DiscardHandler), ""),
 		Out:        &strings.Builder{}, Err: &strings.Builder{}, Log: slog.New(slog.DiscardHandler),
 	}
 }

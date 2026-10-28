@@ -43,7 +43,7 @@
 	$effect(() => {
 		const pool = getOrCreateWorkerPoolSingleton({
 			poolOptions: { workerFactory: () => new DiffsWorker(), poolSize: 4 },
-			highlighterOptions: { theme }
+			highlighterOptions: { theme, preferredHighlighter: 'highlights' }
 		});
 		const created = new CodeView<T>(
 			untrack(() => options),

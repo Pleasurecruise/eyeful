@@ -1,0 +1,62 @@
+name: eyeful
+description: Review a pull request with a panel of agents and verify the findings by running tests in a sandbox.
+branding:
+  icon: eye
+  color: blue
+
+inputs:
+  pull:
+    description: Number of the pull request to review.
+    required: true
+  github-token:
+    description: Token that clones, reads Actions and posts the review.
+    default: ${{ github.token }}
+  model-url:
+    description: OpenAI-compatible base URL of the provider serving the model in pi's models.json.
+    required: true
+  model-key:
+    description: API key for that provider.
+    required: true
+  typesafe-api-key:
+    description: TypeSafe API key for Jev, which merges findings that report one problem. Without it they are not merged.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: build the images
+      shell: bash
+      run: |
+        docker build --quiet --tag eyeful-action --file "$GITHUB_ACTION_PATH/Dockerfile" "$GITHUB_ACTION_PATH"
+        docker build --quiet --tag eyeful-sandbox --file "$GITHUB_ACTION_PATH/Dockerfile.sandbox" "$GITHUB_ACTION_PATH"
+
+    - name: start the sandbox
+      shell: bash
+      run: |
+        mkdir -p "$RUNNER_TEMP/eyeful"
+        docker network create eyeful
+        docker run --detach --name eyeful-sandbox --network eyeful \
+          --volume "$RUNNER_TEMP/eyeful:/work:ro" eyeful-sandbox
+
+    - name: review
+      shell: bash
+      env:
+        EYEFUL_PULL: ${{ inputs.pull }}
+        EYEFUL_GITHUB_TOKEN: ${{ inputs.github-token }}
+        EYEFUL_MODEL_URL: ${{ inputs.model-url }}
+        EYEFUL_MODEL_KEY: ${{ inputs.model-key }}
+        EYEFUL_TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
+      run: |
+        docker run --rm --network eyeful --volume "$RUNNER_TEMP/eyeful:/work" \
+          --env GITHUB_REPOSITORY --env GITHUB_RUN_ID --env GITHUB_API_URL \
+          --env EYEFUL_PULL --env EYEFUL_GITHUB_TOKEN \
+          --env EYEFUL_MODEL_URL --env EYEFUL_MODEL_KEY --env EYEFUL_TYPESAFE_API_KEY \
+          eyeful-action
+
+    - name: remove the sandbox
+      if: always()
+      shell: bash
+      run: |
+        docker logs eyeful-sandbox || true
+        docker rm --force eyeful-sandbox || true
+        docker network rm eyeful || true

@@ -1,16 +1,12 @@
 package github
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
+	"context"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -20,42 +16,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/review"
 )
 
-func TestParseKey(t *testing.T) {
-	if _, err := ParseKey("  "); !errors.Is(err, ErrNoKey) {
-		t.Fatal(err)
-	}
-	if _, err := ParseKey("not a key"); errors.Is(err, ErrNoKey) || err == nil {
-		t.Fatal(err)
-	}
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkcs1 := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	parsed, err := ParseKey(string(pkcs1))
-	if err != nil || !parsed.Equal(key) {
-		t.Fatal(err)
-	}
-	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8})
-	path := t.TempDir() + "/app.pem"
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	parsed, err = ParseKey(path)
-	if err != nil || !parsed.Equal(key) {
-		t.Fatal(err)
-	}
-}
-
 func TestPublish(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
 	marker := "<!-- eyeful review do/2 -->"
 	for _, tt := range []struct {
 		name     string
@@ -77,8 +38,6 @@ func TestPublish(t *testing.T) {
 			var body string
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch {
-				case strings.HasSuffix(r.URL.Path, "/access_tokens"):
-					_, _ = w.Write([]byte(`{"token":"ghs_abc"}`))
 				case r.Method == http.MethodGet && r.URL.Path == "/repos/acme/eyeful/compare/"+strings.Repeat("b", 40)+"..."+strings.Repeat("a", 40):
 					_, _ = w.Write([]byte(`{"commits":[],"files":[{"filename":"a.go","patch":"@@ -1,3 +1,5 @@\n a\n+b\n+c\n d\n e"},{"filename":"logo.png"}]}`))
 				case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/reviews"):
@@ -98,9 +57,9 @@ func TestPublish(t *testing.T) {
 				}
 			}))
 			defer srv.Close()
-			app := New(srv.URL, 12, key)
+			app := New(srv.URL, "ghs_abc", 0)
 			app.HTTP = srv.Client()
-			src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40), InstallationID: 9}
+			src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40)}
 			err := app.Publish(t.Context(), src, "do/2", []string{"# report"}, []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
 			if tt.reject != (err != nil && strings.Contains(err.Error(), "422")) {
 				t.Fatalf("publish: %v", err)
@@ -129,16 +88,10 @@ func TestPages(t *testing.T) {
 }
 
 func TestPublishPages(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var bodies []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
-			_, _ = w.Write([]byte(`{"token":"ghs_abc"}`))
-		case r.Method == http.MethodGet:
+		switch r.Method {
+		case http.MethodGet:
 			_, _ = w.Write([]byte(`[{"body":"first\n\n<!-- eyeful review do/2 part 1 -->"}]`))
 		default:
 			var c struct {
@@ -153,9 +106,9 @@ func TestPublishPages(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	app := New(srv.URL, 12, key)
+	app := New(srv.URL, "ghs_abc", 0)
 	app.HTTP = srv.Client()
-	src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40), InstallationID: 9}
+	src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40)}
 	half := strings.Repeat("x", commentLimit/2)
 	if err := app.Publish(t.Context(), src, "do/2", []string{half, half}, nil); err != nil {
 		t.Fatal(err)
@@ -166,21 +119,35 @@ func TestPublishPages(t *testing.T) {
 }
 
 func TestTokenRedacts(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var sent string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sent = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		http.Error(w, "rejected "+sent, http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	app := New(srv.URL, 12, key)
+	app := New(srv.URL, "ghs_abc", 0)
 	app.HTTP = srv.Client()
-	_, err = app.Token(t.Context(), 9)
-	if sent == "" || err == nil || strings.Contains(err.Error(), sent) {
-		t.Fatal("error contains the token")
+	_, err := app.Description(t.Context(), review.Source{Repo: "acme/eyeful", Number: 3})
+	if sent != "ghs_abc" || err == nil || strings.Contains(err.Error(), sent) {
+		t.Fatalf("error contains the token: %v", err)
+	}
+}
+
+func TestPull(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/eyeful/pulls/3" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"state":"closed","base":{"ref":"main","sha":"b","repo":{"clone_url":"https://github.com/acme/eyeful.git"}},"head":{"ref":"fix","sha":"a","repo":{"clone_url":"https://github.com/fork/eyeful.git"}}}`))
+	}))
+	defer srv.Close()
+	app := New(srv.URL, "ghs_abc", 0)
+	app.HTTP = srv.Client()
+	src, open, err := app.Pull(t.Context(), "acme/eyeful", 3)
+	want := review.Source{Repo: "acme/eyeful", Base: "main", Head: "fix", Number: 3, BaseSHA: "b", HeadSHA: "a", CloneURL: "https://github.com/acme/eyeful.git"}
+	if err != nil || open || src != want {
+		t.Fatalf("%+v open %v: %v", src, open, err)
 	}
 }
 
@@ -192,18 +159,33 @@ func TestWait(t *testing.T) {
 			return
 		}
 		if reads.Add(1) == 1 {
-			_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"in_progress","html_url":"https://example.test/run"}]}`))
+			_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"in_progress","html_url":"https://example.test/run"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"completed","conclusion":"failure","html_url":"https://example.test/run"}]}`))
+		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"completed","conclusion":"failure","html_url":"https://example.test/run"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
 	}))
 	defer srv.Close()
-	app := New(srv.URL, 1, nil)
+	app := New(srv.URL, "ghs_abc", 2)
 	app.HTTP = srv.Client()
 	app.poll = time.Millisecond
 	src := review.Source{Repo: "acme/eyeful", HeadSHA: strings.Repeat("a", 40)}
-	got, err := app.Wait(t.Context(), "ghs_abc", src)
+	got, err := app.Wait(t.Context(), src)
 	if err != nil || got.Passed || !strings.Contains(got.Log, "job test: step run failure") || reads.Load() < 2 {
 		t.Fatalf("%+v %v reads %d", got, err, reads.Load())
+	}
+}
+
+func TestWaitSkipsItsOwnRun(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"completed","conclusion":"success"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
+	}))
+	defer srv.Close()
+	app := New(srv.URL, "ghs_abc", 2)
+	app.HTTP = srv.Client()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	got, err := app.Wait(ctx, review.Source{Repo: "acme/eyeful", HeadSHA: strings.Repeat("a", 40)})
+	if err != nil || !got.Passed {
+		t.Fatalf("waited for its own run: %+v %v", got, err)
 	}
 }

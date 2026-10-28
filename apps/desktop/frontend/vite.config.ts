@@ -23,5 +23,6 @@ export default defineConfig({
 			router: { type: 'hash' }
 		}),
 		wails('./bindings')
-	])
+	]),
+	worker: { format: 'es' }
 });

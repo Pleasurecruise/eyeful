@@ -1,8 +1,8 @@
 # Configuration reference
 
 eyeful finds how to build and test the project under review itself. The local settings file holds
-the user's choices for `eyeful review`. The server is configured with environment variables and
-flags.
+the user's choices for `eyeful review`. The cloud action is configured with environment variables
+and flags.
 
 ## Project commands {#project}
 
@@ -54,46 +54,41 @@ hash per confirmation, of the repository's path and the commands confirmed there
 cannot ship a confirmation of its own. Each project keeps its review runs under `.eyeful/runs/`.
 That directory holds a `.gitignore` of `*`, so git never sees it and it never ends up in a review.
 
-## Server {#server}
+## Action {#action}
 
-Every flag has a matching environment variable, and `eyeful-server serve --help` lists both. Secrets and
-other variables are kept in separate places, both at the repository root; no app or package has its
-own configuration file. When a required value is missing, the tool fails instead of guessing.
+Every flag of `eyeful-action` has a matching environment variable, and `eyeful-action --help` lists
+both. `action.yml` sets them from its inputs and the job's environment. When a required value is
+missing, the program fails instead of guessing.
 
-### Secrets: `.env` {#secrets}
+### Secrets {#secrets}
 
-`.env` is ignored by git. mise loads it with `redact`, so the values do not appear in task output.
-`.env.example` lists exactly these.
+| Secret                    | Purpose                                                                     |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `EYEFUL_MODEL_KEY`        | API key for the provider at `EYEFUL_MODEL_URL`.                             |
+| `EYEFUL_TYPESAFE_API_KEY` | TypeSafe API key for Jev. Optional; without it findings are not merged.     |
+| `EYEFUL_GITHUB_TOKEN`     | The job's `GITHUB_TOKEN`, which clones, reads Actions and posts the review. |
 
-| Secret                          | Purpose                                                                                                                          |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `EYEFUL_WEBHOOK_SECRET`         | GitHub webhook secret, checked by the Worker against `X-Hub-Signature-256`.                                                      |
-| `EYEFUL_GITHUB_APP_ID`          | GitHub App id, used to mint an installation token per review.                                                                    |
-| `EYEFUL_GITHUB_APP_PRIVATE_KEY` | GitHub App private key: a PEM on one line with `\n` breaks, or a path to a PEM file. A value that is not a PEM stops the server. |
-| `EYEFUL_ALLOWED_USERS`          | GitHub logins, comma separated, whose pull requests and mentions the cloud reviews. Everyone else is ignored.                    |
-| `EYEFUL_CLOUDFLARE_ACCOUNT_ID`  | The Cloudflare account whose AI Gateway runs the models and Jev.                                                                 |
-| `EYEFUL_AI_GATEWAY_TOKEN`       | Cloudflare API token with AI Gateway Run and Workers AI Read.                                                                    |
+In GitHub the first two are repository secrets passed to the action's inputs
+([Deployment](cloud/DEPLOYMENT.md#turn-on-reviews)). Locally they live in the root `.env`, which git
+ignores and mise loads with `redact`; `.env.example` lists them. `eyeful review` uses
+`EYEFUL_TYPESAFE_API_KEY` for [Jev](ARCHITECTURE.md#jev); without it it does not merge findings.
 
-All six are Worker secrets: `cf deploy --secrets-file ../../.env` uploads them
-([Deploy](cloud/DEPLOYMENT.md#deploy)). Locally, `eyeful review` uses the account id and the token
-for [Jev](ARCHITECTURE.md#jev); without them `eyeful review` does not merge findings.
+### Variables {#variables}
 
-### Variables: `mise.toml` and flags {#variables}
+Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mise.toml`.
 
-Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mise.toml`; on a
-server the rest come from the platform's environment.
+| Variable             | Purpose                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `EYEFUL_PULL`        | The pull request to review.                                                                   |
+| `GITHUB_REPOSITORY`  | The repository, as `owner/name`. Actions sets it.                                             |
+| `GITHUB_RUN_ID`      | The workflow run; it marks what the review posts, and the review does not wait for it.        |
+| `GITHUB_API_URL`     | GitHub API root. Default `https://api.github.com`.                                            |
+| `EYEFUL_DIR`         | The checkout and the review's files, shared read-only with the sandbox. Default `/work`.      |
+| `EYEFUL_SANDBOX_URL` | The review's sandbox. Default `http://eyeful-sandbox:8080`.                                   |
+| `EYEFUL_MODEL_URL`   | OpenAI-compatible base URL of the provider serving pi's model; a repository variable.         |
+| `EYEFUL_AGENT`       | Agent CLI the review connects: `pi`, `claude` or `codex`. Default `pi`.                       |
+| `EYEFUL_LOG_LEVEL`   | `debug`, `info`, `warn` or `error`. Default `info`.                                           |
+| `DOCS_URL`           | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`. |
 
-| Variable                | Purpose                                                                                                  |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| `EYEFUL_ADDR`           | Listen address. Default `:8080`.                                                                         |
-| `EYEFUL_LOG_LEVEL`      | `debug`, `info`, `warn` or `error`. Default `info`.                                                      |
-| `DOCS_URL`              | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.            |
-| `EYEFUL_GITHUB_API_URL` | GitHub API root. Default `https://api.github.com`.                                                       |
-| `EYEFUL_AGENT`          | Agent CLI the cloud review connects: `pi`, `claude` or `codex`. Default `pi`.                            |
-| `EYEFUL_REVIEW`         | The pull request a cloud review runs, as JSON. The Durable Object sets it.                               |
-| `EYEFUL_REVIEW_ID`      | The review's id, marking what it posted so a restart does not post it again. The Durable Object sets it. |
-| `EYEFUL_RUNS_URL`       | Where a cloud review keeps its stages. The Durable Object sets it to `http://runs.eyeful`.               |
-| `EYEFUL_SANDBOX_URL`    | The review's sandbox. The Durable Object sets it to `http://sandbox.eyeful`.                             |
-
-`--shutdown-timeout` (`30s`) is a flag only. The model a cloud review uses is set in pi's own
-settings in `packages/worker/pi/`, not by a variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).
+The model a cloud review uses is set in pi's own settings in `cmd/eyeful-action/pi/`, not by a
+variable ([Agents and models](cloud/CLOUD.md#agents-and-models)).

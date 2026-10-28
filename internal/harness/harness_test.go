@@ -21,7 +21,6 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/internal/sandbox"
-	"github.com/Pleasurecruise/eyeful/local/archive"
 	"github.com/Pleasurecruise/eyeful/local/classify"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -38,9 +37,6 @@ func fakeClaude() error {
 	if slices.Contains(os.Args, "--version") {
 		_, err := fmt.Println("9.9.9 (fake)")
 		return err
-	}
-	if os.Getenv("FAKE_DOWN") != "" {
-		return errors.New("the agent is down")
 	}
 	prompt, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -101,44 +97,18 @@ func TestExecute(t *testing.T) {
 	src := sample(t)
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
-		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), ""), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.State != StateDone || status.Outcome != workflow.OutcomeComplete || host.tokens != 1 || host.comments != 1 || host.reactions != 1 {
-		t.Fatalf("status %+v tokens %d comments %d", status, host.tokens, host.comments)
+	if status.Outcome != workflow.OutcomeComplete || host.comments != 1 || host.reactions != 1 {
+		t.Fatalf("status %+v comments %d reactions %d", status, host.comments, host.reactions)
 	}
 	if !strings.Contains(host.body, "#### Not posted (1)") || !strings.Contains(host.body, "· suggestion · <code>changed.txt:1</code> Say what changed.</summary>") || strings.Contains(host.body, "What this change does") {
 		t.Fatalf("report %s", host.body)
-	}
-	again, err := runner.Execute(t.Context(), src)
-	if err != nil || again.Outcome != status.Outcome || host.tokens != 1 || host.comments != 1 {
-		t.Fatalf("again %+v tokens %d comments %d err %v", again, host.tokens, host.comments, err)
-	}
-}
-
-func TestExecuteResumes(t *testing.T) {
-	connect(t)
-	src := sample(t)
-	runs := archive.New(t.TempDir())
-	first := &fakeHost{actions: github.Actions{Passed: true}, fail: errors.New("GitHub is down")}
-	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
-		Runs: runs, Host: first, Clone: checkout.Clone,
-	}
-	if _, err := runner.Execute(t.Context(), src); err == nil {
-		t.Fatal("publishing failed but the review succeeded")
-	}
-	t.Setenv("FAKE_DOWN", "1")
-	second := &fakeHost{actions: github.Actions{Passed: true}}
-	runner.Host = second
-	runner.Dir = t.TempDir()
-	status, err := runner.Execute(t.Context(), src)
-	if err != nil || status.Outcome != workflow.OutcomeComplete || second.comments != 1 {
-		t.Fatalf("a new container did not resume the saved stages: %+v %v", status, err)
 	}
 }
 
@@ -146,8 +116,8 @@ func TestExecuteCIFailed(t *testing.T) {
 	connect(t)
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
 	runner := Runner{
-		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), "", nil), Sandbox: sandboxFor(t), Dir: t.TempDir(),
-		Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone,
+		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: classify.New(slog.New(slog.DiscardHandler), ""), Sandbox: sandboxFor(t), Dir: t.TempDir(),
+		Host: host, Clone: checkout.Clone,
 	}
 	status, err := runner.Execute(t.Context(), sample(t))
 	if err != nil {
@@ -162,7 +132,7 @@ func TestExecuteCancelled(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	runner := Runner{Log: slog.New(slog.DiscardHandler), Dir: t.TempDir(), Runs: archive.New(t.TempDir()), Host: host, Clone: checkout.Clone}
+	runner := Runner{Log: slog.New(slog.DiscardHandler), Dir: t.TempDir(), Host: host, Clone: checkout.Clone}
 	_, err := runner.Execute(ctx, sample(t))
 	if !errors.Is(err, context.Canceled) || host.comments != 0 {
 		t.Fatalf("%v comments %d", err, host.comments)
@@ -189,35 +159,25 @@ func TestNotes(t *testing.T) {
 
 type fakeHost struct {
 	actions   github.Actions
-	fail      error
-	tokens    int
 	reactions int
 	comments  int
 	body      string
 }
 
-func (h *fakeHost) Token(context.Context, int64) (string, error) {
-	h.tokens++
-	return "ghs_test", nil
-}
-
-func (h *fakeHost) Wait(context.Context, string, review.Source) (github.Actions, error) {
+func (h *fakeHost) Wait(context.Context, review.Source) (github.Actions, error) {
 	return h.actions, nil
 }
 
-func (h *fakeHost) React(context.Context, string, review.Source) error {
+func (h *fakeHost) React(context.Context, review.Source) error {
 	h.reactions++
 	return nil
 }
 
-func (h *fakeHost) Description(context.Context, string, review.Source) (string, error) {
+func (h *fakeHost) Description(context.Context, review.Source) (string, error) {
 	return "Add changed.txt", nil
 }
 
 func (h *fakeHost) Publish(_ context.Context, _ review.Source, _ string, blocks []string, notes []github.Note) error {
-	if h.fail != nil {
-		return h.fail
-	}
 	h.comments += 1 + len(notes)
 	h.body = strings.Join(blocks, "\n\n")
 	return nil
@@ -261,6 +221,5 @@ func sample(t *testing.T) review.Source {
 	return review.Source{
 		Repo: "acme/eyeful", Base: "main", Head: "feature", Number: 7,
 		BaseSHA: base, HeadSHA: head, CloneURL: (&url.URL{Scheme: "file", Path: dir}).String(),
-		InstallationID: 9,
 	}
 }

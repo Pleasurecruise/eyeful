@@ -101,7 +101,7 @@ func (s *Server) open(ctx context.Context, src review.Source) (project.Config, e
 	for _, args := range [][]string{
 		{"init", "--quiet"},
 		{"remote", "add", "origin", src.CloneURL},
-		{"fetch", "--no-tags", "origin", fmt.Sprintf("+refs/pull/%d/head:refs/remotes/origin/pr", src.Number), "+refs/heads/" + src.Base + ":refs/remotes/origin/base"},
+		{"fetch", "--no-tags", "origin", src.HeadSHA, src.BaseSHA},
 		{"-c", "core.hooksPath=/dev/null", "checkout", "--quiet", "--detach", src.HeadSHA},
 		{"worktree", "add", "--quiet", "--detach", filepath.Join(s.root, "base"), src.BaseSHA},
 	} {

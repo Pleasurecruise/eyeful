@@ -8,7 +8,7 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run dev:cloud` 在本地运行云端，需要 Docker，Durable Object 和 R2 存在本地，并把 `packages/worker/.env` 链接到根目录的 `.env` 来读取 secret。CLI、桌面端和评测都把数据存在文件里。
+`mise run build:action` 构建云端的两个镜像，需要 Docker。CLI、桌面端和评测都把数据存在文件里。
 
 桌面端需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
 
@@ -16,7 +16,7 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 
 | 命令                                       | 作用                                                                                      |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `mise run dev:cloud`                       | `cf dev`：在 `:5173`（Vite）运行 Worker，服务端跑在本地 Container 里                      |
+| `mise run build:action`                    | `action.yml` 运行的审查镜像和沙箱镜像                                                     |
 | `mise run install`                         | 把本地命令行 `eyeful` 安装到 `~/.local/bin`，这个目录要在 `PATH` 上；升级 Go 后要重新安装 |
 | `mise run skills`                          | 按 `skills-lock.json` 重新安装 `workflow/prompts/skills` 里的审查 skill                   |
 | `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
@@ -24,18 +24,18 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 | `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试                                        |
 | `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
 | `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
-| `mise run generate`                        | 生成 pulls.review core 打包文件、桌面端绑定和 Worker 类型                                 |
+| `mise run generate`                        | 生成 pulls.review core 打包文件和桌面端绑定                                               |
 | `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 
-GitHub App 的权限和事件见[部署](cloud/DEPLOYMENT.md#deploy)。
+workflow 的触发和权限见[部署](cloud/DEPLOYMENT.md#turn-on-reviews)。
 
 ## 配置
 
-配置只放在仓库根目录：凭据放 `.env`，本地共用的设置放 `mise.toml`。全部变量和参数见[配置项参考](CONFIGURATION.md#server)。
+配置只放在仓库根目录：凭据放 `.env`，本地共用的设置放 `mise.toml`。全部变量和参数见[配置项参考](CONFIGURATION.md#action)。
 
 ## 代码生成
 
-`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。`cf workers types`（`generate:worker`）把 Worker 的 `Env` 和运行时类型写到 `packages/worker/.cloudflare/types`，同样不进 git。这些生成结果都不要手动修改。
+`packages/pulls`（`generate:pulls`）把 `@pulls.review/core` 打包成 `workflow/pulls/core.js`。`wails3 generate bindings`（`generate:bindings`）把桌面端的服务以类的形式生成到 `apps/desktop/frontend/bindings`，这是 Wails 的默认位置，Go 的 `nil` 切片到前端是 `[]`；这个目录不进 git，`lint`、`wails3 build` 和 `wails3 dev` 都会重新生成。这些生成结果都不要手动修改。
 桌面图标的源文件是 `apps/desktop/build/appicon.png`；`generate:icons` 会一并生成 dev 和打包构建使用的 macOS `icons.icns`、`Assets.car`，以及 Windows `icon.ico`。
 
 ## 多语言

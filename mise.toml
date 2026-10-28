@@ -14,11 +14,6 @@ DOCS_URL = "https://github.yiming1234.cn/eyeful/"
 description = "Install Go and pnpm dependencies"
 run = ["go mod download", "pnpm install"]
 
-[tasks."dev:cloud"]
-description = "Run the Worker and the review Containers locally with cf dev (needs Docker)"
-dir = "packages/worker"
-run = "[ -e .env ] || ln -s ../../.env .env; pnpm exec cf dev"
-
 [tasks."generate:pulls"]
 description = "Rebuild workflow/pulls/core.js from @pulls.review/core"
 hide = true
@@ -38,15 +33,9 @@ depends = ["tools:wails"]
 dir = "apps/desktop"
 run = "wails3 generate bindings -clean=true -ts"
 
-[tasks."generate:worker"]
-description = "Regenerate the Worker's types into packages/worker/.cloudflare/types"
-hide = true
-dir = "packages/worker"
-run = "pnpm exec cf workers types"
-
 [tasks.generate]
-description = "Regenerate the pulls.review core bundle, the desktop bindings and the Worker types"
-depends = ["generate:pulls", "generate:bindings", "generate:worker"]
+description = "Regenerate the pulls.review core bundle and the desktop bindings"
+depends = ["generate:pulls", "generate:bindings"]
 
 [tasks.skills]
 description = "Reinstall the review skills in workflow/prompts/skills from skills-lock.json (skills.sh)"
@@ -59,6 +48,13 @@ rm -rf workflow/prompts/skills
 cp -R "$tmp/.agents/skills" workflow/prompts/skills
 rm -rf "$tmp"
 """
+
+[tasks."build:action"]
+description = "Build the review and sandbox images the GitHub Action runs (needs Docker)"
+run = [
+	"docker build -t eyeful-action -f Dockerfile .",
+	"docker build -t eyeful-sandbox -f Dockerfile.sandbox ."
+]
 
 [tasks."dev:docs"]
 description = "Serve the documentation site with hot reload"
@@ -96,7 +92,7 @@ run = [
 
 [tasks.lint]
 description = "Check formatting and lint Go and TypeScript"
-depends = ["generate:bindings", "generate:worker"]
+depends = ["generate:bindings"]
 run = [
 	"test -z \"$(gofmt -l cmd internal workflow local apps/desktop)\" || (gofmt -l cmd internal workflow local apps/desktop && exit 1)",
 	"golangci-lint run ./...",

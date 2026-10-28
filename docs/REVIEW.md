@@ -2,9 +2,8 @@
 
 A review goes through four stages, implemented in the `workflow` module
 ([Architecture](ARCHITECTURE.md#workflow)). A local review runs all of them
-([Running locally](LOCAL.md)). A cloud review runs the same stages on a queued pull request. Until
-the sandbox is built, setup and the project's commands do not run, and findings stay unverified
-([Running in the cloud](cloud/CLOUD.md)).
+([Running locally](LOCAL.md)). A cloud review runs the same stages on a pull request in a GitHub
+Actions job, with the project's commands in a sandbox ([Running in the cloud](cloud/CLOUD.md)).
 
 ```mermaid
 flowchart TB
@@ -20,7 +19,7 @@ flowchart TB
 
 Locally, the client shows what will be reviewed, the budget, and the project commands that will
 run, and the review starts when the user confirms. The user confirms the commands again when they
-change. In the cloud, installing the GitHub App on a repository is that consent, and the commands
+change. In the cloud, adding the eyeful workflow to a repository is that consent, and the commands
 come from the base branch. A started review cannot be cancelled.
 
 eyeful finds the commands from the project's manifests
@@ -68,7 +67,7 @@ A review moves from `queued` to `running` to `done`, and ends with one result:
 | `ci_failed` | The CI check failed, and the feedback diagnoses it  |
 | `partial`   | The budget ran out or an expert handed in no report |
 
-How a cloud review is admitted and retried is in [Review lifecycle](cloud/SCHEDULING.md).
+When a cloud review runs and how a re-run behaves is in [Review lifecycle](cloud/SCHEDULING.md).
 
 ## Rules {#rules}
 
@@ -78,7 +77,7 @@ How a cloud review is admitted and retried is in [Review lifecycle](cloud/SCHEDU
 3. Every run is recorded: who ran, what ran and what it cost.
 4. A re-review starts by running the last review's reproductions again
    ([Rounds](REPORT.md#rounds)).
-5. A review starts only with consent: the user's confirmation locally, the App's installation in the
+5. A review starts only with consent: the user's confirmation locally, the eyeful workflow in the
    cloud. A started review runs to the end.
 6. If CI fails, the change gets a diagnosis instead of a review.
 

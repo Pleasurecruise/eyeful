@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -17,25 +18,15 @@ import (
 	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
-type State string
-
-const (
-	StateRunning State = "running"
-	StateDone    State = "done"
-	StateFailed  State = "failed"
-)
-
 type Status struct {
-	State   State            `json:"state"`
-	Outcome workflow.Outcome `json:"outcome"`
-	Reason  string           `json:"reason"`
+	Outcome workflow.Outcome
+	Reason  string
 }
 
 type Host interface {
-	Token(ctx context.Context, installation int64) (string, error)
-	Wait(ctx context.Context, token string, src review.Source) (github.Actions, error)
-	Description(ctx context.Context, token string, src review.Source) (string, error)
-	React(ctx context.Context, token string, src review.Source) error
+	Wait(ctx context.Context, src review.Source) (github.Actions, error)
+	Description(ctx context.Context, src review.Source) (string, error)
+	React(ctx context.Context, src review.Source) error
 	Publish(ctx context.Context, src review.Source, id string, blocks []string, notes []github.Note) error
 }
 
@@ -45,54 +36,45 @@ type Runner struct {
 	Experts    []string
 	Classifier workflow.Classifier
 	Dir        string
-	Runs       workflow.Archive
+	Token      string
 	Sandbox    *sandbox.Client
 	Host       Host
 	Clone      func(ctx context.Context, dir, token string, src review.Source) error
 }
 
 func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) {
-	published, ok, err := r.Runs.Load(ctx, "published")
-	if err != nil {
-		return Status{}, fmt.Errorf("publication record: %w", err)
-	}
-	if ok {
-		return Status{State: StateDone, Outcome: workflow.Outcome(published)}, nil
-	}
-	token, err := r.Host.Token(ctx, src.InstallationID)
-	if err != nil {
-		return Status{}, fmt.Errorf("installation token: %w", err)
-	}
 	checkout := filepath.Join(r.Dir, "checkout")
-	if err := r.Clone(ctx, checkout, token, src); err != nil {
+	if err := r.Clone(ctx, checkout, r.Token, src); err != nil {
 		return Status{}, fmt.Errorf("checkout: %w", err)
 	}
-	actions, err := r.Host.Wait(ctx, token, src)
+	actions, err := r.Host.Wait(ctx, src)
 	if err != nil {
 		return Status{}, fmt.Errorf("actions: %w", err)
 	}
-	if err := r.Host.React(ctx, token, src); err != nil {
+	if err := r.Host.React(ctx, src); err != nil {
 		return Status{}, fmt.Errorf("reaction: %w", err)
 	}
-	description, err := r.Host.Description(ctx, token, src)
+	description, err := r.Host.Description(ctx, src)
 	if err != nil {
 		return Status{}, fmt.Errorf("pull request: %w", err)
 	}
-	cfg, err := r.Sandbox.Open(ctx, src)
+	mirror := src
+	mirror.CloneURL = (&url.URL{Scheme: "file", Path: checkout}).String()
+	cfg, err := r.Sandbox.Open(ctx, mirror)
 	if err != nil {
 		return Status{}, fmt.Errorf("sandbox: %w", err)
 	}
 	res, err := app.Review(ctx, app.Options{
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,
 		Description: description, Verification: workflow.ModeExecution, Commands: cfg, Run: filepath.Join(r.Dir, "run"),
-		Classifier: r.Classifier, Workspace: workspace{Client: r.Sandbox, check: workflow.Check{Passed: actions.Passed, Log: actions.Log}}, Archive: r.Runs,
+		Classifier: r.Classifier, Workspace: workspace{Client: r.Sandbox, check: workflow.Check{Passed: actions.Passed, Log: actions.Log}},
 		Out: io.Discard, Err: io.Discard, Log: r.Log,
 	})
 	if err != nil {
 		return Status{}, fmt.Errorf("review: %w", err)
 	}
 	if res.Outcome == "" {
-		return Status{State: StateDone, Reason: "the change is empty"}, nil
+		return Status{Reason: "the change is empty"}, nil
 	}
 	blocks, err := report.Summary(res)
 	if err != nil {
@@ -101,11 +83,8 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err := r.Host.Publish(ctx, src, r.ID, blocks, notesFrom(res.Comments)); err != nil {
 		return Status{}, fmt.Errorf("publish: %w", err)
 	}
-	if err := r.Runs.Save(ctx, "published", []byte(res.Outcome)); err != nil {
-		return Status{}, fmt.Errorf("record publication: %w", err)
-	}
 	r.Log.Info("published", slog.String("repo", src.Repo), slog.Int64("pull", src.Number), slog.String("outcome", string(res.Outcome)))
-	return Status{State: StateDone, Outcome: res.Outcome, Reason: res.Reason}, nil
+	return Status{Outcome: res.Outcome, Reason: res.Reason}, nil
 }
 
 type workspace struct {
