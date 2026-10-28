@@ -53,7 +53,7 @@ func TestProxy(t *testing.T) {
 	}
 }
 
-func TestProxyLogsFailures(t *testing.T) {
+func TestProxyFailures(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "30")
 		http.Error(w, "rate limited", http.StatusTooManyRequests)
@@ -80,7 +80,7 @@ func TestProxyLogsFailures(t *testing.T) {
 	}
 }
 
-func TestProxyTimesOut(t *testing.T) {
+func TestProxyTimeout(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():

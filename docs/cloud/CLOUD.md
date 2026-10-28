@@ -56,7 +56,10 @@ test on a fresh copy, as `eyeful review` does.
 
 - It holds no credential. It mounts the review's directory read-only and clones the two commits from
   the review container's checkout.
-- The commands come from the base commit, so a pull request cannot change what runs.
+- The commands come from the base commit, so a pull request cannot change what runs. A repository
+  whose commands eyeful does not find declares them in `.github/eyeful.yml`
+  ([Project commands](../CONFIGURATION.md#project)). No one confirms commands in the cloud; that
+  declaration takes the place of the local confirmation.
 - For now it can reach the whole internet, not only package registries.
 
 ## Credentials {#credentials}

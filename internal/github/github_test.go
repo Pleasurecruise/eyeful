@@ -119,7 +119,7 @@ func TestPublishPages(t *testing.T) {
 	}
 }
 
-func TestTokenRedacts(t *testing.T) {
+func TestToken(t *testing.T) {
 	var sent string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sent = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -177,7 +177,7 @@ func TestWait(t *testing.T) {
 	}
 }
 
-func TestWaitSkipsItsOwnWorkflow(t *testing.T) {
+func TestWaitOwnWorkflow(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/repos/acme/eyeful/actions/runs/3" {
 			_, _ = w.Write([]byte(`{"id":3,"workflow_id":9}`))

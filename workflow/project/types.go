@@ -1,6 +1,9 @@
 package project
 
-const Placeholder = "{test}"
+const (
+	Placeholder = "{test}"
+	Declared    = ".github/eyeful.yml"
+)
 
 var manifests = []string{
 	"go.mod", ".golangci.yml", ".golangci.yaml", ".golangci.toml", "Cargo.toml",
@@ -9,10 +12,10 @@ var manifests = []string{
 }
 
 type Config struct {
-	Setup   string
-	Lint    string
-	Test    string
-	TestOne string
+	Setup   string `yaml:"setup"`
+	Lint    string `yaml:"lint"`
+	Test    string `yaml:"test"`
+	TestOne string `yaml:"test_one"`
 }
 
 type Command struct {

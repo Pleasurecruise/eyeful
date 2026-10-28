@@ -1,6 +1,7 @@
 package project
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,9 +11,31 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func Detect(root string) (Config, error) {
+	data, err := os.ReadFile(filepath.Join(root, Declared))
+	switch {
+	case err == nil:
+		var c Config
+		dec := yaml.NewDecoder(bytes.NewReader(data))
+		dec.KnownFields(true)
+		if err := dec.Decode(&c); err != nil {
+			return Config{}, fmt.Errorf("read %s: %w", Declared, err)
+		}
+		if c.TestOne != "" && !strings.Contains(c.TestOne, Placeholder) {
+			return Config{}, fmt.Errorf("read %s: test_one must contain %s", Declared, Placeholder)
+		}
+		return c, nil
+	case !errors.Is(err, os.ErrNotExist):
+		return Config{}, fmt.Errorf("read %s: %w", Declared, err)
+	}
+	return infer(root)
+}
+
+func infer(root string) (Config, error) {
 	found := map[string]string{}
 	for _, name := range manifests {
 		data, err := os.ReadFile(filepath.Join(root, name))

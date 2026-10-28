@@ -79,7 +79,7 @@ func TestClone(t *testing.T) {
 	}
 }
 
-func TestCloneRefusesCredentials(t *testing.T) {
+func TestCloneCredentials(t *testing.T) {
 	src := review.Source{
 		Repo: "acme/eyeful", Number: 1, Base: "main",
 		BaseSHA: strings.Repeat("a", 40), HeadSHA: strings.Repeat("b", 40),
@@ -121,7 +121,7 @@ func TestCloneAskpass(t *testing.T) {
 	}
 }
 
-func TestCloneRedactsToken(t *testing.T) {
+func TestCloneToken(t *testing.T) {
 	bin := t.TempDir()
 	if err := os.Symlink(os.Args[0], filepath.Join(bin, "git")); err != nil {
 		t.Fatal(err)

@@ -35,7 +35,7 @@ pi --mode json --no-session \
 每次审查有自己的沙箱容器，job 结束时删除。它只运行一次 setup，每个测试都在新的副本上跑，和 `eyeful review` 一样。
 
 - 它不持有任何凭证。它以只读方式挂载审查目录，从审查容器的检出里克隆这两个提交。
-- 命令取自 base 提交，所以 pull request 改不了要运行的内容。
+- 命令取自 base 提交，所以 pull request 改不了要运行的内容。eyeful 找不对命令的仓库，在 `.github/eyeful.yml` 里声明它们（见[项目命令](../CONFIGURATION.md#project)）。云端没有人确认命令，这份声明代替了本地的确认。
 - 目前它能访问整个互联网，而不只是包仓库。
 
 ## 凭证 {#credentials}

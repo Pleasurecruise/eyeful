@@ -76,7 +76,7 @@ The workflow on pull requests through a GitHub Action
 | The sandbox reaching only package registries                                    | To do |
 | Posting once, so a re-run skips what GitHub already has                         | Built |
 | Images pulled from a registry instead of built in every job                     | Built |
-| An end-to-end run on a real pull request                                        | To do |
+| An end-to-end run on a real pull request                                        | Built |
 
 Exit criterion: a cloud review of an untrusted pull request finishes with code running only inside
 its sandbox, and a re-run of its job posts nothing twice.

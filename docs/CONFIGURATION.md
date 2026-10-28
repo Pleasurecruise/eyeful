@@ -6,8 +6,17 @@ and flags.
 
 ## Project commands {#project}
 
-Rules, with no model, pick the commands from the files at the root of the snapshot. The first row
-that matches is used.
+A repository can declare its commands in `.github/eyeful.yml`, with the keys below; `test_one` must
+contain `{test}`. A declaration replaces what eyeful finds, and a key it leaves out gets no command:
+
+```yaml
+setup: python -m pip install -e . -r requirements-dev.txt
+test: python -m pytest tests
+test_one: python -m pytest {test}
+```
+
+Without one, rules with no model pick the commands from the files at the root of the snapshot. The
+first row that matches is used.
 
 | Files                                                     | `setup`                                                  | `test`, `test_one`                                                                             | `lint`                                            |
 | --------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------- |
