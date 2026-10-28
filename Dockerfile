@@ -20,4 +20,5 @@ RUN apt-get update \
 	&& chmod 755 /usr/local/bin/pi
 COPY --chown=agent:agent cmd/eyeful-action/pi/ /home/agent/.pi/agent/
 COPY --from=build /eyeful-action /usr/local/bin/eyeful-action
+LABEL org.opencontainers.image.source=https://github.com/Pleasurecruise/eyeful
 ENTRYPOINT ["eyeful-action"]

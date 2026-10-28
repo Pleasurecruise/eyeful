@@ -21,11 +21,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: build the images
+    - name: pull the images
       shell: bash
       run: |
-        docker build --quiet --tag eyeful-action --file "$GITHUB_ACTION_PATH/Dockerfile" "$GITHUB_ACTION_PATH"
-        docker build --quiet --tag eyeful-sandbox --file "$GITHUB_ACTION_PATH/Dockerfile.sandbox" "$GITHUB_ACTION_PATH"
+        ref="${GITHUB_ACTION_PATH##*/}"
+        rest="${GITHUB_ACTION_PATH%/*}"
+        repo="${rest##*/}"
+        rest="${rest%/*}"
+        prefix=$(printf 'ghcr.io/%s/%s' "${rest##*/}" "$repo" | tr '[:upper:]' '[:lower:]')
+        docker pull --quiet "$prefix-action:$ref"
+        docker pull --quiet "$prefix-sandbox:$ref"
+        docker tag "$prefix-action:$ref" eyeful-action
+        docker tag "$prefix-sandbox:$ref" eyeful-sandbox
 
     - name: start the sandbox
       shell: bash
@@ -47,7 +54,7 @@ runs:
           --env GITHUB_REPOSITORY --env GITHUB_RUN_ID --env GITHUB_API_URL \
           --env EYEFUL_PULL --env EYEFUL_GITHUB_TOKEN \
           --env EYEFUL_MODEL_KEY --env EYEFUL_TYPESAFE_API_KEY \
-          eyeful-action
+          eyeful-action | tee -a "$GITHUB_STEP_SUMMARY"
 
     - name: remove the sandbox
       if: always()

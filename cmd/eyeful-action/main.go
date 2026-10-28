@@ -100,7 +100,7 @@ func (c *cli) run() error {
 	}
 	runner := harness.Runner{
 		ID: strconv.FormatInt(cfg.RunID, 10), Log: log, Clone: checkout.Clone, Dir: cfg.Dir, Token: cfg.Token,
-		Classifier: jev, Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh,
+		Classifier: jev, Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh, Out: os.Stdout, Err: os.Stderr,
 	}
 	status, err := runner.Execute(ctx, src)
 	if err != nil {

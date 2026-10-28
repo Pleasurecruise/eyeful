@@ -29,3 +29,33 @@ jobs:
 
       - name: lint, test and check generated files
         run: mise run check
+
+  images:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: build the images
+        run: |
+          prefix=$(printf 'ghcr.io/%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          tag="${GITHUB_REF_NAME//\//-}"
+          docker build --tag "$prefix-action:$tag" --file Dockerfile .
+          docker build --tag "$prefix-sandbox:$tag" --file Dockerfile.sandbox .
+
+      - name: publish the images
+        if: github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          prefix=$(printf 'ghcr.io/%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          tag="${GITHUB_REF_NAME//\//-}"
+          printf '%s' "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$prefix-action:$tag"
+          docker push "$prefix-sandbox:$tag"

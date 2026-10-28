@@ -40,6 +40,8 @@ type Runner struct {
 	Sandbox    *sandbox.Client
 	Host       Host
 	Clone      func(ctx context.Context, dir, token string, src review.Source) error
+	Out        io.Writer
+	Err        io.Writer
 }
 
 func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) {
@@ -68,7 +70,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,
 		Description: description, Verification: workflow.ModeExecution, Commands: cfg, Run: filepath.Join(r.Dir, "run"),
 		Classifier: r.Classifier, Workspace: workspace{Client: r.Sandbox, check: workflow.Check{Passed: actions.Passed, Log: actions.Log}},
-		Out: io.Discard, Err: io.Discard, Log: r.Log,
+		Out: r.Out, Err: r.Err, Log: r.Log,
 	})
 	if err != nil {
 		return Status{}, fmt.Errorf("review: %w", err)

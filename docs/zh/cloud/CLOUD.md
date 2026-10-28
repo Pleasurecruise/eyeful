@@ -4,15 +4,17 @@
 
 ## 能审查什么 {#what-can-be-reviewed}
 
-workflow 里用了 eyeful action 的仓库中，由仓库所有者、成员或协作者打开或 @ 的 pull request。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
+workflow 里用了 eyeful action 的仓库中，由仓库所有者、成员或协作者打开、或评论了 `/eyeful` 的 pull request。分支、提交和未提交的改动在本地审查（见[本地运行](../LOCAL.md)）。
 
 ## 云端审查怎样运行
 
-1. pull request 在打开或转为可审查时审查一次，之后每次有人评论 `@eyeful-review` 再审一次。何时审见[审查生命周期](SCHEDULING.md)。
-2. job 构建两个镜像，启动沙箱，在审查容器里运行 `eyeful-action`。
+1. pull request 在打开或转为可审查时审查一次，之后每次有人评论 `/eyeful` 再审一次。何时审见[审查生命周期](SCHEDULING.md)。
+2. job 按 action 的版本（例如 `main`）从 `ghcr.io` 拉取审查镜像和沙箱镜像，启动沙箱，在审查容器里运行 `eyeful-action`。
 3. `eyeful-action` 读取 pull request，克隆它，等 head 提交上其他 workflow 运行结束，然后回一个 👀。有失败时审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
 4. 它打开沙箱，用执行验证调用 `local/app.Review`。
 5. 它把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)）。两者都在隐藏标记里带着 workflow 运行的 id，发布前先列出 pull request 上已有的内容，所以重新运行 job 不会把任何一条发两次。
+
+job 的日志会实时显示审查过程：审查什么、项目命令、每个阶段。完整的排序报告也会写进这次运行的摘要页面。
 
 ## agent 与模型 {#agents-and-models}
 

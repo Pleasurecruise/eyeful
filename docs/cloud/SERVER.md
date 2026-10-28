@@ -22,7 +22,7 @@ flowchart TB
 | Path                           | Owns                                                                                           |
 | ------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `.github/workflows/review.yml` | The reusable workflow other repositories call: triggers, who may start a review, one at a time |
-| `action.yml`                   | The composite action: build the images, start the sandbox, run                                 |
+| `action.yml`                   | The composite action: pull the images, start the sandbox, run                                  |
 | `cmd/eyeful-action`            | The binary (kong) and pi's settings in `pi/`                                                   |
 | `cmd/eyeful-sandbox`           | The sandbox's HTTP server                                                                      |
 | `internal/config`              | The `Config` struct, filled by kong                                                            |

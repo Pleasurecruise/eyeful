@@ -19,7 +19,7 @@ flowchart TB
 | 路径                           | 负责                                                                |
 | ------------------------------ | ------------------------------------------------------------------- |
 | `.github/workflows/review.yml` | 其他仓库调用的可复用 workflow：触发、谁能发起审查、同一时间只跑一个 |
-| `action.yml`                   | composite action：构建镜像、启动沙箱、运行审查                      |
+| `action.yml`                   | composite action：拉取镜像、启动沙箱、运行审查                      |
 | `cmd/eyeful-action`            | 二进制（kong）和 `pi/` 下 pi 的设置                                 |
 | `cmd/eyeful-sandbox`           | 沙箱的 HTTP 服务                                                    |
 | `internal/config`              | 由 kong 填充的 `Config` 结构                                        |

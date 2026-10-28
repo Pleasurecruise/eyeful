@@ -5,15 +5,16 @@ review. The agents run in one container and the project's tests in another, the 
 
 ## What can be reviewed {#what-can-be-reviewed}
 
-A pull request in a repository whose workflows use the eyeful action, opened or mentioned by its
+A pull request in a repository whose workflows use the eyeful action, opened, or commented `/eyeful` on, by its
 owner, a member or a collaborator. Branches, commits and uncommitted changes are reviewed locally
 ([Running locally](../LOCAL.md)).
 
 ## How a cloud review runs
 
 1. A pull request is reviewed once when it is opened or marked ready, and again each time someone
-   comments `@eyeful-review`. When a review runs is in [Review lifecycle](SCHEDULING.md).
-2. The job builds two images, starts the sandbox, and runs `eyeful-action` in the review container.
+   comments `/eyeful`. When a review runs is in [Review lifecycle](SCHEDULING.md).
+2. The job pulls the review and sandbox images from `ghcr.io` for the action's ref, such as `main`,
+   starts the sandbox, and runs `eyeful-action` in the review container.
 3. `eyeful-action` reads the pull request, clones it, waits for the head commit's other workflow
    runs and reacts with 👀. A failed run ends the review with a diagnosis
    ([Planning and triage](../PLANNER.md#ci-check)).
@@ -22,6 +23,9 @@ owner, a member or a collaborator. Branches, commits and uncommitted changes are
    a comment ([Review feedback](../REPORT.md#line-comments)). Both carry the workflow run's id in a
    hidden marker, and it lists what is already on the pull request before it posts, so a re-run of
    the job posts neither twice.
+
+The job's log shows the review as it runs: what is reviewed, the project's commands and each stage.
+The full ranked report is also written to the run's summary page.
 
 ## Agents and models {#agents-and-models}
 

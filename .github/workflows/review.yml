@@ -16,7 +16,10 @@ jobs:
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       startsWith(github.event.comment.body, '@eyeful-review') &&
+       (github.event.comment.body == '/eyeful' ||
+        startsWith(github.event.comment.body, '/eyeful ') ||
+        startsWith(github.event.comment.body, fromJSON('"/eyeful\n"')) ||
+        startsWith(github.event.comment.body, fromJSON('"/eyeful\r"'))) &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -29,6 +32,13 @@ jobs:
       group: eyeful-${{ github.repository }}-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
     steps:
+      - name: acknowledge the command
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT: ${{ github.event.comment.id }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" -f content=eyes
+
       - name: review the pull request
         uses: Pleasurecruise/eyeful@main
         with:

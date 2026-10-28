@@ -1,0 +1,17 @@
+[tools]
+node = "lts"
+go = "latest"
+python = "latest"
+rust = { version = "stable", profile = "minimal" }
+pnpm = "latest"
+yarn = "1"
+bun = "latest"
+uv = "latest"
+poetry = "latest"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node", "npm", "pnpm", "yarn", "bun", "go", "python", "rust"]
+not_found_auto_install = true
+not_found_system_fallback = false
+trusted_config_paths = ["/"]
+yes = true

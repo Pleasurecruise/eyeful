@@ -8,7 +8,7 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run build:action` 构建云端的两个镜像，需要 Docker。CLI、桌面端和评测都把数据存在文件里。
+`mise run build:action` 在本地构建云端的两个镜像，和 CI 发布前的构建相同，需要 Docker。CLI、桌面端和评测都把数据存在文件里。
 
 桌面端需要系统的 webview：macOS 自带；Windows 需要 WebView2；Linux 需要 GTK 4 和 WebKitGTK 6.0（Ubuntu 24.04 上是 `libgtk-4-dev` 和 `libwebkitgtk-6.0-dev`）。
 

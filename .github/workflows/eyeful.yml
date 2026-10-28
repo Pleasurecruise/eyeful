@@ -14,5 +14,5 @@ permissions:
 
 jobs:
   review:
-    uses: ./.github/workflows/review.yml
+    uses: Pleasurecruise/eyeful/.github/workflows/review.yml@main
     secrets: inherit

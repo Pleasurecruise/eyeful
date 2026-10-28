@@ -8,7 +8,7 @@ mise run setup               # go mod download + pnpm install
 cp .env.example .env         # secrets only; mise loads and redacts it
 ```
 
-`mise run build:action` builds the cloud's two images; it needs Docker. The CLI, the desktop app and
+`mise run build:action` builds the cloud's two images locally, as CI does before publishing them; it needs Docker. The CLI, the desktop app and
 the evaluation keep everything in files.
 
 The desktop app needs the platform's webview: it is built into
