@@ -14,15 +14,23 @@ type Finding struct {
 	Why             string              `json:"why"`
 	Verification    string              `json:"verification"`
 	Label           workflow.Label      `json:"label"`
+	Reproduced      bool                `json:"reproduced"`
 	Experts         []string            `json:"experts"`
 	Test            *workflow.Edit      `json:"test,omitempty"`
 	Fix             []workflow.Edit     `json:"fix,omitempty"`
 }
 
 type Counts struct {
-	Fail   int `json:"fail"`
-	Review int `json:"review"`
-	Open   int `json:"open"`
+	Fail       int `json:"fail"`
+	Review     int `json:"review"`
+	Open       int `json:"open"`
+	Reproduced int `json:"reproduced"`
+}
+
+type Note struct {
+	Path string
+	Line int
+	Body string
 }
 
 type Output struct {

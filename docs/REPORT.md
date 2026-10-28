@@ -47,13 +47,16 @@ test below fails on this change and passes with the suggested fix.
 ## Line comments {#line-comments}
 
 On a pull request, eyeful posts one review with the event `COMMENT`, never `REQUEST_CHANGES` or
-`APPROVE`. Only an `issue` that names a file and a line, and that the judge does not dispute, is
-posted on that line; questions, suggestions and nitpicks are not posted, and each is folded on its own
-at the end of the summary under its whole subject. A summary longer than GitHub allows in one
-comment continues in the next.
-The summary's heading counts the posted issues; with none, it counts the warnings and errors left to
-review, then says whether CI failed, nothing was reviewed or the review is incomplete. It reads
-"No issues found" only for a complete review with nothing left to review.
+`APPROVE`. An `issue` that names a file and a line, and that the judge does not dispute, is posted on
+that line. So is a `question` whose reproduction passed the first four gates: a question to the
+author with the failing test attached. Other questions, suggestions and nitpicks are not posted, and
+each is folded on its own at the end of the summary under its whole subject. A summary longer than
+GitHub allows in one comment continues in the next.
+The summary counts the findings reproduced by a test and, of those, the ones that can block. Its
+heading counts the posted issues; with none, the reproduced questions, then the warnings and errors
+left to review, then says whether CI failed, nothing was reviewed or the review is incomplete. It
+reads "No issues found" only for a complete review with nothing left to review. A reproduced finding
+whose fix was not verified says why.
 GitHub takes a line comment only on a line its diff of the pull request shows, so an `issue` on any
 other line goes, in full, into the summary instead.
 When a posted comment has one fix for that same file, the fix is included as a suggested change. The `eyeful` commit status says whether a review was posted, not whether the change is right
@@ -86,7 +89,7 @@ The report closes with:
 | Findings JSON   | The desktop app, beside the diff                              |
 | SARIF           | Another agent, a script, GitHub code scanning, the evaluation |
 | GitHub review   | Line comments on the pull request                             |
-| GitHub comment  | A short summary: counts, the posted issues, the rest folded   |
+| GitHub comment  | A short summary: counts, the posted findings, the rest folded |
 | `eyeful` status | Whether a review was posted, linking to the run               |
 
 The GitHub posts happen in the review's job, and each is posted once

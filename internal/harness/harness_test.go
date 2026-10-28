@@ -23,6 +23,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/sandbox"
 	"github.com/Pleasurecruise/eyeful/local/settings"
 	"github.com/Pleasurecruise/eyeful/workflow"
+	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
 var replies = map[string]string{
@@ -138,24 +139,6 @@ func TestExecuteCancelled(t *testing.T) {
 	}
 }
 
-func TestNotes(t *testing.T) {
-	notes := notesFrom([]workflow.Comment{
-		{
-			Label: workflow.LabelIssue, Decorations: []string{"blocking", "correctness"},
-			Subject: "A session is still valid at exactly expires_at.", Discussion: "is_expired compares with >.",
-			Path: "app/session.py", Line: 11,
-			Fix: []workflow.Edit{{Path: "app/session.py", Old: "now > t", New: "now >= t"}},
-		},
-		{Label: workflow.LabelSuggestion, Path: "app/session.py", Line: 20, Subject: "skipped"},
-		{Label: workflow.LabelIssue, Kind: workflow.KindOpen, Path: "app/session.py", Line: 30, Subject: "skipped"},
-		{Path: "", Line: 4, Subject: "skipped"},
-		{Path: "a.go", Line: 0, Subject: "skipped"},
-	})
-	if len(notes) != 1 || notes[0].Path != "app/session.py" || notes[0].Line != 11 || !strings.Contains(notes[0].Body, "issue (blocking, correctness):") || !strings.Contains(notes[0].Body, "```suggestion\nnow >= t\n```") {
-		t.Fatalf("%+v", notes)
-	}
-}
-
 func clone(ctx context.Context, dir string, src review.Source) error {
 	return checkout.Clone(ctx, dir, "", src)
 }
@@ -186,7 +169,7 @@ func (h *fakeHost) Description(context.Context, review.Source) (string, error) {
 	return "Add changed.txt", nil
 }
 
-func (h *fakeHost) Publish(_ context.Context, _ review.Source, blocks []string, notes []github.Note) error {
+func (h *fakeHost) Publish(_ context.Context, _ review.Source, blocks []string, notes []report.Note) error {
 	h.comments += 1 + len(notes)
 	h.body = strings.Join(blocks, "\n\n")
 	return nil

@@ -89,9 +89,9 @@ func TestSummary(t *testing.T) {
 	md := strings.Join(blocks, "\n\n")
 	for _, want := range []string{
 		"### ⚠️ 1 issue found",
-		"Outcome `complete`, 3 findings: 1 reproduced, 1 to review, 1 disputed.",
+		"Outcome `complete`, 3 findings: 1 reproduced by a test (1 can block), 1 to review, 1 disputed.",
 		"The change breaks `tests/test_login.py::test_remember_me`.",
-		"| 🔴 error | `app/session.py:11` | Valid at expires_at. |",
+		"| 🔴 error | issue | `app/session.py:11` | Valid at expires_at. |",
 		"#### Not posted (2)",
 		"<details><summary>🟡 note · nitpick · <code>app/login.py:3</code> Name the &lt;T&gt; token.</summary>\n",
 		"`t` says nothing;\ncall it `session`.",
@@ -239,6 +239,8 @@ func TestSummaryHeading(t *testing.T) {
 	review := r.Comments[2]
 	review.Kind = workflow.KindReview
 	review.Objection = ""
+	asked := review
+	asked.Repro = &workflow.Repro{Test: workflow.Edit{Path: "app/test_session.py", New: "def test_refresh(): ..."}, Run: "app/test_session.py::test_refresh", Oracle: workflow.OracleDerived}
 	for _, tt := range []struct {
 		name     string
 		outcome  workflow.Outcome
@@ -249,6 +251,7 @@ func TestSummaryHeading(t *testing.T) {
 		{"an expert absent", workflow.OutcomePartial, []workflow.Comment{r.Comments[1]}, "### ⚠️ Review incomplete"},
 		{"nothing to review", workflow.OutcomeNone, nil, "### ⚠️ Nothing reviewed"},
 		{"a disputed finding and a nitpick", workflow.OutcomeComplete, []workflow.Comment{r.Comments[2], r.Comments[1]}, "### ✅ No issues found"},
+		{"a reproduced question is for the author to confirm", workflow.OutcomeComplete, []workflow.Comment{asked, r.Comments[1]}, "### 🔎 1 finding reproduced, for the author to confirm"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			c := result()
@@ -261,5 +264,32 @@ func TestSummaryHeading(t *testing.T) {
 				t.Fatalf("want %q, got\n%s", tt.want, blocks[0])
 			}
 		})
+	}
+}
+
+func TestNotes(t *testing.T) {
+	r := result()
+	reproduced := &workflow.Repro{Test: workflow.Edit{Path: "app/test_names.py", New: "def test_empty_name(): ..."}, Run: "app/test_names.py::test_empty_name", Oracle: workflow.OracleDerived}
+	r.Findings = append(r.Findings,
+		workflow.Finding{ID: "0/correctness/1", Expert: "correctness", Path: "app/session.py", Line: 20, Evidence: workflow.EvidenceTest},
+		workflow.Finding{ID: "0/correctness/2", Expert: "correctness", Path: "app/session.py", Line: 30, Evidence: workflow.EvidenceTest},
+	)
+	r.Comments = append(r.Comments,
+		workflow.Comment{Finding: "0/correctness/1", Label: workflow.LabelQuestion, Subject: "An empty name is accepted.", Severity: workflow.SeverityWarning, Kind: workflow.KindReview, Path: "app/session.py", Line: 20, Repro: reproduced},
+		workflow.Comment{Finding: "0/correctness/2", Label: workflow.LabelQuestion, Subject: "It was always accepted.", Severity: workflow.SeverityWarning, Kind: workflow.KindReview, Path: "app/session.py", Line: 30, Repro: reproduced},
+	)
+	r.Verifications = append(r.Verifications, workflow.Verification{Finding: "0/correctness/2", Status: workflow.StatusPreExisting})
+	notes, err := report.Notes(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 2 || notes[0].Line != 11 || notes[1].Line != 20 {
+		t.Fatalf("posted %+v", notes)
+	}
+	if !strings.Contains(notes[0].Body, "issue (blocking, correctness): Valid at expires_at.") || !strings.Contains(notes[0].Body, "```suggestion\nnow >= t\n```") {
+		t.Fatalf("the issue: %s", notes[0].Body)
+	}
+	if !strings.Contains(notes[1].Body, "question (non-blocking): An empty name is accepted.") || !strings.Contains(notes[1].Body, "`app/test_names.py`\n\n```\ndef test_empty_name(): ...\n```") {
+		t.Fatalf("the reproduced question carries its failing test: %s", notes[1].Body)
 	}
 }

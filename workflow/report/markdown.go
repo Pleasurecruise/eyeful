@@ -60,18 +60,18 @@ func Summary(r workflow.Result) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var posted, rest []Finding
+	var shown, rest []Finding
 	for _, f := range out.Findings {
-		if Posted(f.Label, f.Kind) {
-			posted = append(posted, f)
+		if posted(f) {
+			shown = append(shown, f)
 		} else {
 			rest = append(rest, f)
 		}
 	}
 	var b strings.Builder
-	b.WriteString(heading(out.Outcome, posted, rest))
-	fmt.Fprintf(&b, "\nOutcome `%s`, %d findings: %d reproduced, %d to review, %d disputed.", out.Outcome, len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open)
-	if out.Counts.Fail == 0 {
+	b.WriteString(heading(out.Outcome, shown, rest))
+	fmt.Fprintf(&b, "\nOutcome `%s`, %d findings: %d reproduced by a test (%d can block), %d to review, %d disputed.", out.Outcome, len(out.Findings), out.Counts.Reproduced, out.Counts.Fail, out.Counts.Review-out.Counts.Reproduced+out.Counts.Fail, out.Counts.Open)
+	if out.Counts.Reproduced == 0 {
 		b.WriteString(" None was reproduced by running a test.")
 	}
 	if out.Reason != "" {
@@ -88,10 +88,10 @@ func Summary(r workflow.Result) ([]string, error) {
 	default:
 		fmt.Fprintf(&b, "\nThe change breaks `%s`.\n", strings.Join(r.Regression.Failed, "`, `"))
 	}
-	if len(posted) > 0 {
-		b.WriteString("\n| Severity | File:Line | Issue |\n| --- | --- | --- |\n")
-		for _, f := range posted {
-			fmt.Fprintf(&b, "| %s | `%s:%d` | %s |\n", markers[f.Severity], f.File, f.Line, f.Summary)
+	if len(shown) > 0 {
+		b.WriteString("\n| Severity | Label | File:Line | Finding |\n| --- | --- | --- | --- |\n")
+		for _, f := range shown {
+			fmt.Fprintf(&b, "| %s | %s | `%s:%d` | %s |\n", markers[f.Severity], f.Label, f.File, f.Line, f.Summary)
 		}
 	}
 	if len(rest) > 0 {
@@ -108,20 +108,30 @@ func Summary(r workflow.Result) ([]string, error) {
 	return blocks, nil
 }
 
-func heading(outcome workflow.Outcome, posted, rest []Finding) string {
+func heading(outcome workflow.Outcome, shown, rest []Finding) string {
+	issues := 0
+	for _, f := range shown {
+		if f.Label == workflow.LabelIssue {
+			issues++
+		}
+	}
 	review := 0
 	for _, f := range rest {
 		if f.Kind == workflow.KindReview && f.Severity != workflow.SeverityNote {
 			review++
 		}
 	}
-	switch {
-	case len(posted) == 1:
+	switch questions := len(shown) - issues; {
+	case issues == 1:
 		return "### ⚠️ 1 issue found\n"
-	case len(posted) > 1:
-		return fmt.Sprintf("### ⚠️ %d issues found\n", len(posted))
+	case issues > 1:
+		return fmt.Sprintf("### ⚠️ %d issues found\n", issues)
 	case outcome == workflow.OutcomeCIFailed:
 		return "### ❌ CI failed\n"
+	case questions == 1:
+		return "### 🔎 1 finding reproduced, for the author to confirm\n"
+	case questions > 1:
+		return fmt.Sprintf("### 🔎 %d findings reproduced, for the author to confirm\n", questions)
 	case review == 1:
 		return "### 🔎 1 finding to review\n"
 	case review > 1:
@@ -135,8 +145,43 @@ func heading(outcome workflow.Outcome, posted, rest []Finding) string {
 	}
 }
 
-func Posted(label workflow.Label, kind workflow.Kind) bool {
-	return label == workflow.LabelIssue && kind != workflow.KindOpen
+func posted(f Finding) bool {
+	return f.Kind != workflow.KindOpen && (f.Label == workflow.LabelIssue || f.Label == workflow.LabelQuestion && f.Reproduced)
+}
+
+func Notes(r workflow.Result) ([]Note, error) {
+	out, err := Findings(r)
+	if err != nil {
+		return nil, err
+	}
+	notes := []Note{}
+	for _, f := range out.Findings {
+		if f.File == "" || f.Line < 1 || !posted(f) {
+			continue
+		}
+		decorations := []string{"non-blocking"}
+		if f.Kind == workflow.KindFail {
+			decorations[0] = "blocking"
+		}
+		if f.Category != "" {
+			decorations = append(decorations, f.Category)
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "%s (%s): %s", f.Label, strings.Join(decorations, ", "), f.Summary)
+		for _, part := range []string{f.Why, f.FailureScenario} {
+			if part != "" {
+				b.WriteString("\n\n" + part)
+			}
+		}
+		if f.Label == workflow.LabelQuestion && f.Test != nil {
+			fmt.Fprintf(&b, "\n\neyeful saw this test fail on the change and pass on the base commit:\n\n`%s`\n\n```\n%s\n```\n", f.Test.Path, strings.TrimSuffix(f.Test.New, "\n"))
+		}
+		if len(f.Fix) == 1 && f.Fix[0].Path == f.File && f.Fix[0].New != "" {
+			b.WriteString("\n\n```suggestion\n" + strings.TrimSuffix(f.Fix[0].New, "\n") + "\n```\n")
+		}
+		notes = append(notes, Note{Path: f.File, Line: f.Line, Body: b.String()})
+	}
+	return notes, nil
 }
 
 func resolved(b *strings.Builder, r workflow.Result) {

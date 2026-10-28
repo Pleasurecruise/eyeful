@@ -1,12 +1,14 @@
 package worktree
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -144,11 +146,25 @@ func (s *Workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.
 		var out string
 		run.Passed, out, err = s.run(ctx, command)
 		run.Output = tail.Last(out, 8000)
-		if !run.Passed {
+		switch {
+		case run.Passed:
+		case len(t.Tests) > 0:
 			run.Failed = append(run.Failed, t.Tests...)
+		default:
+			run.Failed = failures(out)
 		}
 	}
 	return run, errors.Join(err, s.tree.restore(context.WithoutCancel(ctx), s.tree.change))
+}
+
+func failures(out string) []string {
+	names := []string{}
+	for _, m := range failure.FindAllStringSubmatch(out, -1) {
+		if name := cmp.Or(m[1], m[2]); !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (s *Workspace) apply(ctx context.Context, edits []workflow.Edit) (err error) {

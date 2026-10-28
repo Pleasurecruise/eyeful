@@ -14,6 +14,7 @@ import (
 	"github.com/sourcegraph/go-diff/diff"
 
 	"github.com/Pleasurecruise/eyeful/internal/review"
+	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
 type Client struct {
@@ -107,7 +108,7 @@ func (a *Client) Wait(ctx context.Context, src review.Source) (Actions, error) {
 	}
 }
 
-func (a *Client) Publish(ctx context.Context, src review.Source, blocks []string, notes []Note) error {
+func (a *Client) Publish(ctx context.Context, src review.Source, blocks []string, notes []report.Note) error {
 	owner, name, _ := strings.Cut(src.Repo, "/")
 	marker := fmt.Sprintf("<!-- eyeful review %d -->", a.Run)
 	if len(notes) > 0 {
@@ -115,7 +116,7 @@ func (a *Client) Publish(ctx context.Context, src review.Source, blocks []string
 		if err != nil {
 			return err
 		}
-		var inline []Note
+		var inline []report.Note
 		heading := "#### Issues on lines the diff does not show\n\n"
 		for _, n := range notes {
 			if slices.ContainsFunc(hunks[n.Path], func(h *diff.Hunk) bool {
@@ -318,7 +319,7 @@ type reviewComment struct {
 	Body string `json:"body"`
 }
 
-func (a *Client) review(ctx context.Context, owner, name string, src review.Source, notes []Note, marker string) error {
+func (a *Client) review(ctx context.Context, owner, name string, src review.Source, notes []report.Note, marker string) error {
 	comments := make([]reviewComment, 0, len(notes))
 	for _, n := range notes {
 		comments = append(comments, reviewComment{Path: n.Path, Line: n.Line, Side: "RIGHT", Body: n.Body})

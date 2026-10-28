@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Pleasurecruise/eyeful/internal/review"
+	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
 func TestPublish(t *testing.T) {
@@ -60,7 +61,7 @@ func TestPublish(t *testing.T) {
 			app := New(srv.URL, "ghs_abc", 2)
 			app.HTTP = srv.Client()
 			src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40)}
-			err := app.Publish(t.Context(), src, []string{"# report"}, []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
+			err := app.Publish(t.Context(), src, []string{"# report"}, []report.Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
 			if tt.reject != (err != nil && strings.Contains(err.Error(), "422")) {
 				t.Fatalf("publish: %v", err)
 			}

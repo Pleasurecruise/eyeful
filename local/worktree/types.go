@@ -3,6 +3,7 @@ package worktree
 import (
 	"errors"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"github.com/Pleasurecruise/eyeful/workflow/project"
@@ -28,6 +29,8 @@ type Workspace struct {
 }
 
 const outputLimit = 64 << 10
+
+var failure = regexp.MustCompile(`(?m)^(?:FAILED|ERROR) (\S+)|^--- FAIL: (\S+)`)
 
 var (
 	ErrSetup        = errors.New("setup failed")

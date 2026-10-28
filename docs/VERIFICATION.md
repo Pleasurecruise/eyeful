@@ -156,8 +156,10 @@ triggers the vulnerability, then a patch that resolves it and keeps the function
 - Findings that are [one problem](#one-problem) are verified together, with one reproduction for
   the most severe. The comment takes its words from the finding whose reproduction
   held.
-- When the test command does not name the tests that fail, as locally, a fix is verified only if
-  the whole suite passes with it.
+- Pass to pass compares the suite's failures with the fix against its failures on the change, so a
+  test that already failed before the fix does not stop it. The failures are read from the suite's
+  output: pytest's `FAILED` and `ERROR` lines and `go test`'s `--- FAIL:` lines. When the output
+  names none, a fix is verified only if the whole suite passes with it.
 - A run starts from the snapshot's files. Files git ignores, such as build output, stay between
   runs, and an edit at an ignored path is refused.
 - Every run is recorded as `PASSED`, `FAILED` (with the `fails` text) or `ERROR`, as in SWE-bench's

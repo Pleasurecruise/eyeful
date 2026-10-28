@@ -7,12 +7,6 @@ type Actions struct {
 	Log    string
 }
 
-type Note struct {
-	Path string
-	Line int
-	Body string
-}
-
 const (
 	listPage     = 30
 	bodyLimit    = 16 << 20

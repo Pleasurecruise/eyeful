@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -113,6 +114,10 @@ func TestWorktree(t *testing.T) {
 	}
 	if run, err := ws.Test(ctx, nil, workflow.Target{}); err != nil || run.Passed || len(run.Failed) != 0 {
 		t.Fatalf("suite on the change: %+v, %v", run, err)
+	}
+	named := worktree.NewWorkspace(w, project.Config{Test: "printf '%s\\n' '.F' 'FAILED tests/test_app.py::test_one - AssertionError' 'ERROR tests/test_cli.py - ImportError' 'FAILED tests/test_app.py::test_one - again' '--- FAIL: TestSum (0.00s)'; exit 1"}, 2*time.Second)
+	if run, err := named.Test(ctx, nil, workflow.Target{}); err != nil || run.Passed || !slices.Equal(run.Failed, []string{"tests/test_app.py::test_one", "tests/test_cli.py", "TestSum"}) {
+		t.Fatalf("the suite's failures are named from its output: %+v, %v", run.Failed, err)
 	}
 
 	before := worktree.NewWorkspace(w, project.Config{TestOne: "test -f repro.txt && grep -q one app.txt && test ! -f new.txt # {test}"}, 2*time.Second)

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/url"
 	"path/filepath"
-	"strings"
 
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
@@ -27,7 +26,7 @@ type Host interface {
 	Wait(ctx context.Context, src review.Source) (github.Actions, error)
 	Description(ctx context.Context, src review.Source) (string, error)
 	React(ctx context.Context, src review.Source) error
-	Publish(ctx context.Context, src review.Source, blocks []string, notes []github.Note) error
+	Publish(ctx context.Context, src review.Source, blocks []string, notes []report.Note) error
 }
 
 type Runner struct {
@@ -80,7 +79,11 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err != nil {
 		return Status{}, fmt.Errorf("report: %w", err)
 	}
-	if err := r.Host.Publish(ctx, src, blocks, notesFrom(res.Comments)); err != nil {
+	notes, err := report.Notes(res)
+	if err != nil {
+		return Status{}, fmt.Errorf("report: %w", err)
+	}
+	if err := r.Host.Publish(ctx, src, blocks, notes); err != nil {
 		return Status{}, fmt.Errorf("publish: %w", err)
 	}
 	r.Log.Info("published", slog.String("repo", src.Repo), slog.Int64("pull", src.Number), slog.String("outcome", string(res.Outcome)))
@@ -93,32 +96,3 @@ type workspace struct {
 }
 
 func (w workspace) CI(context.Context) (workflow.Check, error) { return w.check, nil }
-
-func notesFrom(comments []workflow.Comment) []github.Note {
-	notes := []github.Note{}
-	for _, c := range comments {
-		if c.Path == "" || c.Line < 1 || !report.Posted(c.Label, c.Kind) {
-			continue
-		}
-		var b strings.Builder
-		b.WriteString(string(c.Label))
-		if len(c.Decorations) > 0 {
-			b.WriteString(" (" + strings.Join(c.Decorations, ", ") + ")")
-		}
-		b.WriteString(": " + c.Subject)
-		for _, part := range []string{c.Discussion, c.Scenario, c.Objection} {
-			if part != "" {
-				b.WriteString("\n\n" + part)
-			}
-		}
-		if len(c.Fix) == 1 && c.Fix[0].Path == c.Path && c.Fix[0].New != "" {
-			b.WriteString("\n\n```suggestion\n" + c.Fix[0].New)
-			if !strings.HasSuffix(c.Fix[0].New, "\n") {
-				b.WriteByte('\n')
-			}
-			b.WriteString("```\n")
-		}
-		notes = append(notes, github.Note{Path: c.Path, Line: c.Line, Body: b.String()})
-	}
-	return notes
-}
