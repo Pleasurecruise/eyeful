@@ -9,7 +9,7 @@ root. The local side is the desktop app and the `eyeful` command, and needs no s
 published until CI passes on it: the documentation site goes to GitHub Pages after each green CI run
 on `main` (`docs.yml`), and a `v*` tag runs CI and then GoReleaser (`release.yml`, `.goreleaser.yml`),
 which attaches the `eyeful` CLI for Linux and macOS, as archives, `.deb` and `.rpm`, to a GitHub
-release. No version has been tagged yet. CI (`.github/workflows/ci.yml`) runs `mise run check`.
+release. No version has been tagged yet. CI (`.github/workflows/ci.yml`) runs `mise run check` and builds the review and sandbox images.
 
 ## Artifacts
 
@@ -21,8 +21,11 @@ release. No version has been tagged yet. CI (`.github/workflows/ci.yml`) runs `m
 | Documentation site        | `mise run build:docs` (VitePress)                             | GitHub Pages at `DOCS_URL` |
 
 The review image holds `eyeful-action`, git, pi `1.4.0` under `/opt/pi`, the user `agent` with pi's
-settings from `cmd/eyeful-action/pi/`, and `/usr/local/bin/pi`, which runs pi as `agent`. The
-sandbox image holds `eyeful-sandbox` and the Go, Node and Python toolchains.
+settings from `cmd/eyeful-action/pi/`, and `/usr/local/bin/pi`, which runs pi as `agent`. The sandbox image holds `eyeful-sandbox` and [mise](https://mise.jdx.dev), configured by
+`cmd/eyeful-sandbox/mise.toml`. It preinstalls Node, Go, Python, Rust, pnpm, Yarn, Bun, uv and
+Poetry, and a project's own version files (`mise.toml`, `.nvmrc`, `packageManager` in `package.json`,
+`go.mod`, `.python-version`, `rust-toolchain.toml`) select the version that runs; mise installs a
+missing one on first use.
 
 ## Cloud
 

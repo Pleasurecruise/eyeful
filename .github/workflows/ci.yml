@@ -29,3 +29,17 @@ jobs:
 
       - name: lint, test and check generated files
         run: mise run check
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: build the review image
+        run: docker build --tag eyeful-action --file Dockerfile .
+
+      - name: build the sandbox image
+        run: docker build --tag eyeful-sandbox --file Dockerfile.sandbox .
