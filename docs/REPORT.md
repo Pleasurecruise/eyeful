@@ -51,9 +51,12 @@ On a pull request, eyeful posts one review with the event `COMMENT`, never `REQU
 posted on that line; questions, suggestions and nitpicks are not posted, and each is folded on its own
 at the end of the summary under its whole subject. A summary longer than GitHub allows in one
 comment continues in the next.
+The summary's heading counts the posted issues; with none, it counts the warnings and errors left to
+review, then says whether CI failed, nothing was reviewed or the review is incomplete. It reads
+"No issues found" only for a complete review with nothing left to review.
 GitHub takes a line comment only on a line its diff of the pull request shows, so an `issue` on any
 other line goes, in full, into the summary instead.
-When a posted comment has one fix for that same file, the fix is included as a suggested change. The job's check says whether a review was posted, not whether the change is right
+When a posted comment has one fix for that same file, the fix is included as a suggested change. The `eyeful` commit status says whether a review was posted, not whether the change is right
 ([Review lifecycle](cloud/SCHEDULING.md)).
 
 ## The ranked report {#ranked-report}
@@ -77,14 +80,14 @@ The report closes with:
 
 ## Outputs
 
-| Output         | For                                                           |
-| -------------- | ------------------------------------------------------------- |
-| Markdown       | The terminal                                                  |
-| Findings JSON  | The desktop app, beside the diff                              |
-| SARIF          | Another agent, a script, GitHub code scanning, the evaluation |
-| GitHub review  | Line comments on the pull request                             |
-| GitHub comment | A short summary: counts, the posted issues, the rest folded   |
-| Job check      | Whether a review was posted                                   |
+| Output          | For                                                           |
+| --------------- | ------------------------------------------------------------- |
+| Markdown        | The terminal                                                  |
+| Findings JSON   | The desktop app, beside the diff                              |
+| SARIF           | Another agent, a script, GitHub code scanning, the evaluation |
+| GitHub review   | Line comments on the pull request                             |
+| GitHub comment  | A short summary: counts, the posted issues, the rest folded   |
+| `eyeful` status | Whether a review was posted, linking to the run               |
 
 The GitHub posts happen in the review's job, and each is posted once
 ([Architecture](ARCHITECTURE.md#data-flow)).

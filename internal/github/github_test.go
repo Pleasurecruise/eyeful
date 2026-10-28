@@ -17,7 +17,7 @@ import (
 )
 
 func TestPublish(t *testing.T) {
-	marker := "<!-- eyeful review do/2 -->"
+	marker := "<!-- eyeful review 2 -->"
 	for _, tt := range []struct {
 		name     string
 		reviews  string
@@ -28,8 +28,8 @@ func TestPublish(t *testing.T) {
 	}{
 		{"first attempt", `[]`, `[]`, 4, false, "POST /repos/acme/eyeful/pulls/3/reviews\nPOST /repos/acme/eyeful/issues/3/comments"},
 		{"review posted before a restart", `[{"body":"x"},{"body":"eyeful posted the ranked report as a comment.\n\n` + marker + `"}]`, `[]`, 4, false, "POST /repos/acme/eyeful/issues/3/comments"},
-		{"everything posted", `[{"body":"` + marker + `"}]`, `[{"body":"# report\n\n<!-- eyeful review do/2 part 1 -->"}]`, 4, false, ""},
-		{"another review's marker", `[{"body":"<!-- eyeful review do/1 -->"}]`, `[]`, 4, false, "POST /repos/acme/eyeful/pulls/3/reviews\nPOST /repos/acme/eyeful/issues/3/comments"},
+		{"everything posted", `[{"body":"` + marker + `"}]`, `[{"body":"# report\n\n<!-- eyeful review 2 part 1 -->"}]`, 4, false, ""},
+		{"another review's marker", `[{"body":"<!-- eyeful review 1 -->"}]`, `[]`, 4, false, "POST /repos/acme/eyeful/pulls/3/reviews\nPOST /repos/acme/eyeful/issues/3/comments"},
 		{"a line the diff does not show", `[]`, `[]`, 40, false, "POST /repos/acme/eyeful/issues/3/comments"},
 		{"GitHub refuses the review", `[]`, `[]`, 4, true, "POST /repos/acme/eyeful/pulls/3/reviews"},
 	} {
@@ -57,17 +57,17 @@ func TestPublish(t *testing.T) {
 				}
 			}))
 			defer srv.Close()
-			app := New(srv.URL, "ghs_abc", 0)
+			app := New(srv.URL, "ghs_abc", 2)
 			app.HTTP = srv.Client()
 			src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40)}
-			err := app.Publish(t.Context(), src, "do/2", []string{"# report"}, []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
+			err := app.Publish(t.Context(), src, []string{"# report"}, []Note{{Path: "a.go", Line: tt.line, Body: "issue: fix"}})
 			if tt.reject != (err != nil && strings.Contains(err.Error(), "422")) {
 				t.Fatalf("publish: %v", err)
 			}
 			if strings.Join(posts, "\n") != tt.want {
 				t.Fatalf("posted %v", posts)
 			}
-			if tt.want != "" && !tt.reject && strings.Count(body, "eyeful review do/2") != strings.Count(tt.want, "POST") {
+			if tt.want != "" && !tt.reject && strings.Count(body, "eyeful review 2") != strings.Count(tt.want, "POST") {
 				t.Fatalf("every post carries the marker: %s", body)
 			}
 			if outside := strings.Contains(body, "**`a.go:40`** issue: fix"); outside != (tt.line == 40) {
@@ -92,7 +92,7 @@ func TestPublishPages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			_, _ = w.Write([]byte(`[{"body":"first\n\n<!-- eyeful review do/2 part 1 -->"}]`))
+			_, _ = w.Write([]byte(`[{"body":"first\n\n<!-- eyeful review 2 part 1 -->"}]`))
 		default:
 			var c struct {
 				Body string `json:"body"`
@@ -106,14 +106,14 @@ func TestPublishPages(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	app := New(srv.URL, "ghs_abc", 0)
+	app := New(srv.URL, "ghs_abc", 2)
 	app.HTTP = srv.Client()
 	src := review.Source{Repo: "acme/eyeful", Number: 3, BaseSHA: strings.Repeat("b", 40), HeadSHA: strings.Repeat("a", 40)}
 	half := strings.Repeat("x", commentLimit/2)
-	if err := app.Publish(t.Context(), src, "do/2", []string{half, half}, nil); err != nil {
+	if err := app.Publish(t.Context(), src, []string{half, half}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], "<!-- eyeful review do/2 part 2 -->") || len(bodies[0]) > commentLimit {
+	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], "<!-- eyeful review 2 part 2 -->") || len(bodies[0]) > commentLimit {
 		t.Fatalf("posted %d comments; a restart must post only the page GitHub does not have", len(bodies))
 	}
 }
@@ -154,15 +154,16 @@ func TestPull(t *testing.T) {
 func TestWait(t *testing.T) {
 	var reads atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/jobs") {
+		switch {
+		case r.URL.Path == "/repos/acme/eyeful/actions/runs/2":
+			_, _ = w.Write([]byte(`{"id":2,"workflow_id":9}`))
+		case strings.HasSuffix(r.URL.Path, "/jobs"):
 			_, _ = w.Write([]byte(`{"jobs":[{"name":"test","conclusion":"failure","steps":[{"name":"run","conclusion":"failure"}]}]}`))
-			return
+		case reads.Add(1) == 1:
+			_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"workflow_id":5,"name":"ci","status":"in_progress","html_url":"https://example.test/run"},{"id":2,"workflow_id":9,"name":"eyeful","status":"in_progress"}]}`))
+		default:
+			_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"workflow_id":5,"name":"ci","status":"completed","conclusion":"failure","html_url":"https://example.test/run"},{"id":2,"workflow_id":9,"name":"eyeful","status":"in_progress"}]}`))
 		}
-		if reads.Add(1) == 1 {
-			_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"in_progress","html_url":"https://example.test/run"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"completed","conclusion":"failure","html_url":"https://example.test/run"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
 	}))
 	defer srv.Close()
 	app := New(srv.URL, "ghs_abc", 2)
@@ -175,17 +176,21 @@ func TestWait(t *testing.T) {
 	}
 }
 
-func TestWaitSkipsItsOwnRun(t *testing.T) {
+func TestWaitSkipsItsOwnWorkflow(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"name":"ci","status":"completed","conclusion":"success"},{"id":2,"name":"eyeful","status":"in_progress"}]}`))
+		if r.URL.Path == "/repos/acme/eyeful/actions/runs/3" {
+			_, _ = w.Write([]byte(`{"id":3,"workflow_id":9}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"workflow_runs":[{"id":1,"workflow_id":5,"name":"ci","status":"completed","conclusion":"success"},{"id":2,"workflow_id":9,"name":"eyeful","status":"completed","conclusion":"failure"},{"id":3,"workflow_id":9,"name":"eyeful","status":"in_progress"}]}`))
 	}))
 	defer srv.Close()
-	app := New(srv.URL, "ghs_abc", 2)
+	app := New(srv.URL, "ghs_abc", 3)
 	app.HTTP = srv.Client()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	got, err := app.Wait(ctx, review.Source{Repo: "acme/eyeful", HeadSHA: strings.Repeat("a", 40)})
 	if err != nil || !got.Passed {
-		t.Fatalf("waited for its own run: %+v %v", got, err)
+		t.Fatalf("an earlier eyeful run counted as the project's CI: %+v %v", got, err)
 	}
 }

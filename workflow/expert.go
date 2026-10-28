@@ -113,6 +113,9 @@ func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan,
 			seats[i].groups = append(seats[i].groups, gi)
 		}
 	}
+	for _, st := range seats {
+		w.log.Info("expert", slog.String("name", st.pick.Name), slog.Any("groups", st.groups))
+	}
 	scoped := Plan{Summary: plan.Summary, Groups: plan.Groups[from:], Skipped: plan.Skipped, Confidence: plan.Confidence}
 	var wg sync.WaitGroup
 	turns := make(chan struct{}, maxParallel)

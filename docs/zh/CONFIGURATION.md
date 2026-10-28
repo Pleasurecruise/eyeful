@@ -60,16 +60,16 @@ eyeful 用规则、不用模型，根据快照根目录下的文件选出命令�
 
 不是密钥的配置都在这里。`DOCS_URL` 写在 `mise.toml` 的 `[env]` 中。
 
-| 变量                 | 用途                                                                        |
-| -------------------- | --------------------------------------------------------------------------- |
-| `EYEFUL_PULL`        | 要审查的 pull request。                                                     |
-| `GITHUB_REPOSITORY`  | 仓库，格式 `owner/name`。由 Actions 设置。                                  |
-| `GITHUB_RUN_ID`      | workflow 运行；它标记审查发布的内容，审查也不会等它自己。                   |
-| `GITHUB_API_URL`     | GitHub API 根地址。默认 `https://api.github.com`。                          |
-| `EYEFUL_DIR`         | 检出和审查文件所在目录，以只读方式共享给沙箱。默认 `/work`。                |
-| `EYEFUL_SANDBOX_URL` | 这次审查的沙箱。默认 `http://eyeful-sandbox:8080`。                         |
-| `EYEFUL_AGENT`       | 审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                |
-| `EYEFUL_LOG_LEVEL`   | `debug`、`info`、`warn` 或 `error`。默认 `info`。                           |
-| `DOCS_URL`           | 文档站的公开地址，用于 sitemap、robots 和 `llms.txt`。写在 `mise.toml` 里。 |
+| 变量                 | 用途                                                                          |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `EYEFUL_PULL`        | 要审查的 pull request。                                                       |
+| `GITHUB_REPOSITORY`  | 仓库，格式 `owner/name`。由 Actions 设置。                                    |
+| `GITHUB_RUN_ID`      | workflow 运行；它标记审查发布的内容，审查也不会等它所属 workflow 的任何运行。 |
+| `GITHUB_API_URL`     | GitHub API 根地址。默认 `https://api.github.com`。                            |
+| `EYEFUL_DIR`         | 检出和审查文件所在目录，以只读方式共享给沙箱。默认 `/work`。                  |
+| `EYEFUL_SANDBOX_URL` | 这次审查的沙箱。默认 `http://eyeful-sandbox:8080`。                           |
+| `EYEFUL_AGENT`       | 审查连接的 agent CLI：`pi`、`claude` 或 `codex`。默认 `pi`。                  |
+| `EYEFUL_LOG_LEVEL`   | `debug`、`info`、`warn` 或 `error`。默认 `info`。                             |
+| `DOCS_URL`           | 文档站的公开地址，用于 sitemap、robots 和 `llms.txt`。写在 `mise.toml` 里。   |
 
 云端审查用的模型和它的 provider 地址都固定在 `cmd/eyeful-action` 里：pi 的设置在 `pi/` 下，地址就在旁边，不由变量决定（见[agent 与模型](cloud/CLOUD.md#agents-and-models)）。

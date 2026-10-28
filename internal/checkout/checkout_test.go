@@ -14,7 +14,7 @@ import (
 type gitCall struct {
 	Args           []string `json:"args"`
 	GitHub         bool     `json:"github"`
-	AppKey         bool     `json:"app_key"`
+	Secret         bool     `json:"secret"`
 	Ask            bool     `json:"ask"`
 	TokenInArgs    bool     `json:"token_in_args"`
 	ScriptOK       bool     `json:"script_ok"`
@@ -35,11 +35,11 @@ func fakeGit() int {
 		return 1
 	}
 	_, githubToken := os.LookupEnv("GITHUB_TOKEN")
-	_, appKey := os.LookupEnv("EYEFUL_GITHUB_APP_PRIVATE_KEY")
+	_, secret := os.LookupEnv("EYEFUL_MODEL_KEY")
 	joined := strings.Join(os.Args, "\x00")
 	script, _ := os.ReadFile(os.Getenv("GIT_ASKPASS"))
 	data, err := json.Marshal(gitCall{
-		Args: os.Args[1:], GitHub: githubToken, AppKey: appKey,
+		Args: os.Args[1:], GitHub: githubToken, Secret: secret,
 		Ask: os.Getenv("GIT_ASKPASS") != "", TokenInArgs: token != "" && strings.Contains(joined, token),
 		ScriptOK: strings.Contains(string(script), `printf '%s\n' "$EYEFUL_ASKPASS_TOKEN"`), ScriptHasToken: token != "" && strings.Contains(string(script), token),
 	})
@@ -103,7 +103,7 @@ func TestCloneAskpass(t *testing.T) {
 	t.Setenv("FAKE_OUT", out)
 	t.Setenv("FAKE_HEAD", strings.Repeat("b", 40))
 	t.Setenv("GITHUB_TOKEN", "ghs-parent")
-	t.Setenv("EYEFUL_GITHUB_APP_PRIVATE_KEY", "app-private-key")
+	t.Setenv("EYEFUL_MODEL_KEY", "model-key")
 	src := review.Source{
 		Repo: "acme/eyeful", Number: 4, Base: "main",
 		BaseSHA: strings.Repeat("a", 40), HeadSHA: strings.Repeat("b", 40),
@@ -113,7 +113,7 @@ func TestCloneAskpass(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := readCalls(t, out)
-	if len(calls) < 4 || calls[0].GitHub || calls[0].AppKey || calls[0].TokenInArgs || !calls[0].Ask || !calls[0].ScriptOK || calls[0].ScriptHasToken {
+	if len(calls) < 4 || calls[0].GitHub || calls[0].Secret || calls[0].TokenInArgs || !calls[0].Ask || !calls[0].ScriptOK || calls[0].ScriptHasToken {
 		t.Fatalf("calls %+v", calls)
 	}
 	if strings.Contains(strings.Join(calls[0].Args, " "), token) {

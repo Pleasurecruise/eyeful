@@ -69,14 +69,7 @@ func Summary(r workflow.Result) ([]string, error) {
 		}
 	}
 	var b strings.Builder
-	switch len(posted) {
-	case 0:
-		b.WriteString("### ✅ No issues found\n")
-	case 1:
-		b.WriteString("### ⚠️ 1 issue found\n")
-	default:
-		fmt.Fprintf(&b, "### ⚠️ %d issues found\n", len(posted))
-	}
+	b.WriteString(heading(out.Outcome, posted, rest))
 	fmt.Fprintf(&b, "\nOutcome `%s`, %d findings: %d reproduced, %d to review, %d disputed.", out.Outcome, len(out.Findings), out.Counts.Fail, out.Counts.Review, out.Counts.Open)
 	if out.Counts.Fail == 0 {
 		b.WriteString(" None was reproduced by running a test.")
@@ -113,6 +106,33 @@ func Summary(r workflow.Result) ([]string, error) {
 		blocks = append(blocks, item.String())
 	}
 	return blocks, nil
+}
+
+func heading(outcome workflow.Outcome, posted, rest []Finding) string {
+	review := 0
+	for _, f := range rest {
+		if f.Kind == workflow.KindReview && f.Severity != workflow.SeverityNote {
+			review++
+		}
+	}
+	switch {
+	case len(posted) == 1:
+		return "### ⚠️ 1 issue found\n"
+	case len(posted) > 1:
+		return fmt.Sprintf("### ⚠️ %d issues found\n", len(posted))
+	case outcome == workflow.OutcomeCIFailed:
+		return "### ❌ CI failed\n"
+	case review == 1:
+		return "### 🔎 1 finding to review\n"
+	case review > 1:
+		return fmt.Sprintf("### 🔎 %d findings to review\n", review)
+	case outcome == workflow.OutcomeNone:
+		return "### ⚠️ Nothing reviewed\n"
+	case outcome != workflow.OutcomeComplete:
+		return "### ⚠️ Review incomplete\n"
+	default:
+		return "### ✅ No issues found\n"
+	}
 }
 
 func Posted(label workflow.Label, kind workflow.Kind) bool {

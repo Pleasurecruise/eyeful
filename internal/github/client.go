@@ -19,14 +19,14 @@ import (
 type Client struct {
 	API   string
 	Token string
-	Skip  int64
+	Run   int64
 	HTTP  *http.Client
 	poll  time.Duration
 }
 
-func New(api, token string, skip int64) *Client {
+func New(api, token string, run int64) *Client {
 	return &Client{
-		API: strings.TrimRight(api, "/"), Token: token, Skip: skip,
+		API: strings.TrimRight(api, "/"), Token: token, Run: run,
 		HTTP: &http.Client{Timeout: 30 * time.Second},
 		poll: 5 * time.Second,
 	}
@@ -81,6 +81,16 @@ func (a *Client) Description(ctx context.Context, src review.Source) (string, er
 }
 
 func (a *Client) Wait(ctx context.Context, src review.Source) (Actions, error) {
+	var own struct {
+		WorkflowID int64 `json:"workflow_id"`
+	}
+	data, err := a.call(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/actions/runs/%d", src.Repo, a.Run), nil)
+	if err != nil {
+		return Actions{}, err
+	}
+	if err := json.Unmarshal(data, &own); err != nil {
+		return Actions{}, fmt.Errorf("the reviewing run: %w", err)
+	}
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {
@@ -89,7 +99,7 @@ func (a *Client) Wait(ctx context.Context, src review.Source) (Actions, error) {
 			return Actions{}, fmt.Errorf("actions: %w", ctx.Err())
 		case <-timer.C:
 		}
-		actions, pending, err := a.actions(ctx, src)
+		actions, pending, err := a.actions(ctx, src, own.WorkflowID)
 		if err != nil || !pending {
 			return actions, err
 		}
@@ -97,9 +107,9 @@ func (a *Client) Wait(ctx context.Context, src review.Source) (Actions, error) {
 	}
 }
 
-func (a *Client) Publish(ctx context.Context, src review.Source, id string, blocks []string, notes []Note) error {
+func (a *Client) Publish(ctx context.Context, src review.Source, blocks []string, notes []Note) error {
 	owner, name, _ := strings.Cut(src.Repo, "/")
-	marker := fmt.Sprintf("<!-- eyeful review %s -->", id)
+	marker := fmt.Sprintf("<!-- eyeful review %d -->", a.Run)
 	if len(notes) > 0 {
 		hunks, err := a.hunks(ctx, owner, name, src)
 		if err != nil {
@@ -131,7 +141,7 @@ func (a *Client) Publish(ctx context.Context, src review.Source, id string, bloc
 		return err
 	}
 	for i, page := range parts {
-		mark := fmt.Sprintf("<!-- eyeful review %s part %d -->", id, i+1)
+		mark := fmt.Sprintf("<!-- eyeful review %d part %d -->", a.Run, i+1)
 		if err := a.once(ctx, fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, name, src.Number), mark, func() error {
 			return a.comment(ctx, owner, name, src.Number, page+"\n\n"+mark)
 		}); err != nil {
@@ -206,11 +216,12 @@ func (a *Client) once(ctx context.Context, path, marker string, post func() erro
 	}
 }
 
-func (a *Client) actions(ctx context.Context, src review.Source) (Actions, bool, error) {
+func (a *Client) actions(ctx context.Context, src review.Source, workflow int64) (Actions, bool, error) {
 	owner, name, _ := strings.Cut(src.Repo, "/")
 	var page struct {
 		WorkflowRuns []struct {
 			ID         int64  `json:"id"`
+			WorkflowID int64  `json:"workflow_id"`
 			Name       string `json:"name"`
 			Status     string `json:"status"`
 			Conclusion string `json:"conclusion"`
@@ -228,7 +239,7 @@ func (a *Client) actions(ctx context.Context, src review.Source) (Actions, bool,
 	var failed []string
 	pending := false
 	for _, run := range page.WorkflowRuns {
-		if run.ID == a.Skip {
+		if run.WorkflowID == workflow {
 			continue
 		}
 		switch run.Status {

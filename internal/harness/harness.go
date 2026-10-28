@@ -27,26 +27,24 @@ type Host interface {
 	Wait(ctx context.Context, src review.Source) (github.Actions, error)
 	Description(ctx context.Context, src review.Source) (string, error)
 	React(ctx context.Context, src review.Source) error
-	Publish(ctx context.Context, src review.Source, id string, blocks []string, notes []github.Note) error
+	Publish(ctx context.Context, src review.Source, blocks []string, notes []github.Note) error
 }
 
 type Runner struct {
-	ID         string
 	Log        *slog.Logger
 	Experts    []string
 	Classifier workflow.Classifier
 	Dir        string
-	Token      string
 	Sandbox    *sandbox.Client
 	Host       Host
-	Clone      func(ctx context.Context, dir, token string, src review.Source) error
+	Clone      func(ctx context.Context, dir string, src review.Source) error
 	Out        io.Writer
 	Err        io.Writer
 }
 
 func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) {
 	checkout := filepath.Join(r.Dir, "checkout")
-	if err := r.Clone(ctx, checkout, r.Token, src); err != nil {
+	if err := r.Clone(ctx, checkout, src); err != nil {
 		return Status{}, fmt.Errorf("checkout: %w", err)
 	}
 	actions, err := r.Host.Wait(ctx, src)
@@ -82,7 +80,7 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err != nil {
 		return Status{}, fmt.Errorf("report: %w", err)
 	}
-	if err := r.Host.Publish(ctx, src, r.ID, blocks, notesFrom(res.Comments)); err != nil {
+	if err := r.Host.Publish(ctx, src, blocks, notesFrom(res.Comments)); err != nil {
 		return Status{}, fmt.Errorf("publish: %w", err)
 	}
 	r.Log.Info("published", slog.String("repo", src.Repo), slog.Int64("pull", src.Number), slog.String("outcome", string(res.Outcome)))

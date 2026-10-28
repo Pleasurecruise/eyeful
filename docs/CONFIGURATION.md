@@ -79,17 +79,17 @@ the key from the [local settings](#local) instead.
 
 Everything that is not a secret. `DOCS_URL` is set in the `[env]` section of `mise.toml`.
 
-| Variable             | Purpose                                                                                       |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| `EYEFUL_PULL`        | The pull request to review.                                                                   |
-| `GITHUB_REPOSITORY`  | The repository, as `owner/name`. Actions sets it.                                             |
-| `GITHUB_RUN_ID`      | The workflow run; it marks what the review posts, and the review does not wait for it.        |
-| `GITHUB_API_URL`     | GitHub API root. Default `https://api.github.com`.                                            |
-| `EYEFUL_DIR`         | The checkout and the review's files, shared read-only with the sandbox. Default `/work`.      |
-| `EYEFUL_SANDBOX_URL` | The review's sandbox. Default `http://eyeful-sandbox:8080`.                                   |
-| `EYEFUL_AGENT`       | Agent CLI the review connects: `pi`, `claude` or `codex`. Default `pi`.                       |
-| `EYEFUL_LOG_LEVEL`   | `debug`, `info`, `warn` or `error`. Default `info`.                                           |
-| `DOCS_URL`           | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`. |
+| Variable             | Purpose                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `EYEFUL_PULL`        | The pull request to review.                                                                        |
+| `GITHUB_REPOSITORY`  | The repository, as `owner/name`. Actions sets it.                                                  |
+| `GITHUB_RUN_ID`      | The workflow run; it marks what the review posts, and the review waits for no run of its workflow. |
+| `GITHUB_API_URL`     | GitHub API root. Default `https://api.github.com`.                                                 |
+| `EYEFUL_DIR`         | The checkout and the review's files, shared read-only with the sandbox. Default `/work`.           |
+| `EYEFUL_SANDBOX_URL` | The review's sandbox. Default `http://eyeful-sandbox:8080`.                                        |
+| `EYEFUL_AGENT`       | Agent CLI the review connects: `pi`, `claude` or `codex`. Default `pi`.                            |
+| `EYEFUL_LOG_LEVEL`   | `debug`, `info`, `warn` or `error`. Default `info`.                                                |
+| `DOCS_URL`           | Public URL of the docs site, used for the sitemap, robots and `llms.txt`. Set in `mise.toml`.      |
 
 The model a cloud review uses and its provider's address are fixed in `cmd/eyeful-action`: pi's
 settings in `pi/` and the address beside them, not variables

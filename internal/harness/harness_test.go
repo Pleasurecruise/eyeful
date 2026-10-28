@@ -97,7 +97,7 @@ func TestExecute(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	runner := Runner{
 		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: unmerged{}, Sandbox: sandboxFor(t), Dir: t.TempDir(),
-		Host: host, Clone: checkout.Clone, Out: io.Discard, Err: io.Discard,
+		Host: host, Clone: clone, Out: io.Discard, Err: io.Discard,
 	}
 	status, err := runner.Execute(t.Context(), src)
 	if err != nil {
@@ -116,7 +116,7 @@ func TestExecuteCIFailed(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: false, Log: "job failed"}}
 	runner := Runner{
 		Log: slog.New(slog.DiscardHandler), Experts: []string{"correctness"}, Classifier: unmerged{}, Sandbox: sandboxFor(t), Dir: t.TempDir(),
-		Host: host, Clone: checkout.Clone, Out: io.Discard, Err: io.Discard,
+		Host: host, Clone: clone, Out: io.Discard, Err: io.Discard,
 	}
 	status, err := runner.Execute(t.Context(), sample(t))
 	if err != nil {
@@ -131,7 +131,7 @@ func TestExecuteCancelled(t *testing.T) {
 	host := &fakeHost{actions: github.Actions{Passed: true}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	runner := Runner{Log: slog.New(slog.DiscardHandler), Dir: t.TempDir(), Host: host, Clone: checkout.Clone, Out: io.Discard, Err: io.Discard}
+	runner := Runner{Log: slog.New(slog.DiscardHandler), Dir: t.TempDir(), Host: host, Clone: clone, Out: io.Discard, Err: io.Discard}
 	_, err := runner.Execute(ctx, sample(t))
 	if !errors.Is(err, context.Canceled) || host.comments != 0 {
 		t.Fatalf("%v comments %d", err, host.comments)
@@ -154,6 +154,10 @@ func TestNotes(t *testing.T) {
 	if len(notes) != 1 || notes[0].Path != "app/session.py" || notes[0].Line != 11 || !strings.Contains(notes[0].Body, "issue (blocking, correctness):") || !strings.Contains(notes[0].Body, "```suggestion\nnow >= t\n```") {
 		t.Fatalf("%+v", notes)
 	}
+}
+
+func clone(ctx context.Context, dir string, src review.Source) error {
+	return checkout.Clone(ctx, dir, "", src)
 }
 
 type unmerged struct{}
@@ -182,7 +186,7 @@ func (h *fakeHost) Description(context.Context, review.Source) (string, error) {
 	return "Add changed.txt", nil
 }
 
-func (h *fakeHost) Publish(_ context.Context, _ review.Source, _ string, blocks []string, notes []github.Note) error {
+func (h *fakeHost) Publish(_ context.Context, _ review.Source, blocks []string, notes []github.Note) error {
 	h.comments += 1 + len(notes)
 	h.body = strings.Join(blocks, "\n\n")
 	return nil

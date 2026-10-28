@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,6 +21,7 @@ import (
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/harness"
 	"github.com/Pleasurecruise/eyeful/internal/models"
+	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/internal/sandbox"
 	local "github.com/Pleasurecruise/eyeful/local/app"
 	"github.com/Pleasurecruise/eyeful/local/classify"
@@ -78,7 +78,7 @@ func (c *cli) run() error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", modelsAddr, err)
 	}
-	srv := &http.Server{Handler: models.Proxy(upstream, cfg.ModelKey), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: models.Proxy(log, upstream, cfg.ModelKey), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			log.Error("models proxy", slog.Any("error", err))
@@ -99,7 +99,10 @@ func (c *cli) run() error {
 		return err
 	}
 	runner := harness.Runner{
-		ID: strconv.FormatInt(cfg.RunID, 10), Log: log, Clone: checkout.Clone, Dir: cfg.Dir, Token: cfg.Token,
+		Log: log, Dir: cfg.Dir,
+		Clone: func(ctx context.Context, dir string, src review.Source) error {
+			return checkout.Clone(ctx, dir, cfg.Token, src)
+		},
 		Classifier: jev, Sandbox: sandbox.NewClient(cfg.SandboxURL), Host: gh, Out: os.Stdout, Err: os.Stderr,
 	}
 	status, err := runner.Execute(ctx, src)

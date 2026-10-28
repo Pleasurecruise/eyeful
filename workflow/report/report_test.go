@@ -233,3 +233,33 @@ func TestSARIF(t *testing.T) {
 		t.Error("a comment on an unknown finding was accepted")
 	}
 }
+
+func TestSummaryHeading(t *testing.T) {
+	r := result()
+	review := r.Comments[2]
+	review.Kind = workflow.KindReview
+	review.Objection = ""
+	for _, tt := range []struct {
+		name     string
+		outcome  workflow.Outcome
+		comments []workflow.Comment
+		want     string
+	}{
+		{"a finding left to review is not a clean review", workflow.OutcomePartial, []workflow.Comment{review, r.Comments[1]}, "### 🔎 1 finding to review"},
+		{"an expert absent", workflow.OutcomePartial, []workflow.Comment{r.Comments[1]}, "### ⚠️ Review incomplete"},
+		{"nothing to review", workflow.OutcomeNone, nil, "### ⚠️ Nothing reviewed"},
+		{"a disputed finding and a nitpick", workflow.OutcomeComplete, []workflow.Comment{r.Comments[2], r.Comments[1]}, "### ✅ No issues found"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := result()
+			c.Outcome, c.Comments, c.Regression = tt.outcome, tt.comments, nil
+			blocks, err := report.Summary(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(blocks[0], tt.want+"\n") {
+				t.Fatalf("want %q, got\n%s", tt.want, blocks[0])
+			}
+		})
+	}
+}

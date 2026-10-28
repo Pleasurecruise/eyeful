@@ -15,8 +15,8 @@ owner, a member or a collaborator. Branches, commits and uncommitted changes are
    comments `/eyeful`. When a review runs is in [Review lifecycle](SCHEDULING.md).
 2. The job pulls the review and sandbox images from `ghcr.io` for the action's ref, such as `main`,
    starts the sandbox, and runs `eyeful-action` in the review container.
-3. `eyeful-action` reads the pull request, clones it, waits for the head commit's other workflow
-   runs and reacts with 👀. A failed run ends the review with a diagnosis
+3. `eyeful-action` reads the pull request, clones it, waits for the head commit's workflow runs
+   other than eyeful's own and reacts with 👀. A failed run ends the review with a diagnosis
    ([Planning and triage](../PLANNER.md#ci-check)).
 4. It opens the sandbox and calls `local/app.Review` with execution verification.
 5. It posts each undisputed `issue` as a line comment in one `COMMENT` review, and a short summary as

@@ -28,6 +28,7 @@ jobs:
       pull-requests: write
       issues: write
       actions: read
+      statuses: write
     concurrency:
       group: eyeful-${{ github.repository }}-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: false
@@ -39,9 +40,37 @@ jobs:
           COMMENT: ${{ github.event.comment.id }}
         run: gh api --method POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" -f content=eyes
 
+      - name: mark the pull request
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL: ${{ github.event.pull_request.number || github.event.issue.number }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL" -q .head.sha)
+          printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$sha" \
+            -f context=eyeful -f state=pending -f description="Reviewing" -f target_url="$RUN"
+
       - name: review the pull request
         uses: Pleasurecruise/eyeful@main
         with:
           pull: ${{ github.event.pull_request.number || github.event.issue.number }}
           model-key: ${{ secrets.EYEFUL_MODEL_KEY }}
           typesafe-api-key: ${{ secrets.EYEFUL_TYPESAFE_API_KEY }}
+
+      - name: report to the pull request
+        if: always() && steps.head.outputs.sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.head.outputs.sha }}
+          STATE: ${{ job.status == 'success' && 'success' || job.status == 'cancelled' && 'error' || 'failure' }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$STATE" in
+            success) description="Review posted" ;;
+            error) description="Review cancelled" ;;
+            *) description="No review posted; see the run's log" ;;
+          esac
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f context=eyeful -f state="$STATE" -f description="$description" -f target_url="$RUN"

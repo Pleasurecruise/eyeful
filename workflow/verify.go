@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"regexp"
 	"slices"
@@ -155,6 +156,7 @@ func (w *Workflow) reproduce(ctx context.Context, s Session, l *ledger, f Findin
 			seen, _, runErr = trial(ctx, s, v.Repro)
 		}
 	}
+	w.log.Info("reproduction", slog.String("finding", f.ID), slog.String("test", v.Repro.Run), slog.Any("runs", seen), slog.Any("error", runErr))
 	if runErr != nil {
 		v.Reason = "the reproduction could not run: " + runErr.Error()
 		return st, nil

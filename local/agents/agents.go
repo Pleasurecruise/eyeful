@@ -86,22 +86,12 @@ func decode[T reply](text string) (T, error) {
 	return v, nil
 }
 
-func environment(p Provider, home string, drop []string) []string {
+func environment(p Provider) []string {
 	var env []string
 	for _, kv := range os.Environ() {
-		name, _, _ := strings.Cut(kv, "=")
-		switch {
-		case slices.ContainsFunc(p.strip, func(prefix string) bool { return name == prefix }):
-			continue
-		case slices.Contains(drop, name):
-			continue
-		case home != "" && (name == "HOME" || name == "XDG_CONFIG_HOME" || name == "XDG_DATA_HOME" || strings.HasPrefix(name, "EYEFUL_")):
-			continue
+		if name, _, _ := strings.Cut(kv, "="); !slices.Contains(p.strip, name) {
+			env = append(env, kv)
 		}
-		env = append(env, kv)
-	}
-	if home != "" {
-		env = append(env, "HOME="+home, "XDG_CONFIG_HOME="+filepath.Join(home, ".config"), "XDG_DATA_HOME="+filepath.Join(home, ".local", "share"))
 	}
 	return env
 }
@@ -123,7 +113,7 @@ func run[T reply](ctx context.Context, a *Agents, name string, tier workflow.Tie
 	}
 	p := a.cfg.Provider
 	prompt += fmt.Sprintf(replyNotice, data)
-	env := environment(p, a.cfg.Home, a.cfg.Drop)
+	env := environment(p)
 	var usage workflow.Usage
 	var bad error
 	for attempt := range 2 {
@@ -135,6 +125,7 @@ func run[T reply](ctx context.Context, a *Agents, name string, tier workflow.Tie
 		var stdout bytes.Buffer
 		stderr := tail.New(stderrLimit)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = strings.NewReader(prompt), &activity{out: &stdout, idle: idle, after: a.idle}, stderr
+		a.log.Info("agent start", slog.String("role", name), slog.Int("attempt", attempt+1))
 		start := time.Now()
 		runErr := cmd.Run()
 		hard.Stop()

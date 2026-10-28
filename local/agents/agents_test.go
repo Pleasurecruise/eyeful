@@ -20,13 +20,10 @@ import (
 )
 
 type call struct {
-	Args   []string `json:"args"`
-	Stdin  string   `json:"stdin"`
-	Dir    string   `json:"dir"`
-	Key    bool     `json:"key"`
-	Home   string   `json:"home"`
-	GitHub bool     `json:"github"`
-	AppKey bool     `json:"app_key"`
+	Args  []string `json:"args"`
+	Stdin string   `json:"stdin"`
+	Dir   string   `json:"dir"`
+	Key   bool     `json:"key"`
 }
 
 const report = `{"findings":[]}`
@@ -72,12 +69,7 @@ func fake() error {
 		return err
 	}
 	_, key := os.LookupEnv("ANTHROPIC_API_KEY")
-	_, githubToken := os.LookupEnv("GITHUB_TOKEN")
-	_, appKey := os.LookupEnv("EYEFUL_GITHUB_APP_PRIVATE_KEY")
-	data, err := json.Marshal(call{
-		Args: os.Args[1:], Stdin: string(stdin), Dir: dir, Key: key,
-		Home: os.Getenv("HOME"), GitHub: githubToken, AppKey: appKey,
-	})
+	data, err := json.Marshal(call{Args: os.Args[1:], Stdin: string(stdin), Dir: dir, Key: key})
 	if err != nil {
 		return err
 	}
@@ -224,38 +216,6 @@ func TestPiRetry(t *testing.T) {
 	a, _, _ = setup(t, "pi", "exhausted")
 	if _, _, err := a.Review(t.Context(), task); !errors.Is(err, agents.ErrFailed) || !strings.Contains(err.Error(), "AccountRateLimitExceeded") {
 		t.Fatalf("pi gave up after its retries: %v", err)
-	}
-}
-
-func TestFreshHome(t *testing.T) {
-	bin, repo := t.TempDir(), t.TempDir()
-	if err := os.Symlink(os.Args[0], filepath.Join(bin, "pi")); err != nil {
-		t.Fatal(err)
-	}
-	out := filepath.Join(t.TempDir(), "calls")
-	home := t.TempDir()
-	t.Setenv("PATH", bin)
-	t.Setenv("FAKE_CLI", "1")
-	t.Setenv("FAKE_MODE", "ok")
-	t.Setenv("FAKE_OUT", out)
-	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
-	t.Setenv("GITHUB_TOKEN", "ghs-secret")
-	t.Setenv("EYEFUL_GITHUB_APP_PRIVATE_KEY", "app-private-key")
-	set, err := prompts.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, _ := agents.Find("pi")
-	a := agents.New(slog.New(slog.DiscardHandler), agents.Config{
-		Provider: p, Dir: repo, Skills: skills, Set: set, Home: home,
-		Drop: []string{"GITHUB_TOKEN", "EYEFUL_GITHUB_APP_PRIVATE_KEY"},
-	}, 2*time.Second, 5*time.Second)
-	if _, _, err := a.Review(t.Context(), task); err != nil {
-		t.Fatal(err)
-	}
-	c := calls(t, out)[0]
-	if c.Home != home || !c.Key || c.GitHub || c.AppKey {
-		t.Fatalf("home %q, key %v, github %v, app key %v", c.Home, c.Key, c.GitHub, c.AppKey)
 	}
 }
 

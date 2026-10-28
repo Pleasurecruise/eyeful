@@ -47,7 +47,6 @@ func TestSandbox(t *testing.T) {
 	run("add", ".")
 	run("commit", "-q", "-m", "head")
 	head := run("rev-parse", "HEAD")
-	run("update-ref", "refs/pull/7/head", head)
 
 	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), filepath.Join(t.TempDir(), "sandbox"), time.Minute))
 	defer srv.Close()
