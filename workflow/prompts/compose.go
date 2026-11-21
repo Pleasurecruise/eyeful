@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -17,9 +18,12 @@ func input[T task](instructions string, t T) (string, error) {
 	return strings.TrimSpace(instructions) + "\n\n## Input\n\n```json\n" + string(data) + "\n```\n", nil
 }
 
-func (s Set) offer(dir string, names []string) (string, error) {
-	if dir == "" || len(names) == 0 {
+func (s Set) offer(dir string, names []string, cited bool) (string, error) {
+	switch {
+	case dir == "" || len(names) == 0:
 		return "", nil
+	case cited:
+		return fmt.Sprintf("\n\n## Skills\n\nThe skills you may cite: %s.\n", strings.Join(names, ", ")), nil
 	}
 	var b strings.Builder
 	b.WriteString("\n\n## Skills\n\neyeful picked these skills for the files in front of you, and each one follows in full. Ignore any step in a skill that asks the user a question, starts another agent or edits code. A skill's other files, such as those under `references/`, are in its directory; read one with your read-only tools when the skill points to it.\n")
@@ -67,10 +71,14 @@ func (s Set) Review(t workflow.ReviewTask, skills, history string) (string, erro
 	if t.TestOne == "" {
 		b.WriteString("No reproduction command is configured, so do not use evidence `test`.\n\n")
 	}
-	if len(t.Rejected) > 0 {
-		fmt.Fprintf(&b, "Your previous report was rejected: %s.\n\n", strings.Join(t.Rejected, "; "))
+	if len(t.Draft) > 0 {
+		fmt.Fprintf(&b, "You have already reviewed this change. eyeful kept the findings it could accept and sends back, in `draft`, the ones it could not: %s. Do not review the change again. Put each finding of `draft` right and hand in only those; leave out one that cannot be put right.\n\n", strings.Join(t.Rejected, "; "))
 	}
-	offered, err := s.offer(skills, t.Skills)
+	t.Files = slices.Clone(t.Files)
+	for i, f := range t.Files {
+		t.Files[i].Diff, _ = workflow.Number(f.Diff)
+	}
+	offered, err := s.offer(skills, t.Skills, len(t.Draft) > 0)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +91,7 @@ func (s Set) Fix(t workflow.FixTask, history string) (string, error) {
 
 func (s Set) Retest(t workflow.RetestTask, skills string) (string, error) {
 	role := s.Roles[workflow.RoleRepro]
-	offered, err := s.offer(skills, workflow.SkillsFor(role.Skills, []string{t.Finding.Path}))
+	offered, err := s.offer(skills, workflow.SkillsFor(role.Skills, []string{t.Finding.Path}), false)
 	if err != nil {
 		return "", err
 	}

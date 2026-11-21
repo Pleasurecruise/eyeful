@@ -435,7 +435,7 @@ function summarize(issues) {
 	}
 	return summary;
 }
-// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.97_@smithy+signature-v_b3807134dcefb9c670b0a49c3da57177/node_modules/@pulls.review/core/dist/analyze-D-y_E6as.js
 /**
 * Review-comment threads and review summaries for a GitHub PR, in the same
 * valibot-schema-first style as `diff.ts`. Sides use pierre's vocabulary
@@ -543,7 +543,7 @@ var DiffGroupSchema = withChildren(DiffGroupLeafSchema);
 	groups: /* @__PURE__ */ array(DiffGroupSchema),
 	schemaVersion: /* @__PURE__ */ number()
 })).entries });
-// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.97_@smithy+signature-v_b3807134dcefb9c670b0a49c3da57177/node_modules/@pulls.review/core/dist/rules-danFA5kH.js
 /**
 * Generated/lockfile-style output - shared with `noisy-files.ts`, which collapses
 * these by default in the diff view, so the two "this file is noise" notions
@@ -560,7 +560,7 @@ var GENERATED_PATTERNS = [
 	"**/*.lock",
 	"**/drizzle/meta/**"
 ];
-// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/locales.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.97_@smithy+signature-v_b3807134dcefb9c670b0a49c3da57177/node_modules/@pulls.review/core/dist/locales.js
 /**
 * The languages the UI and the LLM's summaries can be in. `name` is the English name
 * the analysis prompt uses (the prompt itself stays English), `native` is what the
@@ -3226,7 +3226,7 @@ function toJsonSchema(schema, config) {
 	if (context.referenceMap.size) jsonSchema.$defs = context.definitions;
 	return jsonSchema;
 }
-// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/llm.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.97_@smithy+signature-v_b3807134dcefb9c670b0a49c3da57177/node_modules/@pulls.review/core/dist/llm.js
 var isGeneratedPath = (0, import_picomatch.default)(GENERATED_PATTERNS);
 /** Renders a set of files as compact diff text for a prompt - the model-facing view of a patch. */
 function renderFilesAsText(files) {
@@ -3377,7 +3377,7 @@ function describeCoverageIssues(issues, fix) {
 	return lines.join("\n");
 }
 toJsonSchema(AnalysisSchema);
-// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.89_@smithy+signature-v_7fc291622cb66f3f029ab4a23a28768a/node_modules/@pulls.review/core/dist/patch-parser.js
+// ../../node_modules/.pnpm/@pulls.review+core@0.3.4_@aws-sdk+credential-provider-node@3.972.97_@smithy+signature-v_b3807134dcefb9c670b0a49c3da57177/node_modules/@pulls.review/core/dist/patch-parser.js
 var GIT_DIFF_HEADER_RE = /^diff --git a\/.* b\/(.*)$/;
 /** Git quotes a path holding a tab, newline, `"` or `\` (and, without `core.quotePath=false`, any non-ASCII byte). */
 var QUOTED_GIT_DIFF_HEADER_RE = /^diff --git "a\/(?:[^"\\]|\\.)*" "b\/((?:[^"\\]|\\.)*)"$/;

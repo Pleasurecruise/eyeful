@@ -9,10 +9,14 @@ import (
 	"sync"
 )
 
-func Validate(t ReviewTask, r Report) []string {
-	reasons := make([]string, 0, len(r.Findings))
+func Validate(t ReviewTask, r Report) [][]string {
+	shown := map[string][]int{}
+	for _, f := range t.Files {
+		_, shown[f.Path] = Number(f.Diff)
+	}
+	reasons := make([][]string, len(r.Findings))
 	for i, f := range r.Findings {
-		reasons = append(reasons, checkFinding(t, f, i)...)
+		reasons[i] = checkFinding(t, f, shown)
 	}
 	return reasons
 }
@@ -27,41 +31,40 @@ func SkillsFor(skills []Skill, files []string) []string {
 	return out
 }
 
-func checkFinding(t ReviewTask, f Claim, i int) []string {
+func checkFinding(t ReviewTask, f Claim, shown map[string][]int) []string {
 	g := t.Group
 	var reasons []string
-	bad := func(msg string) { reasons = append(reasons, fmt.Sprintf("finding %d: %s", i, msg)) }
+	off := func(at Location) bool {
+		return at.Line < 1 || (len(shown[at.Path]) > 0 && !slices.Contains(shown[at.Path], at.Line))
+	}
 	switch {
 	case f.Skill == SkillOther && f.Category == "":
-		bad(fmt.Sprintf("an %q finding needs a category", SkillOther))
+		reasons = append(reasons, fmt.Sprintf("an %q finding needs a category", SkillOther))
 	case f.Skill != SkillOther && !slices.Contains(t.Skills, f.Skill):
-		bad(fmt.Sprintf("cites %q, which is neither a skill offered to you nor %q", f.Skill, SkillOther))
+		reasons = append(reasons, fmt.Sprintf("cites %q, which is neither a skill offered to you nor %q", f.Skill, SkillOther))
 	}
-	if !slices.Contains(g.Files, f.Path) {
-		bad(fmt.Sprintf("%q is not a file of this group", f.Path))
-	}
-	if f.Line < 1 {
-		bad("needs a line")
+	switch {
+	case !slices.Contains(g.Files, f.Path):
+		reasons = append(reasons, fmt.Sprintf("%q is not a file of this group", f.Path))
+	case off(Location{Path: f.Path, Line: f.Line}):
+		reasons = append(reasons, fmt.Sprintf("line %d is not a numbered line of the diff of %s: anchor the finding at the changed line that causes it", f.Line, f.Path))
 	}
 	for _, r := range f.Related {
-		if !slices.Contains(g.Files, r.Path) || r.Line < 1 || (r.Path == f.Path && r.Line == f.Line) {
-			bad(fmt.Sprintf("related place %s:%d is not another line of a file of this group", r.Path, r.Line))
+		if !slices.Contains(g.Files, r.Path) || off(r) || (r.Path == f.Path && r.Line == f.Line) {
+			reasons = append(reasons, fmt.Sprintf("related place %s:%d is not another numbered line of the diff of a file of this group", r.Path, r.Line))
 		}
 	}
 	if f.Subject == "" {
-		bad("needs a subject")
+		reasons = append(reasons, "needs a subject")
 	}
-	if !slices.Contains([]Severity{SeverityError, SeverityWarning, SeverityNote}, f.Severity) {
-		bad(fmt.Sprintf("severity %q is not error, warning or note", f.Severity))
-	}
-	for _, msg := range checkEvidence(t, f) {
-		bad(msg)
-	}
-	return reasons
+	return append(reasons, checkEvidence(t, f)...)
 }
 
 func checkEvidence(t ReviewTask, f Claim) []string {
 	var reasons []string
+	if !slices.Contains([]Severity{SeverityError, SeverityWarning, SeverityNote}, f.Severity) {
+		reasons = append(reasons, fmt.Sprintf("severity %q is not error, warning or note", f.Severity))
+	}
 	if !slices.Contains(t.Expert.Evidence, f.Evidence) {
 		reasons = append(reasons, fmt.Sprintf("evidence %q is not one %s produces", f.Evidence, t.Expert.Name))
 	}
@@ -79,33 +82,44 @@ func (w *Workflow) review(ctx context.Context, s Session, l *ledger, task Review
 			return st, err
 		}
 		st.Runs = append(st.Runs, r)
-		if r.Error != "" {
+		switch {
+		case r.Error != "" && attempt == 0:
 			w.log.Warn("expert absent", slog.String("expert", task.Expert.Name), slog.String("error", r.Error))
 			st.Absent = r.Error
 			return st, nil
-		}
-		if reasons := Validate(task, report); len(reasons) > 0 && attempt == 0 {
-			w.log.Warn("expert report rejected", slog.String("expert", task.Expert.Name), slog.Any("reasons", reasons))
-			task.Rejected = reasons
-			continue
-		}
-		for i, f := range report.Findings {
-			if bad := checkFinding(task, f, i); len(bad) > 0 {
-				st.Dropped = append(st.Dropped, fmt.Sprintf("%s handed in a finding that eyeful still could not accept on the second attempt, so it was dropped: %s", task.Expert.Name, strings.Join(bad, "; ")))
-				continue
+		case r.Error != "":
+			for _, c := range task.Draft {
+				st.Dropped = append(st.Dropped, fmt.Sprintf("%s did not put right a finding eyeful sent back, so it was dropped: %s:%d %s: %s", task.Expert.Name, c.Path, c.Line, c.Subject, r.Error))
 			}
-			st.Findings = append(st.Findings, f)
+			return st, nil
 		}
-		return st, nil
+		var draft []Claim
+		var rejected []string
+		for i, bad := range Validate(task, report) {
+			switch f := report.Findings[i]; {
+			case len(bad) == 0:
+				st.Findings = append(st.Findings, f)
+			case attempt == 0:
+				rejected = append(rejected, fmt.Sprintf("draft %d: %s", len(draft), strings.Join(bad, "; ")))
+				draft = append(draft, f)
+			default:
+				st.Dropped = append(st.Dropped, fmt.Sprintf("%s handed in a finding that eyeful still could not accept on the second attempt, so it was dropped: %s:%d %s: %s", task.Expert.Name, f.Path, f.Line, f.Subject, strings.Join(bad, "; ")))
+			}
+		}
+		if len(draft) == 0 {
+			return st, nil
+		}
+		w.log.Warn("findings sent back", slog.String("expert", task.Expert.Name), slog.Any("reasons", rejected))
+		task.Draft, task.Rejected = draft, rejected
 	}
 	return st, nil
 }
 
-func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan, from int, files map[string]File, broken *TestRun, known []Claim, req Request) ([]Finding, Uncertainty, error) {
+func (w *Workflow) experts(ctx context.Context, s Session, shares []*ledger, plan Plan, own []Plan, files map[string]File, broken *TestRun, known []Claim, req Request) ([]Finding, Uncertainty, error) {
 	var seats []*seat
-	for gi := from; gi < len(plan.Groups); gi++ {
-		for _, p := range plan.Groups[gi].Experts {
-			i := slices.IndexFunc(seats, func(st *seat) bool { return st.pick.Name == p.Name })
+	for gi, g := range plan.Groups {
+		for _, p := range g.Experts {
+			i := slices.IndexFunc(seats, func(st *seat) bool { return st.pick.Name == p.Name && plan.Groups[st.groups[0]].Scope == g.Scope })
 			if i < 0 {
 				seats = append(seats, &seat{pick: p})
 				i = len(seats) - 1
@@ -116,28 +130,20 @@ func (w *Workflow) experts(ctx context.Context, s Session, l *ledger, plan Plan,
 	for _, st := range seats {
 		w.log.Info("expert", slog.String("name", st.pick.Name), slog.Any("groups", st.groups))
 	}
-	scoped := Plan{Summary: plan.Summary, Groups: plan.Groups[from:], Skipped: plan.Skipped, Confidence: plan.Confidence}
 	var wg sync.WaitGroup
-	turns := make(chan struct{}, maxParallel)
 	for _, st := range seats {
 		wg.Go(func() {
-			select {
-			case turns <- struct{}{}:
-			case <-ctx.Done():
-				st.err = fmt.Errorf("wait to start %s: %w", st.pick.Name, ctx.Err())
-				return
-			}
-			defer func() { <-turns }()
+			scope := plan.Groups[st.groups[0]].Scope
 			task := w.panelTask(st.pick, plan, st.groups, files, known)
 			task.TestOne, task.Commits, task.Description = req.Project.TestOne, req.Change.Commits, req.Change.Description
 			if !task.Expert.Blind {
-				task.Plan = scoped
+				task.Plan = own[scope]
 			}
 			if slices.Contains(task.Expert.Evidence, EvidenceTest) {
 				task.Regression = broken
 			}
 			key := fmt.Sprintf("expert/%d/%s", st.groups[0], st.pick.Name)
-			st.state, st.err = checkpoint(ctx, s.Archive, l, key, func() (expertState, error) { return w.review(ctx, s, l, task) })
+			st.state, st.err = checkpoint(ctx, s.Archive, shares[scope], key, func() (expertState, error) { return w.review(ctx, s, shares[scope], task) })
 		})
 	}
 	wg.Wait()

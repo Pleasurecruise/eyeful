@@ -38,9 +38,11 @@ run, so it alone answers RQ3. No output is labelled by hand.
 - ReviewBench's 25 test pull requests are the ones eyeful was developed on and are never sampled.
   The 50 are allotted to each language by its share of the other 194, and picked by hash, so the
   sample is the same every time.
-- The datasets live under `.eval/`, which git ignores. A subject's description, which names the
-  defect, is kept apart from its repository, and every review runs in a sandbox that reads only
-  that repository. A run whose agents read outside it is excluded and counted.
+- The datasets live outside this repository, under `.eval/` in a local clone of
+  [eyeful-demo](https://github.com/Pleasurecruise/eyeful-demo), and are never committed. A
+  subject's description, which names the defect, is kept apart from its repository, and every
+  review runs in a sandbox that reads only that repository. A run whose agents read outside it is
+  excluded and counted.
 
 ## Configurations and conditions
 

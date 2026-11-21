@@ -12,7 +12,6 @@ import (
 const (
 	maxParallel   = 8
 	reproRuns     = 5
-	fallbackPanel = 4
 	expertPercent = 75
 	judgeBatch    = 8
 	quoteWords    = 3
@@ -56,6 +55,7 @@ const (
 	ClassBinary    Class = "binary"
 	ClassSkipped   Class = "skipped"
 	ClassOversized Class = "oversized"
+	ClassEmpty     Class = "empty"
 )
 
 type Severity string
@@ -418,6 +418,7 @@ type ReviewTask struct {
 	Description string   `json:"description,omitempty"`
 	Regression  *TestRun `json:"regression,omitempty"`
 	Rejected    []string `json:"rejected"`
+	Draft       []Claim  `json:"draft,omitempty"`
 	Earlier     []Claim  `json:"earlier,omitempty"`
 	TestOne     string   `json:"-"`
 }
@@ -558,6 +559,7 @@ type ledger struct {
 	runs      []Run
 	exhausted bool
 	parent    *ledger
+	turns     chan struct{}
 }
 
 var (

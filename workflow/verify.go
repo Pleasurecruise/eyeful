@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -280,21 +282,24 @@ func (w *Workflow) judge(ctx context.Context, s Session, l *ledger, batch []Find
 	return st, nil
 }
 
-func each[T Finding | []Finding, S verifyState | judgeState](ctx context.Context, queue []T, fn func(T) (S, error)) ([]S, error) {
+func each[T Finding | []Finding | int, S verifyState | judgeState | planState](ctx context.Context, queue []T, fn func(T) (S, error)) ([]S, error) {
 	states := make([]S, len(queue))
 	errs := make([]error, len(queue))
+	work := make(chan int, len(queue))
+	for i := range queue {
+		work <- i
+	}
+	close(work)
 	var wg sync.WaitGroup
-	turns := make(chan struct{}, maxParallel)
-	for i, item := range queue {
+	for range min(maxParallel, len(queue)) {
 		wg.Go(func() {
-			select {
-			case turns <- struct{}{}:
-			case <-ctx.Done():
-				errs[i] = fmt.Errorf("wait to check %d of %d: %w", i+1, len(queue), ctx.Err())
-				return
+			for i := range work {
+				if err := ctx.Err(); err != nil {
+					errs[i] = fmt.Errorf("start %d of %d: %w", i+1, len(queue), err)
+					continue
+				}
+				states[i], errs[i] = fn(queue[i])
 			}
-			defer func() { <-turns }()
-			states[i], errs[i] = fn(item)
 		})
 	}
 	wg.Wait()
@@ -316,8 +321,14 @@ func cluster(findings []Finding, root map[string]string) ([]Finding, map[string]
 
 func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Request, suite suiteState, findings []Finding, files map[string]File, root map[string]string) ([]Verification, []Finding, map[string]*Verification, error) {
 	leads, beside := cluster(findings, root)
-	written, err := each(ctx, leads, func(f Finding) (verifyState, error) {
-		return checkpoint(ctx, s.Archive, l, "repro/"+f.ID, func() (verifyState, error) { return w.write(ctx, s, l, f, req.Project.TestOne) })
+	states, err := each(ctx, leads, func(f Finding) (verifyState, error) {
+		written, err := checkpoint(ctx, s.Archive, l, "repro/"+f.ID, func() (verifyState, error) { return w.write(ctx, s, l, f, req.Project.TestOne) })
+		if err != nil || written.Verification.Repro == nil {
+			return written, err
+		}
+		return checkpoint(ctx, s.Archive, l, "verify/execution/"+f.ID, func() (verifyState, error) {
+			return w.reproduce(ctx, s, l, f, *written.Verification.Repro, req, files, suite)
+		})
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -326,16 +337,7 @@ func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Reques
 	var unshown []Finding
 	tried := map[string]*Verification{}
 	for i, f := range leads {
-		v := written[i].Verification
-		if v.Repro != nil {
-			st, err := checkpoint(ctx, s.Archive, l, "verify/execution/"+f.ID, func() (verifyState, error) {
-				return w.reproduce(ctx, s, l, f, *v.Repro, req, files, suite)
-			})
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			v = st.Verification
-		}
+		v := states[i].Verification
 		if v.Status == StatusUnverified || v.Status == StatusNotReproduced {
 			tried[f.ID] = &v
 			unshown = append(append(unshown, f), beside[f.ID]...)
@@ -344,6 +346,33 @@ func (w *Workflow) execute(ctx context.Context, s Session, l *ledger, req Reques
 		out = append(out, v)
 	}
 	return out, unshown, tried, nil
+}
+
+func (w *Workflow) judgeAll(ctx context.Context, s Session, l *ledger, req Request, findings []Finding, tried map[string]*Verification, files map[string]File) ([]Verification, error) {
+	sorted := slices.Clone(findings)
+	slices.SortStableFunc(sorted, func(a, b Finding) int {
+		return cmp.Or(cmp.Compare(a.Group, b.Group), cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line))
+	})
+	var batches [][]Finding
+	for _, f := range sorted {
+		if n := len(batches); n == 0 || len(batches[n-1]) == judgeBatch || batches[n-1][0].Group != f.Group {
+			batches = append(batches, nil)
+		}
+		batches[len(batches)-1] = append(batches[len(batches)-1], f)
+	}
+	states, err := each(ctx, batches, func(b []Finding) (judgeState, error) {
+		var members strings.Builder
+		for _, f := range b {
+			members.WriteString(f.ID + "\n")
+		}
+		key := sha256.Sum256([]byte(members.String()))
+		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("judge/%s/%x", req.Verification, key[:8]), func() (judgeState, error) { return w.judge(ctx, s, l, b, tried, files, req.Change) })
+	})
+	out := []Verification{}
+	for _, st := range states {
+		out = append(out, st.Verifications...)
+	}
+	return out, err
 }
 
 func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request, execution bool, suite suiteState, findings []Finding, files map[string]File, root map[string]string) ([]Verification, error) {
@@ -360,31 +389,21 @@ func (w *Workflow) verify(ctx context.Context, s Session, l *ledger, req Request
 			read = append(read, f)
 		}
 	}
-	out, unshown, tried, err := w.execute(ctx, s, l, req, suite, run, files, root)
-	if err != nil {
+	var ran, judged []Verification
+	var unshown []Finding
+	var tried map[string]*Verification
+	g, both := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		ran, unshown, tried, err = w.execute(both, s, l, req, suite, run, files, root)
+		return err
+	})
+	g.Go(func() (err error) {
+		judged, err = w.judgeAll(both, s, l, req, read, nil, files)
+		return err
+	})
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	judged := slices.Concat(read, unshown)
-	slices.SortStableFunc(judged, func(a, b Finding) int {
-		return cmp.Or(cmp.Compare(a.Group, b.Group), cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line))
-	})
-	var batches [][]Finding
-	for _, f := range judged {
-		if n := len(batches); n == 0 || len(batches[n-1]) == judgeBatch || batches[n-1][0].Group != f.Group {
-			batches = append(batches, nil)
-		}
-		batches[len(batches)-1] = append(batches[len(batches)-1], f)
-	}
-	states, err := each(ctx, batches, func(b []Finding) (judgeState, error) {
-		var members strings.Builder
-		for _, f := range b {
-			members.WriteString(f.ID + "\n")
-		}
-		key := sha256.Sum256([]byte(members.String()))
-		return checkpoint(ctx, s.Archive, l, fmt.Sprintf("judge/%s/%x", req.Verification, key[:8]), func() (judgeState, error) { return w.judge(ctx, s, l, b, tried, files, req.Change) })
-	})
-	for _, st := range states {
-		out = append(out, st.Verifications...)
-	}
-	return out, err
+	rejudged, err := w.judgeAll(ctx, s, l, req, unshown, tried, files)
+	return slices.Concat(ran, judged, rejudged), err
 }

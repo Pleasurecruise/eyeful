@@ -30,13 +30,17 @@ var labelOrder = []Label{
 func (w *Workflow) match(ctx context.Context, s Session, l *ledger, findings []Finding) (matchState, error) {
 	st := matchState{Root: map[string]string{}, Notes: []string{}, Runs: []Run{}}
 	var pairs [][2]Finding
+	beside := func(a, b Finding) bool {
+		return slices.ContainsFunc(append([]Location{{Path: b.Path, Line: b.Line}}, b.Related...), func(at Location) bool {
+			return at.Path == a.Path && max(at.Line-a.Line, a.Line-at.Line) <= mergeDistance
+		})
+	}
 	for i, a := range findings {
 		st.Root[a.ID] = a.ID
 		for _, b := range findings[i+1:] {
-			if a.Path != b.Path || max(a.Line-b.Line, b.Line-a.Line) > mergeDistance {
-				continue
+			if beside(a, b) || beside(b, a) {
+				pairs = append(pairs, [2]Finding{a, b})
 			}
-			pairs = append(pairs, [2]Finding{a, b})
 		}
 	}
 	if len(pairs) == 0 {

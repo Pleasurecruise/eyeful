@@ -18,7 +18,8 @@ owner, a member or a collaborator. Branches, commits and uncommitted changes are
 3. `eyeful-action` reads the pull request, clones it, waits for the head commit's workflow runs
    other than eyeful's own and reacts with 👀. A failed run ends the review with a diagnosis
    ([Planning and triage](../PLANNER.md#ci-check)).
-4. It opens the sandbox and calls `local/app.Review` with execution verification.
+4. While it waits, it opens the sandbox and runs the setup command there. Then it calls
+   `local/app.Review` with execution verification.
 5. It posts each undisputed `issue` as a line comment in one `COMMENT` review, and a short summary as
    a comment ([Review feedback](../REPORT.md#line-comments)). Both carry the workflow run's id in a
    hidden marker, and it lists what is already on the pull request before it posts, so a re-run of
@@ -39,7 +40,7 @@ pi --mode json --no-session \
 ```
 
 The image carries pi's `settings.json` and `models.json` from `cmd/eyeful-action/pi/`: the model is
-DeepSeek V4.1 Flash on Volcengine Ark. pi calls
+DeepSeek V4.1 Flash on OpenCode Go. pi calls
 `http://127.0.0.1:8081`, where `eyeful-action` forwards `POST /chat/completions`, and nothing else,
 to that provider with the key `EYEFUL_MODEL_KEY`. pi holds no key. When the
 provider answers 429 or a server error, pi waits and resumes the same turn, up to eight times, 5 s

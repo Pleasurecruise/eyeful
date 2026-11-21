@@ -32,10 +32,10 @@ flowchart TB
 
 ### 开启审查 {#turn-on-reviews}
 
-需要一个开通了 Coding Plan 的火山方舟 API key（[控制台](https://console.volcengine.com/ark)）、一个 [TypeSafe](https://docs.typesafe.ai) API key，以及已登录的 [GitHub CLI](https://cli.github.com)。在仓库的默认分支上运行：
+需要一个 OpenCode Go API key（[Go](https://opencode.ai/docs/go/)）、一个 [TypeSafe](https://docs.typesafe.ai) API key，以及已登录的 [GitHub CLI](https://cli.github.com)。在仓库的默认分支上运行：
 
 ```sh
-gh secret set EYEFUL_MODEL_KEY          # 粘贴火山方舟 key
+gh secret set EYEFUL_MODEL_KEY          # 粘贴 OpenCode Go key
 gh secret set EYEFUL_TYPESAFE_API_KEY   # 粘贴 TypeSafe key
 curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
   --create-dirs -o .github/workflows/eyeful.yml

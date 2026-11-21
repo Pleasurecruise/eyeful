@@ -78,26 +78,26 @@ token 预算（3,000,000）和每条项目命令的时限（10 分钟）是固�
 2. 它找出[项目命令](CONFIGURATION.md#project)，检查请求，打印审查对象、专家、agent 和验证方式。
 3. 在 `execution` 下，它用 `git worktree add --detach` 把快照检出到临时目录（关闭钩子），并打印将在那里运行的命令。用户要确认这些命令，除非同样的命令之前在这个仓库里确认过。检出目录在每次运行后重置，结束时删除。
 4. 在 `execution` 下，CI 检查先运行 `setup`，再运行 `lint`（见[规划与分拣](PLANNER.md#ci-check)）。
-5. 分拣给文件分类，规划器根据文件和最新的 50 条提交信息制定计划。
-6. 在 `execution` 下，验证器运行 `test` 以及上一次审查的复现（见[回归](VERIFICATION.md#regressions)、[多轮审查](REPORT.md#rounds)）。
-7. 专家进行审查。复现被编写并运行，其余的由裁判阅读（见[证据与验证](VERIFICATION.md)）。
+5. 分拣给文件分类。
+6. 规划器根据分拣后的文件和最新的 50 条提交信息制定计划。与此同时，在 `execution` 下，验证器运行 `test` 以及上一次审查的复现（见[回归](VERIFICATION.md#regressions)、[多轮审查](REPORT.md#rounds)）。
+7. 专家开始审查，此时已经知道变更破坏了什么。复现被编写并运行，其余的由裁判阅读（见[证据与验证](VERIFICATION.md)）。
 8. 打印发现（见[终端里的输出](REPORT.md#terminal)），并保存到 `.eyeful/runs/<time>/`：`snapshot.json`、`change.diff`、`review.md`、`findings.json`、`results.sarif`、`result.json`、每个阶段的检查点，以及 `agents/` 下每次 agent 调用的提示词和原始输出。
 
 ## Agent {#agents}
 
 eyeful 以非交互模式运行已连接 agent 的命令行工具，每次调用一个新进程，在仓库根目录下。提示词从标准输入传入。agent 以一个符合该角色 schema 的 JSON 块结束，缺失或不合法时重试一次。
 
-| Agent  | 运行方式                                                                                                                                                                                                   | 只读的实现方式              | 模型                            |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------- |
-| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --disable-slash-commands`               | `--tools Read,Grep,Glob`    | 档位：`haiku`、`sonnet`、`opus` |
-| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -` | `--sandbox read-only`       | Codex 的默认模型                |
-| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                   | `--tools read,grep,find,ls` | pi 的默认模型                   |
+| Agent  | 运行方式                                                                                                                                                                                                                           | 只读的实现方式              | 模型                            |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------- |
+| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --settings '{"disableAllHooks":true}' --disable-slash-commands` | `--tools Read,Grep,Glob`    | 档位：`haiku`、`sonnet`、`opus` |
+| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -`                         | `--sandbox read-only`       | Codex 的默认模型                |
+| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                                           | `--tools read,grep,find,ls` | pi 的默认模型                   |
 
-- **隔离。** 每个工具运行时都不带用户的设置、钩子、MCP 服务器、扩展、skill 和 `AGENTS.md` 文件。eyeful 从 Claude Code 的环境里去掉 `ANTHROPIC_API_KEY`，避免审查被按 API 用量计费。
+- **隔离。** 每个工具运行时都不带用户的设置、钩子、MCP 服务器、扩展、skill 和 `AGENTS.md` 文件，也不运行仓库自带的钩子。Claude Code 仍会读取仓库自己的 `.claude/settings.json` 和 `CLAUDE.md`。eyeful 从 Claude Code 的环境里去掉 `ANTHROPIC_API_KEY`，避免审查被按 API 用量计费。
 - **登录。** 每个工具使用它已有的登录。`connect` 和每次审查都会检查工具是否在 `PATH` 上。
 - **Token。** eyeful 统计一次调用首次处理的内容：输入、输出和写入缓存的部分。缓存读取不计入。用量计在用户自己的订阅上。
 - **时间。** 2 分钟没有任何输出、或运行满 15 分钟的调用会被停止。因无输出或工具出错而停止的调用会再运行一次。
-- **并发。** 最多八个专家同时运行。
+- **并发。** 一次审查最多八个 agent 同时运行。
 
 不为 agent 配置任何 MCP 服务器。
 

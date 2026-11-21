@@ -18,7 +18,7 @@ flowchart LR
 
 ## 分拣 {#triage}
 
-用规则、不用模型，把锁文件、生成的代码、vendored 代码、二进制文件、`.gitattributes` 标为 `linguist-generated` 或 `linguist-vendored` 的文件以及 diff 超过 512 KB 的文件放到一边。它们不交给任何专家，并被列为未审查。其余每一行都至少交给一个专家，依据是 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)。
+用规则、不用模型，把锁文件、生成的代码、vendored 代码、二进制文件、`.gitattributes` 标为 `linguist-generated` 或 `linguist-vendored` 的文件、diff 超过 512 KB 的文件，以及没有改动行的文件（比如重命名）放到一边。它们不交给任何专家，并被列为未审查。其余每一行都至少交给一个专家，依据是 Google 的 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line)。
 
 剩下的文件组成一份清单：
 
@@ -35,9 +35,9 @@ commits: "fix session expiry at the boundary"
 
 1. 文件先按第一级目录分组，再按前两级。仍超过 2,000 行的组按路径顺序切开，单个更大的文件自成一个范围。
 2. 相邻的组合并到一起，直到 2,000 行为止。
-3. 每个范围有自己的计划、自己的专家和均分的预算。用完份额的范围不再启动 agent，审查以 `partial` 结束。
+3. 每个范围有自己的计划、自己的专家，并按改动行数的比例分到预算。用完份额的范围不再启动 agent，审查以 `partial` 结束。
 
-项目的测试、验证和汇总对整个改动只运行一次。报告按顺序列出各个范围（见[排序报告](REPORT.md#ranked-report)）。
+各个范围同时规划，之后所有范围的专家一起运行，最多同时八个。项目的测试、验证和汇总对整个改动只运行一次。报告按顺序列出各个范围（见[排序报告](REPORT.md#ranked-report)）。
 
 ## 计划 {#the-plan}
 
@@ -47,7 +47,7 @@ commits: "fix session expiry at the boundary"
 
 1. core 解析 diff 并构建提示词：清单、hunk 头，以及放得下的 diff。
 2. agent 给出改动的摘要和分组。每个组有 `category`、标签、文件，需要格外小心的标 `critical`。
-3. core 按 schema 检查回答，并确认每个文件恰好属于一个组。被拒绝的回答重试一次。之后审查就用名册里的前四个专家审查一个包含全部文件的组，反馈里会说明。
+3. core 按 schema 检查回答，并确认每个文件恰好属于一个组。被拒绝的回答重试一次。之后 Go 按分拣的类别给文件分组，`code` 当作 `core`，`test` 当作 `tests`，`docs` 当作 `docs`，再由下面的表挑选专家，反馈里会说明。
 
 ```json
 {
@@ -74,13 +74,14 @@ Go 用一张固定的表把每个组对应到专家：
 | ---------------------------- | -------------------------------------- |
 | `security`                   | correctness、skeptic、security         |
 | `core`、`api`、`data`、`cli` | correctness、skeptic                   |
+| `other`                      | correctness、skeptic                   |
 | `ui`                         | usability、correctness                 |
 | `i18n`                       | usability                              |
 | `tests`                      | tests                                  |
 | `docs`、`examples`           | readability                            |
 | `scripts`                    | security、correctness                  |
 | `config`、`build`、`deps`    | security                               |
-| `assets`、`other`            | 无                                     |
+| `assets`                     | 无                                     |
 | 核心组额外加上               | correctness、skeptic、security、design |
 
-每个专家对自己的所有组只运行一次（见[专家](EXPERTS.md)）。
+每个专家对自己在一个范围里的所有组只运行一次（见[专家](EXPERTS.md)）。没有专家阅读的组，它的文件会列入不确定性清单。

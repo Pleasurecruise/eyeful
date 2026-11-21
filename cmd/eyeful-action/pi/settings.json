@@ -1,5 +1,5 @@
 {
-	"defaultProvider": "volcengine",
+	"defaultProvider": "opencode-go",
 	"defaultModel": "deepseek-v4.1-flash",
 	"retry": {
 		"maxRetries": 8,

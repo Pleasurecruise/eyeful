@@ -11,7 +11,7 @@ workflow 里用了 eyeful action 的仓库中，由仓库所有者、成员或�
 1. pull request 在打开或转为可审查时审查一次，之后每次有人评论 `/eyeful` 再审一次。何时审见[审查生命周期](SCHEDULING.md)。
 2. job 按 action 的版本（例如 `main`）从 `ghcr.io` 拉取审查镜像和沙箱镜像，启动沙箱，在审查容器里运行 `eyeful-action`。
 3. `eyeful-action` 读取 pull request，克隆它，等 head 提交上 eyeful 以外的 workflow 运行结束，然后回一个 👀。有失败时审查以诊断结束（见[规划与分拣](../PLANNER.md#ci-check)）。
-4. 它打开沙箱，用执行验证调用 `local/app.Review`。
+4. 等待的同时，它打开沙箱并在里面运行 setup 命令。之后用执行验证调用 `local/app.Review`。
 5. 它把每个未被否定的 `issue` 作为行内意见放进一条 `COMMENT` review 发布，简短总结作为一条评论发布（见[审查反馈](../REPORT.md#line-comments)）。两者都在隐藏标记里带着 workflow 运行的 id，发布前先列出 pull request 上已有的内容，所以重新运行 job 不会把任何一条发两次。
 
 job 的日志会实时显示审查过程：审查什么、项目命令、每个阶段。完整的排序报告也会写进这次运行的摘要页面。
@@ -26,7 +26,7 @@ pi --mode json --no-session \
   --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve
 ```
 
-镜像里带着 `cmd/eyeful-action/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是火山方舟上的 DeepSeek V4.1 Flash。pi 请求 `http://127.0.0.1:8081`，`eyeful-action` 在那里带上 `EYEFUL_MODEL_KEY` 把 `POST /chat/completions` 转发给这个 provider，其他请求一律不转发。pi 拿不到任何密钥。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。`eyeful-action` 会在 5 分钟后取消一次模型请求，由 pi 重试。provider 拒绝的每个请求都会连同状态码记进日志。
+镜像里带着 `cmd/eyeful-action/pi/` 下 pi 的 `settings.json` 和 `models.json`：模型是 OpenCode Go 上的 DeepSeek V4.1 Flash。pi 请求 `http://127.0.0.1:8081`，`eyeful-action` 在那里带上 `EYEFUL_MODEL_KEY` 把 `POST /chat/completions` 转发给这个 provider，其他请求一律不转发。pi 拿不到任何密钥。provider 返回 429 或服务端错误时，pi 会等待后接着同一轮继续，最多八次，从 5 秒开始翻倍，每次最多 60 秒；eyeful 只看 pi 最后的回答，所以恢复成功的运行照常计入。`eyeful-action` 会在 5 分钟后取消一次模型请求，由 pi 重试。provider 拒绝的每个请求都会连同状态码记进日志。
 
 [Jev](../ARCHITECTURE.md#jev) 用 `EYEFUL_TYPESAFE_API_KEY` 调用 TypeSafe 的 API。
 

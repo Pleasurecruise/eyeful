@@ -75,7 +75,7 @@ missing, the program fails instead of guessing.
 
 | Secret                    | Purpose                                                                     |
 | ------------------------- | --------------------------------------------------------------------------- |
-| `EYEFUL_MODEL_KEY`        | Volcengine Ark API key for the model in pi's `models.json`.                 |
+| `EYEFUL_MODEL_KEY`        | OpenCode Go API key for the model in pi's `models.json`.                    |
 | `EYEFUL_TYPESAFE_API_KEY` | TypeSafe API key for Jev.                                                   |
 | `EYEFUL_GITHUB_TOKEN`     | The job's `GITHUB_TOKEN`, which clones, reads Actions and posts the review. |
 

@@ -2,7 +2,10 @@ package pulls_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
@@ -89,5 +92,27 @@ func TestRenameWithoutContent(t *testing.T) {
 	}
 	if len(files) != 3 || files[0].Path != "new/notes.md" || files[0].PreviousPath != "old/notes.md" || len(files[0].Hunks) != 0 || len(files[0].Sha) != 64 {
 		t.Fatalf("files %+v", files)
+	}
+}
+
+func TestShared(t *testing.T) {
+	core, err := pulls.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 8)
+	for i := range errs {
+		wg.Go(func() {
+			files, err := core.ParsePatch(patch)
+			if err == nil && len(files) != 2 {
+				err = fmt.Errorf("files %+v", files)
+			}
+			errs[i] = err
+		})
+	}
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -58,7 +58,7 @@ test_one: python -m pytest {test}
 
 | 密钥                      | 用途                                                       |
 | ------------------------- | ---------------------------------------------------------- |
-| `EYEFUL_MODEL_KEY`        | pi `models.json` 中模型所用的火山方舟 API key。            |
+| `EYEFUL_MODEL_KEY`        | pi `models.json` 中模型所用的 OpenCode Go API key。        |
 | `EYEFUL_TYPESAFE_API_KEY` | Jev 用的 TypeSafe API key。                                |
 | `EYEFUL_GITHUB_TOKEN`     | job 的 `GITHUB_TOKEN`，用来克隆、读取 Actions 和发布审查。 |
 

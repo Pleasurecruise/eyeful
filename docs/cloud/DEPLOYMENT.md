@@ -46,12 +46,12 @@ Both containers share a Docker network `eyeful` and the directory `$RUNNER_TEMP/
 
 ### Turn on reviews {#turn-on-reviews}
 
-You need a Volcengine Ark API key with the Coding Plan ([console](https://console.volcengine.com/ark)),
+You need an OpenCode Go API key ([Go](https://opencode.ai/docs/go/)),
 a [TypeSafe](https://docs.typesafe.ai) API key, and the [GitHub CLI](https://cli.github.com) signed
 in. In the repository, on its default branch, run:
 
 ```sh
-gh secret set EYEFUL_MODEL_KEY          # paste the Volcengine Ark key
+gh secret set EYEFUL_MODEL_KEY          # paste the OpenCode Go key
 gh secret set EYEFUL_TYPESAFE_API_KEY   # paste the TypeSafe key
 curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
   --create-dirs -o .github/workflows/eyeful.yml

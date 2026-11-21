@@ -12,7 +12,7 @@ inputs:
     description: Token that clones, reads Actions and posts the review.
     default: ${{ github.token }}
   model-key:
-    description: Volcengine Ark API key for the model in pi's models.json.
+    description: OpenCode Go API key for the model in pi's models.json.
     required: true
   typesafe-api-key:
     description: TypeSafe API key for Jev, which merges findings that report one problem.
@@ -29,8 +29,12 @@ runs:
         repo="${rest##*/}"
         rest="${rest%/*}"
         prefix=$(printf 'ghcr.io/%s/%s' "${rest##*/}" "$repo" | tr '[:upper:]' '[:lower:]')
-        docker pull --quiet "$prefix-action:$ref"
-        docker pull --quiet "$prefix-sandbox:$ref"
+        docker pull --quiet "$prefix-action:$ref" &
+        action=$!
+        docker pull --quiet "$prefix-sandbox:$ref" &
+        sandbox=$!
+        wait "$action"
+        wait "$sandbox"
         docker tag "$prefix-action:$ref" eyeful-action
         docker tag "$prefix-sandbox:$ref" eyeful-sandbox
 

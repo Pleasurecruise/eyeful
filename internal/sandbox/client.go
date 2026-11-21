@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -17,7 +16,7 @@ import (
 )
 
 func NewClient(base string) *Client {
-	return &Client{base: strings.TrimSuffix(base, "/"), client: &http.Client{Timeout: 30 * time.Minute}}
+	return &Client{base: strings.TrimSuffix(base, "/"), client: &http.Client{}}
 }
 
 func (c *Client) Open(ctx context.Context, src review.Source) (project.Config, error) {

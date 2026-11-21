@@ -22,8 +22,8 @@ cp .env.example .env         # secrets only; mise loads and redacts it
 | `mise run dev:desktop` / `package:desktop` | 分别执行 `wails3 dev`（前端经 Vite 在 `:9245` 热更新）、`package`；不需要服务端           |
 | `mise run dev:docs` / `build:docs`         | 文档站点（VitePress，内容来自 `docs/`）                                                   |
 | `mise run test`                            | 带 `-race` 运行 Go 测试，再运行 `eval/` 脚本的测试                                        |
-| `mise run format`                          | gofmt 和 `vp fmt`                                                                         |
-| `mise run lint`                            | gofmt 检查、golangci-lint、`vp check`，以及每个包的 `typecheck`                           |
+| `mise run format`                          | `golangci-lint fmt`（gofmt、goimports）和 `vp fmt`                                        |
+| `mise run lint`                            | 每个 Go 模块的 golangci-lint、`vp check`，以及每个包的 `typecheck`                        |
 | `mise run generate`                        | 生成 pulls.review core 打包文件和桌面端绑定                                               |
 | `mise run check`                           | lint + test + generate，生成的文件有变化时失败                                            |
 

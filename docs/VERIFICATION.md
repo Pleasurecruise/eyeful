@@ -99,10 +99,9 @@ The severity (§3.27.10) is the expert's estimate of the cost if the change is m
 
 ## Tests the change breaks {#regressions}
 
-With `execution`, before any expert starts, the verifier runs the project's `test` command on the
-change. If it fails, the command runs again on the base commit. What passes there and fails on the
-change is a regression. This happens before the review and saves it work: the experts are told what
-already fails and do not have to find it.
+With `execution`, the verifier runs the project's `test` command on the change while the planner
+plans. If it fails, the command runs again on the base commit. What passes there and fails on the
+change is a regression, and the experts are told about it before they start.
 
 The experts that report `test` findings are given the failing tests and the end of the output. A
 finding that explains one names that test as its reproduction, with a `derived` oracle. The feedback
@@ -113,7 +112,8 @@ broke, because the workspace cannot tell one test of a command from another.
 
 Experts work apart, so several report one problem and others report different problems on the same
 lines. Before anything is verified, eyeful asks [Jev](ARCHITECTURE.md#jev) about every two findings
-in the same file within two lines whether one fix would resolve both. Findings joined by a
+where one lies within two lines of the other, or of a `related` place of the other, whether one fix
+would resolve both. Findings joined by a
 probability of 0.5 or more are one problem: they are verified together and become one comment. When
 the request fails, no findings are merged and the uncertainty checklist says so.
 
@@ -121,7 +121,8 @@ the request fails, no findings are merged and the uncertainty checklist says so.
 
 The verifier is the only part of eyeful that runs the project's code, and it runs only the
 [project commands](CONFIGURATION.md#project) the user confirmed. It takes findings by severity, then by how many
-experts reported the same [problem](#one-problem). `note` findings are not verified.
+experts reported the same [problem](#one-problem). `note` findings are not verified. Findings are
+verified side by side; the commands themselves run one at a time.
 
 For each `test` finding a reproduction agent writes a test, always as a new file. The test must pass
 these gates in order:
@@ -177,8 +178,9 @@ findings no test showed. It calls a finding valid when all three hold:
 2. the change introduces or exposes it;
 3. it changes observable behaviour or breaks a stated contract.
 
-One judge reads the findings of one plan group together, at most eight at a time, and up to eight
-judges run at once. A rejected finding is not removed: it stays in the feedback as `open`, folded
+The judge starts on findings that have no test while the verifier runs, and reads the ones no test
+showed once it finishes. One judge reads the findings of one plan group together, at most eight at a
+time. A rejected finding is not removed: it stays in the feedback as `open`, folded
 under "Disputed" with the judge's reason. Execution tests the same claim, so the
 [evaluation](EVALUATION.md#configurations-and-conditions)'s conditions differ in evidence, not in what
 counts as a defect.

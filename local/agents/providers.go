@@ -16,7 +16,7 @@ var Providers = []Provider{
 	{
 		Name: "claude", Tool: "claude", Login: "run `claude` and sign in with /login", strip: []string{"ANTHROPIC_API_KEY"},
 		args: func(schema []byte, tier workflow.Tier) []string {
-			args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--json-schema", string(schema), "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--disable-slash-commands"}
+			args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--json-schema", string(schema), "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--settings", `{"disableAllHooks":true}`, "--disable-slash-commands"}
 			if model, ok := map[workflow.Tier]string{workflow.TierCheap: "haiku", workflow.TierMid: "sonnet", workflow.TierStrong: "opus"}[tier]; ok {
 				args = append(args, "--model", model)
 			}

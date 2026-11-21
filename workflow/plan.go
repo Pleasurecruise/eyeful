@@ -22,7 +22,10 @@ var crew = map[pulls.DiffCategory][]string{
 	"build":    {"security"},
 	"scripts":  {"security", "correctness"},
 	"deps":     {"security"},
+	"other":    {"correctness", "skeptic"},
 }
+
+var classCategory = map[Class]pulls.DiffCategory{ClassCode: "core", ClassTest: "tests", ClassDocs: "docs"}
 
 func (w *Workflow) expert(name string) (Expert, bool) {
 	i := slices.IndexFunc(w.roster, func(e Expert) bool { return e.Name == name })

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/Pleasurecruise/eyeful/workflow/pulls"
 )
@@ -95,15 +96,13 @@ func (w *Workflow) admit(ctx context.Context, a Archive, req Request) error {
 }
 
 func (l *ledger) allow() bool {
-	if l.parent != nil && !l.parent.allow() {
-		return false
-	}
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	if (l.budget.Tokens > 0 && l.spent.Tokens >= l.budget.Tokens) || (l.budget.MicroUSD > 0 && l.spent.MicroUSD >= l.budget.MicroUSD) {
 		l.exhausted = true
 	}
-	return !l.exhausted
+	open := !l.exhausted
+	l.mu.Unlock()
+	return open && (l.parent == nil || l.parent.allow())
 }
 
 func (l *ledger) spend(r Run) {
@@ -121,11 +120,22 @@ func (l *ledger) spend(r Run) {
 
 func invoke[T reply, K task](ctx context.Context, l *ledger, r Run, fn func(context.Context, K) (T, Usage, error), t K) (T, Run, error) {
 	var v T
+	root := l
+	for root.parent != nil {
+		root = root.parent
+	}
+	select {
+	case root.turns <- struct{}{}:
+	case <-ctx.Done():
+		return v, r, fmt.Errorf("wait to start %s %s: %w", r.Role, r.Expert, ctx.Err())
+	}
 	if !l.allow() {
+		<-root.turns
 		r.Error = "budget exhausted"
 		return v, r, nil
 	}
 	v, usage, err := fn(ctx, t)
+	<-root.turns
 	if ctx.Err() != nil {
 		return v, r, fmt.Errorf("%s %s: %w", r.Role, r.Expert, ctx.Err())
 	}
@@ -272,14 +282,20 @@ func (w *Workflow) plan(ctx context.Context, s Session, l *ledger, req Request, 
 		return st, err
 	}
 	if st.Source == "" {
-		picks := []Pick{}
-		for _, e := range w.roster {
-			if !e.Solo && len(picks) < fallbackPanel {
-				picks = append(picks, Pick{Name: e.Name, Why: "default expert"})
+		var a pulls.Analysis
+		for _, c := range []Class{ClassCode, ClassTest, ClassDocs} {
+			leaf := pulls.DiffGroupLeaf{Key: string(c), Label: string(c) + " files", Category: classCategory[c]}
+			for _, e := range t.Reviewed {
+				if e.Class == c {
+					leaf.FilePaths = append(leaf.FilePaths, e.Path)
+				}
+			}
+			if len(leaf.FilePaths) > 0 {
+				a.Groups = append(a.Groups, pulls.DiffGroup{DiffGroupLeaf: leaf})
 			}
 		}
-		st.Plan, st.Source = whole(t, "other", picks), PlanFromDefault
-		st.Notes = append(st.Notes, "the default experts reviewed the change")
+		st.Plan, st.Source = w.staff(a), PlanFromDefault
+		st.Notes = append(st.Notes, "the planner gave no plan, so Go grouped the files by class")
 	}
 	return st, nil
 }
@@ -288,9 +304,9 @@ func (r Request) executes(setupErr string) bool {
 	return r.Verification == ModeExecution && setupErr == ""
 }
 
-func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string, res *Result) (suiteState, error) {
+func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request, setupErr string) (suiteState, *TestRun, []string, error) {
 	if !req.executes(setupErr) {
-		return suiteState{}, nil
+		return suiteState{}, nil, nil, nil
 	}
 	st, err := checkpoint(ctx, s.Archive, l, "suite", func() (suiteState, error) {
 		var st suiteState
@@ -305,17 +321,16 @@ func (w *Workflow) tests(ctx context.Context, s Session, l *ledger, req Request,
 		}
 		return st, nil
 	})
-	if err != nil {
-		return st, err
-	}
 	broken := slices.DeleteFunc(slices.Clone(st.Change.Failed), func(t string) bool { return slices.Contains(st.Base.Failed, t) })
 	switch {
+	case err != nil:
+		return st, nil, nil, err
 	case st.Error != "":
-		res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, "the project's tests could not run before the review, so they gave the experts no lead and no fix is verified: "+st.Error)
+		return st, nil, []string{"the project's tests could not run before the review, so they gave the experts no lead and no fix is verified: " + st.Error}, nil
 	case len(broken) > 0, !st.Change.Passed && st.Base.Passed:
-		res.Regression = &TestRun{Failed: broken, Output: st.Change.Output}
+		return st, &TestRun{Failed: broken, Output: st.Change.Output}, nil, nil
 	}
-	return st, nil
+	return st, nil, nil, nil
 }
 
 func (w *Workflow) rerun(ctx context.Context, s Session, id string, repro *Repro) verifyState {
@@ -364,29 +379,39 @@ func (w *Workflow) recheck(ctx context.Context, s Session, l *ledger, req Reques
 	return findings, verdicts, open, nil
 }
 
-func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request, prep prepareState, files map[string]File, known []Claim, res *Result) (bool, error) {
+func (w *Workflow) planScopes(ctx context.Context, s Session, l *ledger, req Request, prep prepareState, files map[string]File, res *Result) ([]Plan, []*ledger, error) {
 	res.Scopes = scopes(slices.SortedFunc(slices.Values(prep.Triage.Reviewed), func(a, b Entry) int { return cmp.Compare(a.Path, b.Path) }), 0)
 	res.Plan = Plan{Groups: []Group{}, Skipped: []Pick{}, Confidence: 1}
-	short := false
 	panel := &ledger{budget: Budget{Tokens: l.budget.Tokens * expertPercent / 100, MicroUSD: l.budget.MicroUSD * expertPercent / 100}, parent: l}
+	total := int64(max(size(prep.Triage.Reviewed), 1))
+	order := make([]int, len(res.Scopes))
+	shares := make([]*ledger, len(res.Scopes))
 	for si, sc := range res.Scopes {
-		n := int64(len(res.Scopes))
-		sl := &ledger{budget: Budget{Tokens: panel.budget.Tokens / n, MicroUSD: panel.budget.MicroUSD / n}, parent: panel}
-		ps, err := checkpoint(ctx, s.Archive, sl, fmt.Sprintf("plan/%d", si), func() (planState, error) {
+		order[si] = si
+		shares[si] = &ledger{budget: Budget{Tokens: panel.budget.Tokens * int64(sc.Lines) / total, MicroUSD: panel.budget.MicroUSD * int64(sc.Lines) / total}, parent: panel}
+	}
+	planned, err := each(ctx, order, func(si int) (planState, error) {
+		return checkpoint(ctx, s.Archive, shares[si], fmt.Sprintf("plan/%d", si), func() (planState, error) {
 			scoped := Triage{
-				Reviewed: slices.DeleteFunc(slices.Clone(prep.Triage.Reviewed), func(e Entry) bool { return !slices.Contains(sc.Files, e.Path) }),
+				Reviewed: slices.DeleteFunc(slices.Clone(prep.Triage.Reviewed), func(e Entry) bool { return !slices.Contains(res.Scopes[si].Files, e.Path) }),
 				Excluded: prep.Triage.Excluded,
 			}
-			return w.plan(ctx, s, sl, req, scoped, files)
+			return w.plan(ctx, s, shares[si], req, scoped, files)
 		})
-		if err != nil {
-			return false, err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	own := make([]Plan, len(planned))
+	for si, ps := range planned {
+		for gi, g := range ps.Plan.Groups {
+			ps.Plan.Groups[gi].Scope = si
+			if len(g.Experts) == 0 {
+				res.Uncertainty.Notes = append(res.Uncertainty.Notes, fmt.Sprintf("no expert reads a group of category %s, so these files were not reviewed: %s", g.Category, strings.Join(g.Files, ", ")))
+			}
 		}
-		from := len(res.Plan.Groups)
-		for _, g := range ps.Plan.Groups {
-			g.Scope = si
-			res.Plan.Groups = append(res.Plan.Groups, g)
-		}
+		own[si] = ps.Plan
+		res.Plan.Groups = append(res.Plan.Groups, ps.Plan.Groups...)
 		res.Plan.Skipped = append(res.Plan.Skipped, ps.Plan.Skipped...)
 		res.Plan.Summary = strings.TrimSpace(res.Plan.Summary + "\n\n" + ps.Plan.Summary)
 		res.Plan.Confidence = min(res.Plan.Confidence, ps.Plan.Confidence)
@@ -394,18 +419,24 @@ func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request
 			res.PlanSource = ps.Source
 		}
 		res.Uncertainty.Notes = append(res.Uncertainty.Notes, ps.Notes...)
-		w.log.Info("plan", slog.String("scope", sc.Name), slog.String("source", string(ps.Source)), slog.Int("groups", len(ps.Plan.Groups)))
+		w.log.Info("plan", slog.String("scope", res.Scopes[si].Name), slog.String("source", string(ps.Source)), slog.Int("groups", len(ps.Plan.Groups)))
+	}
+	return own, shares, nil
+}
 
-		findings, u, err := w.experts(ctx, s, sl, res.Plan, from, files, res.Regression, known, req)
-		if err != nil {
-			return false, err
-		}
-		res.Findings = append(res.Findings, findings...)
-		res.Uncertainty.Absent = append(res.Uncertainty.Absent, u.Absent...)
-		res.Uncertainty.Notes = append(res.Uncertainty.Notes, u.Notes...)
+func (w *Workflow) passes(ctx context.Context, s Session, l *ledger, req Request, own []Plan, shares []*ledger, files map[string]File, known []Claim, res *Result) (bool, error) {
+	findings, u, err := w.experts(ctx, s, shares, res.Plan, own, files, res.Regression, known, req)
+	if err != nil {
+		return false, err
+	}
+	res.Findings = append(res.Findings, findings...)
+	res.Uncertainty.Absent = append(res.Uncertainty.Absent, u.Absent...)
+	res.Uncertainty.Notes = append(res.Uncertainty.Notes, u.Notes...)
+	short := false
+	for si, sl := range shares {
 		if sl.exhausted && !l.exhausted {
 			short = true
-			res.Uncertainty.Notes = append(res.Uncertainty.Notes, fmt.Sprintf("scope %s used up its share of the budget", sc.Name))
+			res.Uncertainty.Notes = append(res.Uncertainty.Notes, fmt.Sprintf("scope %s used up its share of the budget", res.Scopes[si].Name))
 		}
 	}
 	return short, nil
@@ -424,7 +455,7 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 		res.Outcome, res.Reason = OutcomeNone, "the change has no files"
 		return res, nil
 	}
-	l := &ledger{budget: req.Budget}
+	l := &ledger{budget: req.Budget, turns: make(chan struct{}, maxParallel)}
 
 	ci, err := checkpoint(ctx, s.Archive, l, "ci", func() (ciState, error) { return w.ci(ctx, s, l) })
 	if err != nil {
@@ -446,15 +477,32 @@ func (w *Workflow) Run(ctx context.Context, s Session, req Request) (Result, err
 	for _, f := range req.Change.Files {
 		files[f.Path] = f
 	}
-	suite, err := w.tests(ctx, s, l, req, prep.SetupError, &res)
-	if err != nil {
+	var suite suiteState
+	var regression *TestRun
+	var skipped []string
+	var carried []Finding
+	var rechecked []Verification
+	var known []Claim
+	var own []Plan
+	var shares []*ledger
+	g, both := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		if suite, regression, skipped, err = w.tests(both, s, l, req, prep.SetupError); err != nil {
+			return err
+		}
+		carried, rechecked, known, err = w.recheck(both, s, l, req, prep.SetupError)
+		return err
+	})
+	g.Go(func() (err error) {
+		own, shares, err = w.planScopes(both, s, l, req, prep, files, &res)
+		return err
+	})
+	if err := g.Wait(); err != nil {
 		return res, err
 	}
-	carried, rechecked, known, err := w.recheck(ctx, s, l, req, prep.SetupError)
-	if err != nil {
-		return res, err
-	}
-	short, err := w.passes(ctx, s, l, req, prep, files, known, &res)
+	res.Regression = regression
+	res.Uncertainty.Skipped = append(res.Uncertainty.Skipped, skipped...)
+	short, err := w.passes(ctx, s, l, req, own, shares, files, known, &res)
 	if err != nil {
 		return res, err
 	}

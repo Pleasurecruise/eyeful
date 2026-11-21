@@ -66,6 +66,33 @@ func SplitPatch(patch string) ([]File, error) {
 	return files, nil
 }
 
+func Number(patch string) (string, []int) {
+	fd, err := diff.ParseFileDiff([]byte(patch))
+	if err != nil || len(fd.Hunks) == 0 {
+		return patch, nil
+	}
+	var b strings.Builder
+	var shown []int
+	hunk, n := 0, 0
+	for line := range strings.SplitSeq(strings.TrimSuffix(patch, "\n"), "\n") {
+		switch {
+		case strings.HasPrefix(line, "@@ "):
+			n = int(fd.Hunks[hunk].NewStartLine)
+			hunk++
+			b.WriteString(line + "\n")
+		case hunk == 0:
+			b.WriteString(line + "\n")
+		case strings.HasPrefix(line, "-"), strings.HasPrefix(line, "\\"):
+			b.WriteString("\t" + line + "\n")
+		default:
+			fmt.Fprintf(&b, "%d\t%s\n", n, line)
+			shown = append(shown, n)
+			n++
+		}
+	}
+	return b.String(), shown
+}
+
 func matchAny(patterns []string, p string) bool {
 	return slices.ContainsFunc(patterns, func(g string) bool { return doublestar.MatchUnvalidated(g, p) })
 }
@@ -84,6 +111,8 @@ func classify(f File, skip []string) Class {
 		return ClassLock
 	case matchAny(generatedGlobs, f.Path), generatedMarker.MatchString(f.Diff):
 		return ClassGenerated
+	case f.Added+f.Deleted == 0:
+		return ClassEmpty
 	case matchAny(testGlobs, f.Path):
 		return ClassTest
 	case matchAny(docsGlobs, f.Path):
@@ -100,7 +129,7 @@ func triage(c Change, p Project) Triage {
 		switch e.Class {
 		case ClassCode, ClassTest, ClassDocs:
 			t.Reviewed = append(t.Reviewed, e)
-		case ClassLock, ClassGenerated, ClassVendored, ClassBinary, ClassSkipped, ClassOversized:
+		case ClassLock, ClassGenerated, ClassVendored, ClassBinary, ClassSkipped, ClassOversized, ClassEmpty:
 			t.Excluded = append(t.Excluded, e)
 		}
 	}

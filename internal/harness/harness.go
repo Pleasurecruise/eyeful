@@ -8,12 +8,15 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/Pleasurecruise/eyeful/internal/github"
 	"github.com/Pleasurecruise/eyeful/internal/review"
 	"github.com/Pleasurecruise/eyeful/internal/sandbox"
 	"github.com/Pleasurecruise/eyeful/local/app"
 	"github.com/Pleasurecruise/eyeful/local/subject"
 	"github.com/Pleasurecruise/eyeful/workflow"
+	"github.com/Pleasurecruise/eyeful/workflow/project"
 	"github.com/Pleasurecruise/eyeful/workflow/report"
 )
 
@@ -46,22 +49,35 @@ func (r Runner) Execute(ctx context.Context, src review.Source) (Status, error) 
 	if err := r.Clone(ctx, checkout, src); err != nil {
 		return Status{}, fmt.Errorf("checkout: %w", err)
 	}
-	actions, err := r.Host.Wait(ctx, src)
-	if err != nil {
-		return Status{}, fmt.Errorf("actions: %w", err)
-	}
-	if err := r.Host.React(ctx, src); err != nil {
-		return Status{}, fmt.Errorf("reaction: %w", err)
+	mirror := src
+	mirror.CloneURL = (&url.URL{Scheme: "file", Path: checkout}).String()
+	var actions github.Actions
+	var cfg project.Config
+	g, both := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		if actions, err = r.Host.Wait(both, src); err != nil {
+			return fmt.Errorf("actions: %w", err)
+		}
+		if err := r.Host.React(both, src); err != nil {
+			return fmt.Errorf("reaction: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() (err error) {
+		if cfg, err = r.Sandbox.Open(both, mirror); err != nil {
+			return fmt.Errorf("sandbox: %w", err)
+		}
+		if err := r.Sandbox.Setup(both); err != nil && both.Err() != nil {
+			return fmt.Errorf("sandbox setup: %w", err)
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return Status{}, err
 	}
 	description, err := r.Host.Description(ctx, src)
 	if err != nil {
 		return Status{}, fmt.Errorf("pull request: %w", err)
-	}
-	mirror := src
-	mirror.CloneURL = (&url.URL{Scheme: "file", Path: checkout}).String()
-	cfg, err := r.Sandbox.Open(ctx, mirror)
-	if err != nil {
-		return Status{}, fmt.Errorf("sandbox: %w", err)
 	}
 	res, err := app.Review(ctx, app.Options{
 		Dir: checkout, Range: subject.Range{Base: src.BaseSHA, Head: src.HeadSHA}, Experts: r.Experts,

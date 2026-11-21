@@ -102,7 +102,11 @@ func (a *agents) Same(_ context.Context, pairs [][2]workflow.Finding) ([]float64
 	return same, usage, nil
 }
 
+var serial sync.Mutex
+
 type workspace struct {
+	fail      func([]workflow.Edit, workflow.Target) error
+	stall     func(workflow.Target) bool
 	ci        workflow.Check
 	setup     error
 	broken    []string
@@ -126,7 +130,18 @@ func (w *workspace) Read(_ context.Context, path string) (string, error) {
 	return "A session expires\n    at expires_at.", nil
 }
 
-func (w *workspace) Test(_ context.Context, edits []workflow.Edit, t workflow.Target) (workflow.TestRun, error) {
+func (w *workspace) Test(ctx context.Context, edits []workflow.Edit, t workflow.Target) (workflow.TestRun, error) {
+	if w.stall != nil && w.stall(t) {
+		<-ctx.Done()
+		return workflow.TestRun{}, ctx.Err()
+	}
+	serial.Lock()
+	defer serial.Unlock()
+	if w.fail != nil {
+		if err := w.fail(edits, t); err != nil {
+			return workflow.TestRun{}, err
+		}
+	}
 	w.tests++
 	fixed := slices.ContainsFunc(edits, func(e workflow.Edit) bool { return e.Old == "bug" })
 	if len(t.Tests) == 0 {
@@ -183,7 +198,7 @@ var roster = []workflow.Expert{
 }
 
 func gitDiff(path, line string) string {
-	return fmt.Sprintf("diff --git a/%[1]s b/%[1]s\nindex 1111111..2222222 100644\n--- a/%[1]s\n+++ b/%[1]s\n@@ -1 +1 @@\n-old\n+%[2]s\n", path, line)
+	return fmt.Sprintf("diff --git a/%[1]s b/%[1]s\nindex 1111111..2222222 100644\n--- a/%[1]s\n+++ b/%[1]s\n@@ -1,80 +1,80 @@\n-old\n+%[2]s\n", path, line) + strings.Repeat(" same\n", 79)
 }
 
 func group(key string, category pulls.DiffCategory, critical bool, paths ...string) pulls.DiffGroup {
@@ -689,7 +704,7 @@ func TestRun(t *testing.T) {
 		if res.PlanSource != workflow.PlanFromDefault || a.n(workflow.RolePlanner) != 2 || len(rejected) != 1 || !strings.Contains(rejected[0], "category") {
 			t.Fatalf("source %s, calls %d, rejected %v", res.PlanSource, a.n(workflow.RolePlanner), rejected)
 		}
-		if g := res.Plan.Groups[0]; len(g.Files) != 2 || len(g.Experts) != 2 {
+		if g := res.Plan.Groups[0]; len(res.Plan.Groups) != 1 || g.Category != "core" || len(g.Files) != 2 || len(g.Experts) != 1 || g.Experts[0].Name != "correctness" {
 			t.Fatalf("default plan %+v", res.Plan)
 		}
 	})
@@ -702,20 +717,23 @@ func TestRun(t *testing.T) {
 			switch t.Expert.Name {
 			case "security":
 				mu.Lock()
-				if len(t.Rejected) > 0 {
+				if len(t.Draft) > 0 {
 					rejected = t.Rejected
+					mu.Unlock()
+					return workflow.Report{Findings: t.Draft}, nil
 				}
 				mu.Unlock()
 				return workflow.Report{Findings: []workflow.Claim{
 					finding("app/elsewhere.py", 1, workflow.EvidenceAnalysis),
 					finding("app/session.py", 4, workflow.EvidenceAnalysis),
+					finding("app/session.py", 81, workflow.EvidenceAnalysis),
 				}}, nil
 			default:
 				return workflow.Report{}, errors.New("timeout")
 			}
 		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
-		if len(res.Uncertainty.Absent) != 1 || len(rejected) != 1 || res.Outcome != workflow.OutcomePartial {
+		if len(res.Uncertainty.Absent) != 1 || len(rejected) != 2 || !strings.Contains(rejected[1], "line 81 is not a numbered line") || a.n(workflow.RoleExpert) != 3 || res.Outcome != workflow.OutcomePartial {
 			t.Fatalf("absent %+v, rejected %v", res.Uncertainty.Absent, rejected)
 		}
 		if len(res.Findings) != 1 || res.Findings[0].Line != 4 || !strings.Contains(strings.Join(res.Uncertainty.Notes, " "), "app/elsewhere.py") {
@@ -790,8 +808,39 @@ func TestRun(t *testing.T) {
 			return answers(c), nil
 		}
 		run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
-		if len(rejected) != 2 || !strings.Contains(rejected[0], "app/other.py:3") {
+		if len(rejected) != 1 || !strings.Contains(rejected[0], "app/other.py:3") || !strings.Contains(rejected[0], "app/session.py:10") {
 			t.Fatalf("rejected %v", rejected)
+		}
+	})
+
+	t.Run("a failed repair costs only the findings sent back", func(t *testing.T) {
+		a := base()
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			switch {
+			case t.Expert.Name != "correctness":
+				return answers(), nil
+			case len(t.Draft) > 0:
+				return workflow.Report{}, errors.New("timeout")
+			}
+			return answers(finding("app/session.py", 10, workflow.EvidenceTest), finding("app/session.py", 90, workflow.EvidenceTest)), nil
+		}
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
+		if len(res.Findings) != 1 || res.Findings[0].Line != 10 || len(res.Uncertainty.Absent) != 0 || !slices.ContainsFunc(res.Uncertainty.Notes, func(n string) bool { return strings.Contains(n, "app/session.py:90") }) {
+			t.Fatalf("findings %+v, absent %+v, notes %v", res.Findings, res.Uncertainty.Absent, res.Uncertainty.Notes)
+		}
+	})
+
+	t.Run("a group no table row covers is read, and one no expert reads is listed", func(t *testing.T) {
+		a := base()
+		a.plan = func(workflow.PlanTask) (pulls.Analysis, error) {
+			return pulls.Analysis{OverallSummary: "s", Groups: []pulls.DiffGroup{group("misc", "other", false, "app/session.py"), group("art", "assets", false, "app/login.py")}}, nil
+		}
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
+		if g := res.Plan.Groups; len(g[0].Experts) != 1 || g[0].Experts[0].Name != "correctness" || len(g[1].Experts) != 0 {
+			t.Fatalf("plan %+v", res.Plan.Groups)
+		}
+		if !slices.ContainsFunc(res.Uncertainty.Notes, func(n string) bool { return strings.Contains(n, "assets") && strings.Contains(n, "app/login.py") }) {
+			t.Fatalf("notes %v", res.Uncertainty.Notes)
 		}
 	})
 
@@ -908,11 +957,11 @@ func TestScenarioAndSubject(t *testing.T) {
 		Group:  workflow.Group{Files: []string{"a.go"}},
 	}
 	bug := workflow.Claim{Skill: "other", Category: "c", Path: "a.go", Line: 1, Severity: workflow.SeverityError, Subject: "s", Evidence: workflow.EvidenceTest}
-	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons) != 1 || !strings.Contains(reasons[0], "scenario") {
+	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons[0]) != 1 || !strings.Contains(reasons[0][0], "scenario") {
 		t.Fatalf("a bug without a scenario: %v", reasons)
 	}
 	bug.Evidence = workflow.EvidenceInspection
-	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons) != 0 {
+	if reasons := workflow.Validate(task, workflow.Report{Findings: []workflow.Claim{bug}}); len(reasons[0]) != 0 {
 		t.Fatalf("an argument needs no scenario: %v", reasons)
 	}
 
@@ -1059,11 +1108,26 @@ func scopeAnalysis(t workflow.PlanTask) (pulls.Analysis, error) {
 func TestScopes(t *testing.T) {
 	t.Run("a large change is split into scopes, each planned and reviewed on its own", func(t *testing.T) {
 		a := base()
-		a.plan = scopeAnalysis
-		a.review = func(t workflow.ReviewTask) (workflow.Report, error) { return answers(), nil }
+		var running, peak atomic.Int32
+		a.plan = func(t workflow.PlanTask) (pulls.Analysis, error) {
+			peak.Store(max(peak.Load(), running.Add(1)))
+			time.Sleep(50 * time.Millisecond)
+			running.Add(-1)
+			return scopeAnalysis(t)
+		}
+		var leaked atomic.Bool
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			if len(t.Plan.Groups) != 1 || t.Plan.Summary != "a change across the repository" {
+				leaked.Store(true)
+			}
+			return answers(), nil
+		}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, large())
-		if len(res.Scopes) != 2 || a.n(workflow.RolePlanner) != 2 || a.n(workflow.RoleExpert) != 2 {
-			t.Fatalf("scopes %+v, planner %d, experts %d", res.Scopes, a.n(workflow.RolePlanner), a.n(workflow.RoleExpert))
+		if len(res.Scopes) != 2 || a.n(workflow.RolePlanner) != 2 || a.n(workflow.RoleExpert) != 2 || peak.Load() != 2 {
+			t.Fatalf("scopes %+v, planner %d, experts %d, planners at once %d", res.Scopes, a.n(workflow.RolePlanner), a.n(workflow.RoleExpert), peak.Load())
+		}
+		if leaked.Load() {
+			t.Fatal("an expert was given the plan of another scope")
 		}
 		seen := map[string]int{}
 		for i, s := range res.Scopes {
@@ -1104,7 +1168,7 @@ func TestScopes(t *testing.T) {
 			return answers(), nil
 		}
 		req := large()
-		req.Budget = workflow.Budget{Tokens: 534}
+		req.Budget = workflow.Budget{Tokens: 480}
 		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req)
 		if res.Outcome != workflow.OutcomePartial || len(reviewed) != 1 || !slices.Contains(reviewed[0], "web/c.ts") {
 			t.Fatalf("outcome %s, reviewed %v, notes %v", res.Outcome, reviewed, res.Uncertainty.Notes)
@@ -1260,6 +1324,40 @@ func TestParallel(t *testing.T) {
 		}
 	})
 
+	t.Run("findings are verified and judged at once", func(t *testing.T) {
+		a := base()
+		a.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			if t.Expert.Name != "correctness" {
+				return answers(), nil
+			}
+			read := finding("app/login.py", 40, workflow.EvidenceInspection)
+			read.Severity = workflow.SeverityWarning
+			return answers(finding("app/session.py", 10, workflow.EvidenceTest), finding("app/login.py", 10, workflow.EvidenceTest), read), nil
+		}
+		var running, peak atomic.Int32
+		busy := func() {
+			n := running.Add(1)
+			for p := peak.Load(); n > p && !peak.CompareAndSwap(p, n); p = peak.Load() {
+			}
+			for end := time.Now().Add(time.Second); peak.Load() < 3 && time.Now().Before(end); {
+				time.Sleep(time.Millisecond)
+			}
+			running.Add(-1)
+		}
+		a.fix = func(workflow.FixTask) ([]workflow.Edit, error) {
+			busy()
+			return []workflow.Edit{{Path: "app/session.py", Old: "bug", New: "ok"}}, nil
+		}
+		a.judge = func(t workflow.JudgeTask) ([]workflow.Judgement, error) {
+			busy()
+			return verdicts(t, true, "read"), nil
+		}
+		res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, request())
+		if a.n(workflow.RoleFix) != 2 || a.n(workflow.RoleJudge) != 1 || peak.Load() != 3 || len(res.Verifications) != 3 {
+			t.Fatalf("fixes %d, judges %d, peak %d, verifications %+v", a.n(workflow.RoleFix), a.n(workflow.RoleJudge), peak.Load(), res.Verifications)
+		}
+	})
+
 	t.Run("a spent budget stops the experts still waiting", func(t *testing.T) {
 		a, _, w, req := setup(names, 100)
 		res := review(w, a, req)
@@ -1350,6 +1448,21 @@ func TestNeighbours(t *testing.T) {
 			return same, nil
 		}
 		if res := run(t, a, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Comments) != 1 || len(res.Comments[0].Experts) != 2 {
+			t.Fatalf("comments %+v, want one from two experts", res.Comments)
+		}
+	})
+
+	t.Run("a related place beside another finding makes the two a pair", func(t *testing.T) {
+		far := base()
+		far.review = func(t workflow.ReviewTask) (workflow.Report, error) {
+			if t.Expert.Name == "correctness" {
+				c := finding("app/session.py", 20, workflow.EvidenceInspection)
+				c.Related = []workflow.Location{{Path: "app/session.py", Line: 61}}
+				return answers(c), nil
+			}
+			return answers(finding("app/session.py", 60, workflow.EvidenceAnalysis)), nil
+		}
+		if res := run(t, far, &workspace{ci: workflow.Check{Passed: true}}, &archive{}, req); len(res.Comments) != 1 || len(res.Comments[0].Experts) != 2 {
 			t.Fatalf("comments %+v, want one from two experts", res.Comments)
 		}
 	})

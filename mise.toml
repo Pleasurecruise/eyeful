@@ -8,7 +8,7 @@ python = "latest"
 [env]
 _.file = { path = ".env", redact = true }
 _.path = ".tools/bin"
-DOCS_URL = "https://github.yiming1234.cn/eyeful/"
+DOCS_URL = "https://github.you-find.me/"
 
 [tasks.setup]
 description = "Install Go and pnpm dependencies"
@@ -66,7 +66,7 @@ run = "pnpm --filter @eyeful/docs build"
 
 [tasks.install]
 description = "Install the local eyeful CLI into ~/.local/bin"
-run = "GOBIN=$HOME/.local/bin go install -ldflags \"-X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" ./cmd/eyeful"
+run = "GOBIN=$HOME/.local/bin go install -ldflags \"-X main.version=$(git describe --tags --always --dirty)\" ./cmd/eyeful"
 
 [tasks."dev:desktop"]
 description = "Run the desktop app with Wails live reload"
@@ -83,22 +83,15 @@ run = "wails3 package"
 [tasks.test]
 description = "Run Go tests with the race detector, and the evaluation scripts' tests"
 run = [
-	"go test -race -p 1 ./...",
-	"cd {{config_root}}/workflow && go test -race ./...",
-	"cd {{config_root}}/local && go test -race ./...",
-	"cd {{config_root}}/apps/desktop && go vet ./...",
-	"cd {{config_root}}/eval && python3 -m unittest --quiet test_eval"
+	"for m in . workflow local; do (cd $m && go test -race -p 1 ./...) || exit 1; done",
+	"cd eval && python3 -m unittest --quiet test_eval"
 ]
 
 [tasks.lint]
 description = "Check formatting and lint Go and TypeScript"
 depends = ["generate:bindings"]
 run = [
-	"test -z \"$(gofmt -l cmd internal workflow local apps/desktop)\" || (gofmt -l cmd internal workflow local apps/desktop && exit 1)",
-	"golangci-lint run ./...",
-	"cd {{config_root}}/workflow && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
-	"cd {{config_root}}/local && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
-	"cd {{config_root}}/apps/desktop && golangci-lint run --config {{config_root}}/.golangci.yml ./...",
+	"for m in . workflow local apps/desktop; do (cd $m && golangci-lint run ./...) || exit 1; done",
 	"bash -c 'diff <(cd docs && ls *.md cloud/*.md) <(cd docs/zh && ls *.md cloud/*.md)'",
 	"pnpm exec vp check",
 	"pnpm --recursive --filter '!eyeful' run typecheck"
@@ -106,7 +99,10 @@ run = [
 
 [tasks.format]
 description = "Format Go and TypeScript"
-run = ["gofmt -w cmd internal workflow local apps/desktop", "pnpm exec vp fmt"]
+run = [
+	"for m in . workflow local apps/desktop; do (cd $m && golangci-lint fmt ./...) || exit 1; done",
+	"pnpm exec vp fmt"
+]
 
 [tasks.check]
 description = "Lint, test, and fail if generated files are stale"

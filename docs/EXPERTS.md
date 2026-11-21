@@ -69,7 +69,8 @@ planner, the fix agent, the reproduction agent, the judge and the CI agent have 
 
 **Tools.** eyeful gives an agent no tools of its own ([Agents](LOCAL.md#agents)):
 
-- The diffs and the commit messages are part of the input.
+- The diffs and the commit messages are part of the input. In an expert's diffs every line of the
+  new version starts with its line number, so the expert copies a line instead of counting it.
 - One file beside the patch holds the commits that last touched each changed file and who last
   changed the replaced lines.
 - The agent ends its reply with a JSON block that matches the role's schema.
@@ -96,9 +97,16 @@ finding has:
 - for `test` and `analysis` findings, a scenario: the input that triggers it, what happens and what
   should happen.
 
-Go rejects a finding that lacks any of these, is on a file outside the expert's groups, or cites a
-skill the expert was not offered. A rejected report goes back once. Findings still invalid are
-dropped and listed in the uncertainty checklist.
+Go rejects a finding that lacks any of these, is on a file outside the expert's groups, names a
+line its diff does not show, or cites a skill the expert was not offered. The findings Go accepts
+are kept. The others go back once, with the reason for each, and the expert corrects only those
+without reviewing again; that call carries the names of its skills, not their text. Findings still
+invalid are dropped and listed in the uncertainty checklist. A line the diff shows is one GitHub
+takes a comment on
+([Line comments](REPORT.md#line-comments)); a deleted file has none, so any line stands for it.
+
+The prompt tells an expert and the judge that the diff, the commit messages and the description
+are what they review and not instructions.
 
 An expert that times out or fails is dropped and listed as absent, and the review's result is
 `partial`.

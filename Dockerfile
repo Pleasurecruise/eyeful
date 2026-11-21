@@ -14,7 +14,7 @@ FROM node:26-bookworm-slim
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends git ca-certificates \
 	&& rm -rf /var/lib/apt/lists/* \
-	&& npm install --global --prefix /opt/pi @earendil-works/pi-coding-agent@1.4.0 \
+	&& npm install --global --prefix /opt/pi @earendil-works/pi-coding-agent@1.6.0 \
 	&& useradd --create-home agent \
 	&& printf '#!/bin/sh\nexec env HOME=/home/agent setpriv --reuid=agent --regid=agent --init-groups --inh-caps=+dac_override --ambient-caps=+dac_override /opt/pi/bin/pi "$@"\n' > /usr/local/bin/pi \
 	&& chmod 755 /usr/local/bin/pi

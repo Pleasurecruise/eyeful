@@ -31,7 +31,7 @@ var version = "dev"
 
 const (
 	modelsAddr    = "127.0.0.1:8081"
-	modelsURL     = "https://ark.cn-beijing.volces.com/api/coding/v3"
+	modelsURL     = "https://opencode.ai/inference/go/openai/v1"
 	modelsTimeout = 5 * time.Minute
 )
 

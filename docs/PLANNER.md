@@ -25,8 +25,9 @@ cause and how to fix it, and the review ends with `ci_failed`.
 ## Triage {#triage}
 
 Rules, with no model, set aside lockfiles, generated code, vendored code, binary files, files
-`.gitattributes` marks `linguist-generated` or `linguist-vendored`, and any file whose diff is over 512 KB. These go to no expert and
-are listed as not reviewed. Every other line goes to at least one expert, following Google's
+`.gitattributes` marks `linguist-generated` or `linguist-vendored`, any file whose diff is over
+512 KB, and files with no changed line, such as a rename. These go to no expert and are listed as
+not reviewed. Every other line goes to at least one expert, following Google's
 [Every Line](https://google.github.io/eng-practices/review/reviewer/looking-for.html#every-line).
 
 The remaining files become a manifest:
@@ -46,10 +47,12 @@ alone, so the same change always gives the same scopes:
 1. Files are grouped by their first directory, then by their first two. A group still over 2,000
    lines is cut in path order; a larger single file is a scope on its own.
 2. Neighbouring groups are packed together up to 2,000 lines.
-3. Each scope gets its own plan, its own experts and an equal share of the budget. A scope that
-   uses up its share starts no more agents, and the review ends `partial`.
+3. Each scope gets its own plan, its own experts and a share of the budget in proportion to its
+   changed lines. A scope that uses up its share starts no more agents, and the review ends
+   `partial`.
 
-The project's tests, verification and the summary run once for the whole change. The report lists
+The scopes are planned at the same time, and then all their experts run together, up to eight at
+once. The project's tests, verification and the summary run once for the whole change. The report lists
 the scopes in order ([The ranked report](REPORT.md#ranked-report)).
 
 ## The plan {#the-plan}
@@ -66,8 +69,9 @@ binaries need neither Node nor cgo.
 2. The agent answers with a summary of the change and its groups. Each group has a `category`, a
    label, its files, and `critical` where it needs extra care.
 3. core checks the answer against its schema and that every file is in exactly one group. A
-   rejected answer is retried once. After that the review uses the first four experts of the roster
-   on one group, and the feedback says so.
+   rejected answer is retried once. After that Go groups the files by their triage class, `code` as
+   `core`, `test` as `tests` and `docs` as `docs`, the table below picks the experts, and the
+   feedback says so.
 
 ```json
 {
@@ -94,13 +98,15 @@ Go maps each group to experts with a fixed table:
 | ---------------------------- | -------------------------------------- |
 | `security`                   | correctness, skeptic, security         |
 | `core`, `api`, `data`, `cli` | correctness, skeptic                   |
+| `other`                      | correctness, skeptic                   |
 | `ui`                         | usability, correctness                 |
 | `i18n`                       | usability                              |
 | `tests`                      | tests                                  |
 | `docs`, `examples`           | readability                            |
 | `scripts`                    | security, correctness                  |
 | `config`, `build`, `deps`    | security                               |
-| `assets`, `other`            | none                                   |
+| `assets`                     | none                                   |
 | a core group, in addition    | correctness, skeptic, security, design |
 
-Each expert runs once over all of its groups ([Experts](EXPERTS.md)).
+Each expert runs once over all of its groups in a scope ([Experts](EXPERTS.md)). The files of a
+group no expert reads are listed in the uncertainty checklist.

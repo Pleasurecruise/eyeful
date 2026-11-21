@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Pleasurecruise/eyeful/actions/workflows/ci.yml"><img src="https://github.com/Pleasurecruise/eyeful/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.yiming1234.cn/eyeful/"><img src="https://img.shields.io/badge/docs-eyeful-0a7ea4" alt="Docs"></a>
+  <a href="https://github.you-find.me/"><img src="https://img.shields.io/badge/docs-eyeful-0a7ea4" alt="Docs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status: in development">
   <a href="https://github.com/Pleasurecruise/eyeful/stargazers"><img src="https://img.shields.io/github/stars/Pleasurecruise/eyeful?style=flat" alt="GitHub stars"></a>
@@ -25,10 +25,10 @@ command line or a desktop app. eyeful is in active development.
 <p align="center"><img src="docs/public/brand/harness.svg" alt="How an eyeful review works: prepare, plan, review, merge, verify, report" width="100%"></p>
 
 1. **Prepare.** eyeful finds the project's commands from its manifests and you confirm them. The
-   lint command is the CI check; the test suite runs on the change, and on the base where it fails.
+   lint command is the CI check.
 2. **Plan.** Rules set aside lockfiles, generated and vendored files. The rest is grouped by intent
    with [pulls.review](https://github.com/antfu/pulls.review), and Go picks the experts each group
-   needs.
+   needs. Meanwhile the test suite runs on the change, and on the base where it fails.
 3. **Review.** Up to seven experts (design, correctness, skeptic, security, tests, usability,
    readability) read their groups in parallel with read-only tools, each against the published
    standards for its area.
@@ -36,7 +36,7 @@ command line or a desktop app. eyeful is in active development.
    [Jev](https://docs.typesafe.ai), and the comment records how many experts reported it.
 5. **Verify.** For each `error` or `warning` finding that a test could show, an agent writes a
    reproduction and the verifier runs it five times on the change, once on the base, then with the
-   suggested fix. What cannot run is read by a judge, which may dispute it.
+   suggested fix. Meanwhile a judge reads what no test can show, and may dispute it.
 6. **Report.** Comments are labelled `issue`, `question`, `suggestion` or `nitpick` and ranked:
    undisputed before disputed, reproduced before unreproduced, then by how many experts agree.
 
@@ -64,11 +64,11 @@ a window, with the findings beside the diff.
 
 ### On pull requests
 
-With a Volcengine Ark key, a TypeSafe key and the [GitHub CLI](https://cli.github.com) signed in, run
+With an OpenCode Go key, a TypeSafe key and the [GitHub CLI](https://cli.github.com) signed in, run
 this in your repository on its default branch:
 
 ```sh
-gh secret set EYEFUL_MODEL_KEY          # paste the Volcengine Ark key
+gh secret set EYEFUL_MODEL_KEY          # paste the OpenCode Go key
 gh secret set EYEFUL_TYPESAFE_API_KEY   # paste the TypeSafe key
 curl -fsSL https://raw.githubusercontent.com/Pleasurecruise/eyeful/main/.github/workflows/eyeful.yml \
   --create-dirs -o .github/workflows/eyeful.yml
@@ -102,7 +102,7 @@ When it finds no test command, nothing runs and a judge reads every finding. `--
 
 ## Documentation
 
-<https://github.yiming1234.cn/eyeful/>, starting with [Running locally](docs/LOCAL.md). The
+<https://github.you-find.me/>, starting with [Running locally](docs/LOCAL.md). The
 [roadmap](docs/ROADMAP.md) says what each version delivers.
 
 ## License

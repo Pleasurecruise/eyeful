@@ -96,10 +96,11 @@ fixed author and date, so the same changes always give the same commit.
    run and removed at the end.
 4. With `execution` the CI check runs `setup`, then `lint`
    ([Planning and triage](PLANNER.md#ci-check)).
-5. Triage sorts the files, and the planner plans from them and the newest 50 commit messages.
-6. With `execution` the verifier runs `test`, and the last review's reproductions
+5. Triage sorts the files.
+6. The planner plans from the triaged files and the newest 50 commit messages. Meanwhile, with
+   `execution`, the verifier runs `test` and the last review's reproductions
    ([Regressions](VERIFICATION.md#regressions), [Rounds](REPORT.md#rounds)).
-7. The experts review. Reproductions are written and run, and the judge reads the rest
+7. The experts review, knowing what the change already breaks. Reproductions are written and run, and the judge reads the rest
    ([Evidence and verification](VERIFICATION.md)).
 8. The findings are printed ([In the terminal](REPORT.md#terminal)) and saved under
    `.eyeful/runs/<time>/`: `snapshot.json`, `change.diff`, `review.md`, `findings.json`,
@@ -112,14 +113,15 @@ eyeful runs the connected agent's command-line tool in non-interactive mode, one
 call, in the repository root. The prompt goes in on standard input. The agent ends with one JSON
 block matching the role's schema; a missing or invalid block is retried once.
 
-| Agent  | Run as                                                                                                                                                                                                     | Read-only through           | Model                               |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------- |
-| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --disable-slash-commands`               | `--tools Read,Grep,Glob`    | the tier: `haiku`, `sonnet`, `opus` |
-| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -` | `--sandbox read-only`       | Codex's default                     |
-| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                   | `--tools read,grep,find,ls` | pi's default                        |
+| Agent  | Run as                                                                                                                                                                                                                             | Read-only through           | Model                               |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------- |
+| claude | `claude -p --output-format stream-json --verbose --include-partial-messages --json-schema … --no-session-persistence --strict-mcp-config --setting-sources project --settings '{"disableAllHooks":true}' --disable-slash-commands` | `--tools Read,Grep,Glob`    | the tier: `haiku`, `sonnet`, `opus` |
+| codex  | `codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules --disable hooks --disable plugins --disable apps --enable skip_host_skill_discovery -c project_doc_max_bytes=0 -`                         | `--sandbox read-only`       | Codex's default                     |
+| pi     | `pi --mode json --no-session --no-mcp --no-extensions --no-skills --no-prompt-templates --no-context-files --no-approve`                                                                                                           | `--tools read,grep,find,ls` | pi's default                        |
 
 - **Isolation.** Each tool runs without the user's settings, hooks, MCP servers, extensions, skills
-  and `AGENTS.md` files. eyeful removes `ANTHROPIC_API_KEY` from Claude Code's environment so a
+  and `AGENTS.md` files, and without the repository's hooks. Claude Code still reads the
+  repository's own `.claude/settings.json` and `CLAUDE.md`. eyeful removes `ANTHROPIC_API_KEY` from Claude Code's environment so a
   review is not billed as API use.
 - **Sign-in.** Each tool uses the sign-in it has. `connect` and every review check that the tool is
   on the `PATH`.
@@ -127,7 +129,7 @@ block matching the role's schema; a missing or invalid block is retried once.
   writes. Cache reads are left out. Usage is billed to the user's own subscription.
 - **Time.** A call that writes nothing for 2 minutes, or runs for 15, is stopped. A call stopped for
   silence or a tool error runs once more.
-- **Concurrency.** At most eight experts run at once.
+- **Concurrency.** At most eight agents of one review run at once.
 
 No MCP server is configured for the agent.
 

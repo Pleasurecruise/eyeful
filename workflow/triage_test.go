@@ -3,6 +3,7 @@ package workflow_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Pleasurecruise/eyeful/workflow"
@@ -71,16 +72,33 @@ func TestSplitPatch(t *testing.T) {
 	}
 }
 
+func TestNumber(t *testing.T) {
+	files, err := workflow.SplitPatch(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	numbered, shown := workflow.Number(files[0].Diff)
+	if !slices.Equal(shown, []int{1, 2, 3}) || !strings.HasSuffix(numbered, "@@ -1,3 +1,3 @@\n1\t def is_expired(session, now):\n\t-    return now > session.expires_at\n2\t+    return now >= session.expires_at\n3\t+--- not a header\n") {
+		t.Fatalf("shown %v:\n%s", shown, numbered)
+	}
+	for _, f := range files[1:4] {
+		if _, shown := workflow.Number(f.Diff); len(shown) != 0 {
+			t.Errorf("%s has no line of a new version, got %v", f.Path, shown)
+		}
+	}
+}
+
 func TestTriage(t *testing.T) {
 	a := base()
 	a.plan = goodAnalysis
 	req := request()
 	req.Project = workflow.Project{Skip: []string{"docs/api/index.md"}}
 	req.Change.Files = []workflow.File{
-		{Path: "app/session.py"},
-		{Path: "app/login.py"},
-		{Path: "app/test_session.py"},
-		{Path: "README.md"},
+		{Path: "app/session.py", Added: 1},
+		{Path: "app/login.py", Added: 1},
+		{Path: "app/test_session.py", Added: 1},
+		{Path: "README.md", Added: 1},
+		{Path: "app/moved.py"},
 		{Path: "web/pnpm-lock.yaml"},
 		{Path: "vendor/x/y.go"},
 		{Path: "api/types.pb.go"},
@@ -93,10 +111,10 @@ func TestTriage(t *testing.T) {
 		"app/session.py": workflow.ClassCode, "app/login.py": workflow.ClassCode, "app/test_session.py": workflow.ClassTest,
 		"README.md": workflow.ClassDocs, "web/pnpm-lock.yaml": workflow.ClassLock, "vendor/x/y.go": workflow.ClassVendored,
 		"api/types.pb.go": workflow.ClassGenerated, "api/client.go": workflow.ClassGenerated, "logo.png": workflow.ClassBinary,
-		"docs/api/index.md": workflow.ClassSkipped,
+		"docs/api/index.md": workflow.ClassSkipped, "app/moved.py": workflow.ClassEmpty,
 	}
 	manifest := slices.Concat(res.Triage.Reviewed, res.Triage.Excluded)
-	if len(manifest) != len(want) || len(res.Triage.Reviewed) != 4 || len(res.Triage.Excluded) != 6 {
+	if len(manifest) != len(want) || len(res.Triage.Reviewed) != 4 || len(res.Triage.Excluded) != 7 {
 		t.Fatalf("triage %+v", res.Triage)
 	}
 	for _, e := range manifest {
