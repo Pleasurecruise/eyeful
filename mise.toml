@@ -81,11 +81,8 @@ dir = "apps/desktop"
 run = "wails3 package"
 
 [tasks.test]
-description = "Run Go tests with the race detector, and the evaluation scripts' tests"
-run = [
-	"for m in . workflow local; do (cd $m && go test -race -p 1 ./...) || exit 1; done",
-	"cd eval && python3 -m unittest --quiet test_eval"
-]
+description = "Run Go tests with the race detector"
+run = "for m in . workflow local; do (cd $m && go test -race -p 1 ./...) || exit 1; done"
 
 [tasks.lint]
 description = "Check formatting and lint Go and TypeScript"

@@ -2,7 +2,7 @@
 
 This page defines how eyeful is evaluated. The plan is frozen in the
 [proposal](https://github.com/Pleasurecruise/eyeful/blob/main/docs/reports/proposal.pdf); where this page and the proposal differ, the proposal
-wins. The scripts in `eval/` are built; the runs are still to do ([Roadmap](ROADMAP.md)). Results
+wins. The scripts in [eyeful-eval](https://github.com/Pleasurecruise/eyeful-eval) are built; the runs are still to do ([Roadmap](ROADMAP.md)). Results
 will be added once the main experiment has run.
 
 ## Research questions {#research-question}
@@ -39,7 +39,7 @@ run, so it alone answers RQ3. No output is labelled by hand.
   The 50 are allotted to each language by its share of the other 194, and picked by hash, so the
   sample is the same every time.
 - The datasets live outside this repository, under `.eval/` in a local clone of
-  [eyeful-demo](https://github.com/Pleasurecruise/eyeful-demo), and are never committed. A
+  [eyeful-eval](https://github.com/Pleasurecruise/eyeful-eval), and are never committed there. A
   subject's description, which names the defect, is kept apart from its repository, and every
   review runs in a sandbox that reads only that repository. A run whose agents read outside it is
   excluded and counted.
@@ -116,9 +116,9 @@ A part whose removal changes nothing measured is removed from eyeful.
 
 ## Tooling {#tooling}
 
-The scripts in `eval/` use only Python's standard library. `resolve.py` runs SWE-bench's harness
+The scripts live in [eyeful-eval](https://github.com/Pleasurecruise/eyeful-eval), under `eval/`, and use only Python's standard library. `resolve.py` runs SWE-bench's harness
 with `uv`, and `match.py` and ReviewBench's judge run from the benchmarks' own checkouts.
-`mise run test` runs the scripts' tests.
+`mise run test` there runs the scripts' tests.
 
 | Script           | Does                                                                                                            |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- |

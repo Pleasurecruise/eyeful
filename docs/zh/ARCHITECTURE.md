@@ -82,7 +82,6 @@ eyeful 没有自己的 agent 循环。agent 在云端跑在 pi 里，在本地�
 | `local/classify`                                                     | 基于 TypeSafe API 上的 Jev 实现的 `workflow.Classifier`     |
 | `local/archive`                                                      | 以文件保存的阶段检查点                                      |
 | `local/git`、`local/tail`                                            | 用固定环境运行 git；保留输出的末尾                          |
-| `eval/`                                                              | [评估](EVALUATION.md#tooling)脚本，Python                   |
 | `action.yml`、`cmd/eyeful-action`、`cmd/eyeful-sandbox`、`internal/` | [云端 action](cloud/SERVER.md#layout)                       |
 
 ### 前端

@@ -45,14 +45,14 @@ The experiment that measures v1.0 ([Evaluation](EVALUATION.md)), run from the co
 public datasets. The desktop app gets no new features until this is done. Cloud review is under way
 in v2.0.
 
-| Part                                                                           | State          |
-| ------------------------------------------------------------------------------ | -------------- |
-| `eval/`: subject builders, runners, the isolation audit, the scorers, analysis | Built          |
-| Code Review Bench subjects                                                     | 10 of 50       |
-| ReviewBench's language-stratified sample of 50                                 | Built          |
-| SWE-bench subjects                                                             | 20 of about 30 |
-| Pilot runs that freeze the prompts and the budget                              | To do          |
-| The main experiment and the ablations, about 860 reviews                       | To do          |
+| Part                                                                                                                                | State          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| [eyeful-eval](https://github.com/Pleasurecruise/eyeful-eval): subject builders, runners, the isolation audit, the scorers, analysis | Built          |
+| Code Review Bench subjects                                                                                                          | 10 of 50       |
+| ReviewBench's language-stratified sample of 50                                                                                      | Built          |
+| SWE-bench subjects                                                                                                                  | 20 of about 30 |
+| Pilot runs that freeze the prompts and the budget                                                                                   | To do          |
+| The main experiment and the ablations, about 860 reviews                                                                            | To do          |
 
 Exit criteria: the main experiment has run on every dataset, in every configuration and every
 condition the dataset allows, three times each, scored by each benchmark's own scorer; and the

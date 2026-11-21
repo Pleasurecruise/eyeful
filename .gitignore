@@ -31,13 +31,6 @@ vite.config.*.timestamp-*
 npm-debug.log*
 pnpm-debug.log*
 
-# Python (eval)
-__pycache__/
-*.py[cod]
-.venv/
-.pytest_cache/
-.ipynb_checkpoints/
-
 # Local
 .env
 .env.*
@@ -57,5 +50,3 @@ go.work.sum
 # Agent verification evidence
 .agents/evidence/
 
-# Evaluation datasets, their repositories and run records (docs/EVALUATION.md)
-.eval/

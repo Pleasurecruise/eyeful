@@ -93,7 +93,6 @@ programs; a depguard rule in `.golangci.yml` keeps `cmd/eyeful` off `internal/`.
 | `local/classify`                                                     | `workflow.Classifier` over Jev on TypeSafe's API                                          |
 | `local/archive`                                                      | Stage checkpoints as files                                                                |
 | `local/git`, `local/tail`                                            | Running git with a fixed environment; keeping the end of an output                        |
-| `eval/`                                                              | The [evaluation](EVALUATION.md#tooling) scripts, in Python                                |
 | `action.yml`, `cmd/eyeful-action`, `cmd/eyeful-sandbox`, `internal/` | The [cloud action](cloud/SERVER.md#layout)                                                |
 
 ### Frontends

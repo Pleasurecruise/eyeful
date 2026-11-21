@@ -23,7 +23,7 @@ macOS, Windows needs WebView2, and Linux needs GTK 4 and WebKitGTK 6.0 (`libgtk-
 | `mise run skills`                          | Reinstall the review skills in `workflow/prompts/skills` from `skills-lock.json`              |
 | `mise run dev:desktop` / `package:desktop` | `wails3 dev` (frontend HMR through Vite on `:9245`) / `package`; no server                    |
 | `mise run dev:docs` / `build:docs`         | Documentation site (VitePress over `docs/`)                                                   |
-| `mise run test`                            | Go tests with `-race`, then the `eval/` scripts' tests                                        |
+| `mise run test`                            | Go tests with `-race`                                                                         |
 | `mise run format`                          | `golangci-lint fmt` (gofmt, goimports) and `vp fmt`                                           |
 | `mise run lint`                            | golangci-lint in every Go module, `vp check`, `typecheck` in every package                    |
 | `mise run generate`                        | The pulls.review core bundle and the desktop bindings                                         |
